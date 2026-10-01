@@ -81,6 +81,15 @@ export function NotEnriched() {
   );
 }
 
+/** The whole card on a company Clay hasn't enriched: one line, no illustration. */
+export function NotEnrichedLine() {
+  return (
+    <Text variant="microcopy" format={{ italic: true }}>
+      No Clay brief for this company yet.
+    </Text>
+  );
+}
+
 /**
  * Renders Clay free text in the most readable shape: "Label: value" lines become
  * a description list, list-like text becomes bullets, everything else becomes

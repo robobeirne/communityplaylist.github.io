@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   Divider,
-  EmptyState,
   ErrorState,
   Flex,
   Link,
@@ -23,7 +22,7 @@ import {
   parseSiteCount,
   toUrl,
 } from './lib/parse.ts';
-import { RichText, SectionTitle, TagCloud, isEnriched, useClayData } from './lib/components.tsx';
+import { NotEnrichedLine, RichText, SectionTitle, TagCloud, isEnriched, useClayData } from './lib/components.tsx';
 
 hubspot.extend<'crm.record.sidebar'>(({ actions }) => <CallPrep actions={actions} />);
 
@@ -39,13 +38,7 @@ function CallPrep({ actions }: { actions: Parameters<typeof useClayData>[0] }) {
       </ErrorState>
     );
   }
-  if (!isEnriched(data)) {
-    return (
-      <EmptyState title="Not enriched yet" imageName="integrations" layout="vertical" imageWidth={120}>
-        <Text variant="microcopy">The pre-call brief appears once Clay enriches this company.</Text>
-      </EmptyState>
-    );
-  }
+  if (!isEnriched(data)) return <NotEnrichedLine />;
 
   const fit = parseFitScore(data.fitScore);
   const employees = firstNumber(data.employeeCount);

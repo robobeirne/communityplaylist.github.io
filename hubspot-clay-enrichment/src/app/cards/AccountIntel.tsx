@@ -5,7 +5,6 @@ import {
   Box,
   Button,
   Divider,
-  EmptyState,
   ErrorState,
   Flex,
   Heading,
@@ -45,6 +44,7 @@ import {
 import {
   IntelTile,
   NotEnriched,
+  NotEnrichedLine,
   RichText,
   SectionTitle,
   TagCloud,
@@ -66,16 +66,9 @@ function AccountIntel({ actions }: { actions: Parameters<typeof useClayData>[0] 
       </ErrorState>
     );
   }
-  if (!isEnriched(data)) {
-    return (
-      <EmptyState title="No Clay enrichment yet" imageName="integrations" layout="vertical">
-        <Text>
-          When Clay enriches this company, the account brief appears here: why Protex, where to
-          land first, who to talk to and how to open.
-        </Text>
-      </EmptyState>
-    );
-  }
+  // Keep the card to one line until Clay has written something, so it takes
+  // almost no room on accounts that haven't been enriched.
+  if (!isEnriched(data)) return <NotEnrichedLine />;
 
   const site = parseSiteCount(data.siteCount);
   const fit = parseFitScore(data.fitScore);
