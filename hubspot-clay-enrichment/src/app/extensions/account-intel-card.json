@@ -1,0 +1,10 @@
+{
+  "type": "crm-card",
+  "data": {
+    "title": "Account Intel",
+    "uid": "protex-account-intel-tab",
+    "location": "crm.record.tab",
+    "module": { "file": "AccountIntel.tsx" },
+    "objectTypes": [{ "name": "companies" }]
+  }
+}

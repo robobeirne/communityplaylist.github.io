@@ -1,0 +1,15 @@
+{
+  "name": "Protex Account Intel",
+  "description": "Turns Clay enrichment on company records into a call-ready account brief for reps.",
+  "uid": "protex-account-intel",
+  "scopes": ["crm.objects.companies.read"],
+  "public": false,
+  "extensions": {
+    "crm": {
+      "cards": [
+        { "file": "extensions/account-intel-card.json" },
+        { "file": "extensions/call-prep-card.json" }
+      ]
+    }
+  }
+}

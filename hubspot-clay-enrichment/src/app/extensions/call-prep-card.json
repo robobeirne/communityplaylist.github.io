@@ -1,0 +1,10 @@
+{
+  "type": "crm-card",
+  "data": {
+    "title": "Pre-call brief",
+    "uid": "protex-call-prep-sidebar",
+    "location": "crm.record.sidebar",
+    "module": { "file": "CallPrep.tsx" },
+    "objectTypes": [{ "name": "companies" }]
+  }
+}
