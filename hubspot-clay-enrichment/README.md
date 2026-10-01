@@ -4,88 +4,36 @@ A HubSpot private app, built with projects, that turns Clay enrichment on a
 company record into a brief a rep can read before a call. It adds two cards to
 company records.
 
+**Step-by-step setup: see [SETUP.md](SETUP.md).**
+
 **Account Intel** (record tab, middle column)
-- Header: logo, company name, one-line summary, a "Clear to engage" or
-  "Check disqualifiers" tag, ownership type, website link, LinkedIn button and
-  an optional Protex fit score ring.
-- Key stats: employees, sites, hazards flagged, tech signals.
-- Disqualifiers alert (red), or a green "No disqualifiers found".
-- "Your opening angle" callout.
+- Header: logo, company name, one-line summary, a "No disqualifiers" or
+  "Friction noted" tag, ownership type, website link, LinkedIn button and a
+  fit score ring (Clay's 1-10 score).
+- Key stats: employees, sites, fit score, hazards flagged.
+- "Your opening angle" callout, then friction and disqualifiers.
 - Tabs:
-  - **Call brief:** Why Protex, Land first site, Buying centre
-  - **Company:** What they do, Ownership & structure, Workforce
-  - **Sites:** Site footprint, Typical site profile
-  - **Safety & tech:** Safety metrics, Hazard profile (tags), Technology signals (tags)
-- Footer: an intel coverage bar (how many of the 17 data points are filled)
-  and how long ago Clay last enriched the record. It warns after 90 days.
+  - **Brief:** the full account brief (Clay `result`)
+  - **Call plan:** Why Protex, Land first, Buying centre, fit score reasoning
+  - **Company:** What they do, Operating model, Ownership & structure, Workforce
+  - **Sites:** Site count (with a confidence tag), Site footprint, Typical site profile
+  - **Safety:** Safety posture, Safety metrics, Hazard profile
+  - **Tech:** Technology signals
+  - **Sources:** a clickable, numbered list of the sources
+- Footer: an intel coverage bar and how long ago Clay last enriched the record.
 
 **Pre-call brief** (right sidebar): fit score, status tags, headcount and
 sites, opening angle, top 3 reasons for Protex, land-first site and
-watch-outs. A rep sees it as soon as they open the company.
+watch-outs.
 
 Both cards listen for property changes, so they update as soon as Clay writes
 to the record.
 
-## How Clay text is displayed
-
-Clay columns are usually AI-written text. The cards choose a layout from the
-shape of the text:
-
-| Clay output | Rendered as |
-| --- | --- |
-| `Economic buyer: COO` lines (2 or more) | Label and value list |
-| One item per line, `-`/`•`/`1.` bullets, or `;` / `\|` separators | Bulleted list |
-| Short items (40 characters or fewer) in hazards, tech signals, disqualifiers | Coloured tags |
-| Anything else | Paragraphs (split on blank lines) |
-| `None`, `None identified`, `No red flags` in disqualifiers | Green "clear" state |
-
-Tips for your Clay prompts:
-- **Site footprint:** start with the number ("42 sites across UK & Ireland"),
-  because the Sites stat uses the first number in the text.
-- **Hazard profile / Technology signals:** short items separated by
-  semicolons or new lines ("Forklifts; Racking; Loading docks").
-- **Buying centre:** one `Role: Name, title` per line.
-- **Why Protex:** 3 to 5 bullets. The sidebar shows the first 3.
-- **Disqualifiers:** return `None identified` when there are none.
-
 ## Properties
 
-The cards read these company properties. Change the mapping in
-[`src/app/extensions/lib/config.ts`](src/app/extensions/lib/config.ts) if your
-Clay table writes to different names.
-
-| Data point | Property (fallback) |
-| --- | --- |
-| Name | `name` (`clay_company_name`) |
-| Website | `website`, `domain` (`clay_website`) |
-| LinkedIn URL | `linkedin_company_page` (`clay_linkedin_url`) |
-| Employee count | `numberofemployees` (`clay_employee_count`) |
-| What they do | `clay_what_they_do` |
-| Site footprint | `clay_site_footprint` |
-| Typical site profile | `clay_typical_site_profile` |
-| Ownership & structure | `clay_ownership_structure` |
-| Workforce | `clay_workforce` |
-| Safety metrics | `clay_safety_metrics` |
-| Hazard profile | `clay_hazard_profile` |
-| Technology signals | `clay_technology_signals` |
-| Why Protex | `clay_why_protex` |
-| Land first site | `clay_land_first_site` |
-| Buying centre | `clay_buying_centre` |
-| Disqualifiers | `clay_disqualifiers` |
-| Opening angle | `clay_opening_angle` |
-| Protex fit score (optional, 0-100) | `clay_protex_fit_score` |
-| Last enriched (optional, date) | `clay_last_enriched` |
-
-To create all the `clay_*` properties in a "Clay enrichment" group (safe to
-re-run):
-
-```bash
-HUBSPOT_TOKEN=pat-xxx node scripts/create-properties.mjs
-```
-
-The token needs `crm.schemas.companies.write`. This app only requests
-`crm.objects.companies.read`, so use a token from another private app, or
-add the scope to `src/app/app.json` for one upload and then remove it.
+[SETUP.md](SETUP.md) has the full Clay field to HubSpot property table. The
+mapping lives in [`src/app/extensions/lib/config.ts`](src/app/extensions/lib/config.ts),
+and `scripts/create-properties.mjs` creates every property.
 
 ## Deploy
 
@@ -94,7 +42,7 @@ You need the HubSpot CLI and Super Admin (or developer) access to the portal.
 ```bash
 npm install -g @hubspot/cli
 hs account auth                       # connect your HubSpot account
-cd hubspot-clay-enrichment
+cd protex-account-intel
 (cd src/app/extensions && npm install)
 hs project upload                     # builds and deploys
 ```
@@ -139,6 +87,6 @@ scripts/create-properties.mjs     creates the HubSpot properties
 
 - Company logos come from Google's favicon service, using the company's
   domain. No API key is needed.
-- `ScoreCircle` only appears when `clay_protex_fit_score` has a value. If
+- `ScoreCircle` only appears when `clay_fit_score` starts with a number. If
   your portal's UI extensions runtime doesn't support it yet, delete the
   score blocks in both cards.

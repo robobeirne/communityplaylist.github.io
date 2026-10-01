@@ -1,16 +1,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  clampScore,
   daysSince,
   firstNumber,
   firstSentence,
   formatCompact,
   hostname,
   isNone,
+  isNotFound,
+  isNumbered,
   isTaggable,
   ownershipType,
+  parseFitScore,
   parseKeyValues,
+  parseSiteCount,
+  parseSources,
   resolveFields,
   splitItems,
 } from './parse.ts';
@@ -85,10 +89,52 @@ test('daysSince accepts epoch millis and ISO dates', () => {
   assert.equal(daysSince('garbage', now), null);
 });
 
-test('hostname and clampScore', () => {
+test('hostname', () => {
   assert.equal(hostname('https://www.acme.co.uk/about'), 'acme.co.uk');
   assert.equal(hostname('acme.com'), 'acme.com');
-  assert.equal(clampScore('87'), 87);
-  assert.equal(clampScore('140'), 100);
-  assert.equal(clampScore(''), null);
+});
+
+test('parseFitScore reads Clay Fit_Score', () => {
+  assert.deepEqual(parseFitScore('8 — 47 sites, published TRIR, existing camera estate, EHS function at group level.'), {
+    score: 8,
+    reason: '47 sites, published TRIR, existing camera estate, EHS function at group level.',
+  });
+  assert.deepEqual(parseFitScore('7/10: strong camera estate'), { score: 7, reason: 'strong camera estate' });
+  assert.deepEqual(parseFitScore('6'), { score: 6, reason: '' });
+  assert.equal(parseFitScore('High fit'), null);
+});
+
+test('parseSiteCount reads Clay Site_Count', () => {
+  const a = parseSiteCount("47 — Item 2 Properties in FY25 10-K lists 41 DCs and 6 plants. High.");
+  assert.equal(a.count, 47);
+  assert.equal(a.label, '47');
+  assert.equal(a.confidence, 'High');
+  assert.equal(a.detail, 'Item 2 Properties in FY25 10-K lists 41 DCs and 6 plants. High.');
+  const b = parseSiteCount('30-40 — no precise count published; estimated from the locations page. Low confidence.');
+  assert.equal(b.label, '30–40');
+  assert.equal(b.confidence, 'Low');
+  assert.equal(parseSiteCount('').label, '');
+});
+
+test('numbered lists, inline or one per line', () => {
+  const inline = '1. Existing CCTV at all DCs maps to forklift detection. 2. Agency labour maps to behaviour analytics. 3. TRIR of 1.8 gives a baseline.';
+  assert.ok(isNumbered(inline));
+  assert.deepEqual(splitItems(inline).length, 3);
+  assert.ok(splitItems(inline)[2].startsWith('TRIR of 1.8'));
+  assert.ok(isNumbered('1) One\n2) Two'));
+  assert.ok(!isNumbered('Plain sentence with TRIR 1.8 in it.'));
+});
+
+test('parseSources pulls URLs and notes', () => {
+  const s = parseSources('[1] example.com/sustainability-2025 — TRIR 1.8, ISO 45001 across all sites, 2025. [2] https://www.example.com/careers — EHS job titles, 2026.');
+  assert.equal(s.length, 2);
+  assert.deepEqual(s[0], { label: 'example.com/sustainability-2025', url: 'https://example.com/sustainability-2025', note: 'TRIR 1.8, ISO 45001 across all sites, 2025.' });
+  assert.equal(s[1].url, 'https://www.example.com/careers');
+  assert.equal(s[1].label, 'example.com/careers');
+});
+
+test('isNotFound', () => {
+  assert.ok(isNotFound('Not found'));
+  assert.ok(isNotFound('Not found. They publish no safety data.'));
+  assert.ok(!isNotFound('TRIR 1.8 (2024)'));
 });

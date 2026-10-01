@@ -11,7 +11,7 @@ import {
   type IconNames,
 } from '@hubspot/ui-extensions';
 import { ALL_PROPERTIES, CLAY_ONLY_FIELDS, COVERAGE_FIELDS, type ClayData } from './config.ts';
-import { clean, isTaggable, paragraphs, parseKeyValues, resolveFields, splitItems } from './parse.ts';
+import { clean, isNumbered, isTaggable, paragraphs, parseKeyValues, resolveFields, splitItems } from './parse.ts';
 
 type CrmActions = {
   fetchCrmObjectProperties: (properties: string[] | '*') => Promise<Record<string, string>>;
@@ -107,7 +107,7 @@ export function RichText({ value, maxItems }: { value: string; maxItems?: number
   const listLike = items.length >= 2 && (/\r?\n|[;|•]/.test(v) || isTaggable(items));
   if (listLike) {
     return (
-      <List variant="unordered-styled">
+      <List variant={isNumbered(v) ? 'ordered-styled' : 'unordered-styled'}>
         {items.slice(0, maxItems).map((item, i) => (
           <Text key={i}>{item}</Text>
         ))}

@@ -11,6 +11,7 @@ import {
   Heading,
   Image,
   Link,
+  List,
   LoadingSpinner,
   ProgressBar,
   ScoreCircle,
@@ -25,7 +26,6 @@ import {
 } from '@hubspot/ui-extensions';
 import { STALE_AFTER_DAYS, type ClayData } from './lib/config.ts';
 import {
-  clampScore,
   daysSince,
   firstNumber,
   firstSentence,
@@ -33,13 +33,18 @@ import {
   freshnessLabel,
   hostname,
   isNone,
+  isNotFound,
   logoUrl,
   ownershipType,
+  parseFitScore,
+  parseSiteCount,
+  parseSources,
   splitItems,
   toUrl,
 } from './lib/parse.ts';
 import {
   IntelTile,
+  NotEnriched,
   RichText,
   SectionTitle,
   TagCloud,
@@ -72,52 +77,88 @@ function AccountIntel({ actions }: { actions: Parameters<typeof useClayData>[0] 
     );
   }
 
+  const site = parseSiteCount(data.siteCount);
+  const fit = parseFitScore(data.fitScore);
+
   return (
     <Flex direction="column" gap="md">
       <Header data={data} />
       <KeyStats data={data} />
-      <Disqualifiers value={data.disqualifiers} />
       {data.openingAngle && (
         <Alert title="Your opening angle" variant="tip">
           <RichText value={data.openingAngle} />
         </Alert>
       )}
+      <Disqualifiers value={data.disqualifiers} />
 
       <Tabs defaultSelected="brief" variant="enclosed" fill>
-        <Tab tabId="brief" title="Call brief" tooltip="Everything you need in the first 60 seconds">
+        <Tab tabId="brief" title="Brief" tooltip="The full account brief. Read this first.">
+          <Flex direction="column" gap="sm">
+            <IntelTile icon="description" title="Account brief">
+              <RichText value={data.brief} />
+            </IntelTile>
+          </Flex>
+        </Tab>
+
+        <Tab tabId="plan" title="Call plan" tooltip="Why Protex, where to land and who to talk to">
           <Flex direction="column" gap="sm">
             <IntelTile icon="trophy" title="Why Protex">
               <RichText value={data.whyProtex} />
             </IntelTile>
             <AutoGrid columnWidth={260} gap="sm" flexible>
-              <IntelTile icon="location" title="Land first site">
+              <IntelTile icon="location" title="Land first">
                 <RichText value={data.landFirstSite} />
               </IntelTile>
               <IntelTile icon="contact" title="Buying centre">
                 <RichText value={data.buyingCentre} />
               </IntelTile>
             </AutoGrid>
+            {fit && fit.reason && (
+              <IntelTile icon="gauge" title={`Fit score ${fmtScore(fit.score)}/10`}>
+                <Text>{fit.reason}</Text>
+              </IntelTile>
+            )}
           </Flex>
         </Tab>
 
-        <Tab tabId="company" title="Company" tooltip="What they do, how they're owned and who works there">
+        <Tab tabId="company" title="Company" tooltip="What they do, how they operate and who owns them">
           <Flex direction="column" gap="sm">
             <IntelTile icon="description" title="What they do">
               <RichText value={data.whatTheyDo} />
             </IntelTile>
             <AutoGrid columnWidth={260} gap="sm" flexible>
+              <IntelTile icon="workflows" title="Operating model">
+                <RichText value={data.operatingModel} />
+              </IntelTile>
               <IntelTile icon="objectAssociations" title="Ownership & structure">
                 <RichText value={data.ownershipStructure} />
               </IntelTile>
-              <IntelTile icon="contact" title="Workforce">
-                <RichText value={data.workforce} />
-              </IntelTile>
             </AutoGrid>
+            <IntelTile icon="contact" title="Workforce">
+              <RichText value={data.workforce} />
+            </IntelTile>
           </Flex>
         </Tab>
 
-        <Tab tabId="sites" title="Sites" tooltip="Site footprint and what a typical site looks like">
+        <Tab tabId="sites" title="Sites" tooltip="Site count, footprint and what a typical site looks like">
           <Flex direction="column" gap="sm">
+            <IntelTile icon="hash" title="Site count">
+              {data.siteCount ? (
+                <Flex direction="column" gap="xs">
+                  <Flex direction="row" gap="sm" align="center" wrap="wrap">
+                    {site.label && <Heading inline>{`${site.label} sites`}</Heading>}
+                    {site.confidence && (
+                      <Tag variant={site.confidence === 'High' ? 'success' : site.confidence === 'Medium' ? 'warning' : 'error'}>
+                        {`${site.confidence} confidence`}
+                      </Tag>
+                    )}
+                  </Flex>
+                  {site.detail && <Text variant="microcopy">{site.detail}</Text>}
+                </Flex>
+              ) : (
+                <NotEnriched />
+              )}
+            </IntelTile>
             <AutoGrid columnWidth={260} gap="sm" flexible>
               <IntelTile icon="globe" title="Site footprint">
                 <RichText value={data.siteFootprint} />
@@ -129,19 +170,44 @@ function AccountIntel({ actions }: { actions: Parameters<typeof useClayData>[0] 
           </Flex>
         </Tab>
 
-        <Tab tabId="safety" title="Safety & tech" tooltip="Safety metrics, hazards and technology signals">
+        <Tab tabId="safety" title="Safety" tooltip="Safety posture, metrics and hazards">
           <Flex direction="column" gap="sm">
-            <IntelTile icon="gauge" title="Safety metrics">
-              <RichText value={data.safetyMetrics} />
+            <IntelTile icon="approvals" title="Safety posture">
+              <RichText value={data.safetyPosture} />
             </IntelTile>
             <AutoGrid columnWidth={260} gap="sm" flexible>
+              <IntelTile icon="gauge" title="Safety metrics">
+                {isNotFound(data.safetyMetrics) ? (
+                  <Flex direction="column" gap="xs">
+                    <Tag variant="warning">No published safety metrics</Tag>
+                    <Text variant="microcopy">
+                      They don't publish TRIR or LTIFR. Ask how they measure safety today.
+                    </Text>
+                  </Flex>
+                ) : (
+                  <RichText value={data.safetyMetrics} />
+                )}
+              </IntelTile>
               <IntelTile icon="warning" title="Hazard profile">
                 <TagCloud value={data.hazardProfile} variant="warning" />
               </IntelTile>
-              <IntelTile icon="signal" title="Technology signals">
-                <TagCloud value={data.technologySignals} variant="info" />
-              </IntelTile>
             </AutoGrid>
+          </Flex>
+        </Tab>
+
+        <Tab tabId="tech" title="Tech" tooltip="Camera estate, core systems and digital programmes">
+          <Flex direction="column" gap="sm">
+            <IntelTile icon="signal" title="Technology signals">
+              <TagCloud value={data.technologySignals} variant="info" />
+            </IntelTile>
+          </Flex>
+        </Tab>
+
+        <Tab tabId="sources" title="Sources" tooltip="Where Clay found each fact">
+          <Flex direction="column" gap="sm">
+            <IntelTile icon="link" title="Sources">
+              <Sources value={data.sources} />
+            </IntelTile>
           </Flex>
         </Tab>
       </Tabs>
@@ -151,11 +217,15 @@ function AccountIntel({ actions }: { actions: Parameters<typeof useClayData>[0] 
   );
 }
 
+function fmtScore(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
+
 function Header({ data }: { data: ClayData }) {
   const logo = logoUrl(data.website);
   const ownership = ownershipType(data.ownershipStructure);
-  const score = clampScore(data.fitScore);
-  const hasRedFlags = !!data.disqualifiers && !isNone(data.disqualifiers);
+  const fit = parseFitScore(data.fitScore);
+  const friction = !!data.disqualifiers && !isNone(data.disqualifiers);
 
   return (
     <Tile>
@@ -165,11 +235,11 @@ function Header({ data }: { data: ClayData }) {
           <Flex direction="column" gap="xs">
             <Heading>{data.name || 'Unnamed company'}</Heading>
             {data.whatTheyDo && <Text variant="microcopy">{firstSentence(data.whatTheyDo)}</Text>}
-            <Flex direction="row" gap="xs" wrap="wrap">
-              {hasRedFlags ? (
-                <Tag variant="error">Check disqualifiers</Tag>
+            <Flex direction="row" gap="xs" wrap="wrap" align="center">
+              {friction ? (
+                <Tag variant="warning">Friction noted</Tag>
               ) : (
-                <Tag variant="success">Clear to engage</Tag>
+                <Tag variant="success">No disqualifiers</Tag>
               )}
               {ownership && <Tag variant="info">{ownership}</Tag>}
               {data.website && <Link href={toUrl(data.website)}>{hostname(data.website)}</Link>}
@@ -183,10 +253,10 @@ function Header({ data }: { data: ClayData }) {
               LinkedIn
             </Button>
           )}
-          {score !== null && (
+          {fit && (
             <Flex direction="column" gap="flush" align="center">
-              <ScoreCircle score={score} />
-              <Text variant="microcopy">Protex fit</Text>
+              <ScoreCircle score={Math.round(fit.score * 10)} />
+              <Text variant="microcopy">{`Fit ${fmtScore(fit.score)}/10`}</Text>
             </Flex>
           )}
         </Flex>
@@ -197,15 +267,17 @@ function Header({ data }: { data: ClayData }) {
 
 function KeyStats({ data }: { data: ClayData }) {
   const employees = firstNumber(data.employeeCount);
-  const sites = firstNumber(data.siteFootprint);
+  const site = parseSiteCount(data.siteCount);
+  const fallbackSites = firstNumber(data.siteFootprint);
+  const sitesLabel = site.label || (fallbackSites !== null ? formatCompact(fallbackSites) : '');
+  const fit = parseFitScore(data.fitScore);
   const hazards = splitItems(data.hazardProfile).length;
-  const techSignals = splitItems(data.technologySignals).length;
 
   const items = [
     employees !== null && { id: 'employees', label: 'Employees', number: formatCompact(employees) },
-    sites !== null && { id: 'sites', label: 'Sites', number: formatCompact(sites) },
-    hazards > 0 && { id: 'hazards', label: 'Hazards flagged', number: hazards },
-    techSignals > 0 && { id: 'tech', label: 'Tech signals', number: techSignals },
+    sitesLabel && { id: 'sites', label: 'Sites', number: sitesLabel },
+    fit && { id: 'fit', label: 'Fit score', number: `${fmtScore(fit.score)}/10` },
+    hazards > 1 && { id: 'hazards', label: 'Hazards flagged', number: hazards },
   ].filter(Boolean) as { id: string; label: string; number: string | number }[];
 
   if (!items.length) return null;
@@ -222,15 +294,30 @@ function Disqualifiers({ value }: { value: string }) {
   if (!value) return null;
   if (isNone(value)) {
     return (
-      <Alert title="No disqualifiers found" variant="success">
+      <Alert title="No disqualifiers identified" variant="success">
         <Text>Clay found nothing that rules this account out.</Text>
       </Alert>
     );
   }
   return (
-    <Alert title="Check these disqualifiers before you call" variant="danger">
+    <Alert title="Friction and disqualifiers to check" variant="warning">
       <RichText value={value} />
     </Alert>
+  );
+}
+
+function Sources({ value }: { value: string }) {
+  const sources = parseSources(value);
+  if (!sources.length) return <NotEnriched />;
+  return (
+    <List variant="ordered-styled">
+      {sources.map((s, i) => (
+        <Flex key={i} direction="column" gap="flush">
+          {s.url ? <Link href={s.url}>{s.label}</Link> : <Text>{s.label}</Text>}
+          {s.note && <Text variant="microcopy">{s.note}</Text>}
+        </Flex>
+      ))}
+    </List>
   );
 }
 

@@ -6,7 +6,7 @@ import { FIELDS, type ClayData, type FieldKey } from './config.ts';
 
 const EMPTY_VALUES = new Set(['', '-', '—', 'n/a', 'na', 'null', 'undefined', 'unknown']);
 const NONE_VALUES = /^(none|no|nil|none (identified|found|known)|no (disqualifiers|red flags)( (identified|found))?)\.?$/i;
-const BULLET = /^\s*(?:[-*•▪◦·–]|\d+[.)])\s+/;
+const BULLET = /^\s*(?:[-*•▪◦·–]|\d+[.)]|\[\d+\])\s+/;
 
 export function clean(value: string | null | undefined): string {
   const v = (value ?? '').trim();
@@ -43,7 +43,9 @@ export function splitItems(value: string): string[] {
   if (!v) return [];
 
   let parts: string[];
-  if (/\r?\n/.test(v)) {
+  if (isInlineNumbered(v)) {
+    parts = v.split(INLINE_NUMBER_SPLIT);
+  } else if (/\r?\n/.test(v)) {
     parts = v.split(/\r?\n/);
   } else if (v.includes('•')) {
     parts = v.split('•');
@@ -56,6 +58,22 @@ export function splitItems(value: string): string[] {
   }
 
   return parts.map((p) => p.replace(BULLET, '').trim()).filter(Boolean);
+}
+
+// "1. Foo 2. Bar" or "[1] foo [2] bar" written on a single line.
+const INLINE_NUMBER_SPLIT = /\s+(?=(?:\d{1,2}[.)]|\[\d{1,2}\])\s)/;
+
+function isInlineNumbered(v: string): boolean {
+  if (/\r?\n/.test(v)) return false;
+  return /^(?:1[.)]|\[1\])\s/.test(v) && v.split(INLINE_NUMBER_SPLIT).length >= 2;
+}
+
+/** True when the text is a numbered list, so it should render as an ordered list. */
+export function isNumbered(value: string): boolean {
+  const v = clean(value);
+  if (isInlineNumbered(v)) return true;
+  const lines = v.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  return lines.length >= 2 && lines.every((l) => /^(?:\d{1,2}[.)]|\[\d{1,2}\])\s/.test(l));
 }
 
 /** Short items read better as tags than as a bulleted list. */
@@ -154,8 +172,51 @@ export function logoUrl(website: string): string {
   return host ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=128` : '';
 }
 
-export function clampScore(value: string): number | null {
-  const n = firstNumber(value);
-  if (n === null) return null;
-  return Math.min(100, Math.max(0, n));
+/** "Not found" style answers, which Clay uses when a company publishes nothing. */
+export function isNotFound(value: string): boolean {
+  return /^(not found|none found|not (published|disclosed|available))\b/i.test(clean(value));
+}
+
+/** Splits "<lead> — <rest>" (em dash, en dash, hyphen or colon) into its two halves. */
+function splitLead(value: string): { lead: string; rest: string } {
+  const v = clean(value);
+  const m = v.match(/^(.{1,40}?)\s+[—–-]\s+([\s\S]+)$/) || v.match(/^([^:]{1,40}):\s+([\s\S]+)$/);
+  return m ? { lead: m[1].trim(), rest: m[2].trim() } : { lead: v, rest: '' };
+}
+
+/** Clay Fit_Score: "8 — 47 sites, published TRIR, ..." gives { score: 8, reason: "47 sites, ..." }. */
+export function parseFitScore(value: string): { score: number; reason: string } | null {
+  const v = clean(value);
+  const m = v.match(/^\s*(\d{1,2}(?:\.\d)?)\s*(?:\/\s*10)?/);
+  if (!m) return null;
+  const score = Math.min(10, Math.max(0, parseFloat(m[1])));
+  const reason = v.slice(m[0].length).replace(/^\s*[—–:\-.,]\s*/, '').trim();
+  return { score, reason };
+}
+
+/** Clay Site_Count: "47 — 41 DCs and 6 plants per the 10-K. High." */
+export function parseSiteCount(value: string): {
+  count: number | null;
+  label: string;
+  detail: string;
+  confidence: 'High' | 'Medium' | 'Low' | null;
+} {
+  const v = clean(value);
+  const { lead, rest } = splitLead(v);
+  const conf = v.match(/\b(high|medium|low)(?:\s+confidence)?\.?\s*$/i) ?? v.match(/confidence[:\s]+(high|medium|low)\b/i);
+  const confidence = conf ? ((conf[1][0].toUpperCase() + conf[1].slice(1).toLowerCase()) as 'High' | 'Medium' | 'Low') : null;
+  const count = firstNumber(lead);
+  const range = lead.match(/^\s*(\d[\d,]*)\s*[-–]\s*(\d[\d,]*)/);
+  return { count, label: range ? `${range[1]}–${range[2]}` : count !== null ? formatCompact(count) : '', detail: rest || (count === null ? v : ''), confidence };
+}
+
+/** Clay Sources: "[1] example.com/page — what it gave, 2025" items, with the URL pulled out. */
+export function parseSources(value: string): { label: string; url: string; note: string }[] {
+  return splitItems(value).map((item) => {
+    const urlMatch = item.match(/(https?:\/\/[^\s,;)]+|(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/[^\s,;)]*)?)/i);
+    if (!urlMatch) return { label: item, url: '', note: '' };
+    const raw = urlMatch[1].replace(/[.,]+$/, '');
+    const note = item.slice((urlMatch.index ?? 0) + urlMatch[1].length).replace(/^[\s.,]*[—–:-]?\s*/, '').trim();
+    return { label: raw.replace(/^https?:\/\//i, '').replace(/^www\./i, ''), url: toUrl(raw), note };
+  });
 }

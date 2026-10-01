@@ -13,13 +13,14 @@ import {
 } from '@hubspot/ui-extensions';
 import { STALE_AFTER_DAYS } from './lib/config.ts';
 import {
-  clampScore,
   daysSince,
   firstNumber,
   formatCompact,
   freshnessLabel,
   isNone,
   ownershipType,
+  parseFitScore,
+  parseSiteCount,
   toUrl,
 } from './lib/parse.ts';
 import { RichText, SectionTitle, TagCloud, isEnriched, useClayData } from './lib/components.tsx';
@@ -46,9 +47,9 @@ function CallPrep({ actions }: { actions: Parameters<typeof useClayData>[0] }) {
     );
   }
 
-  const score = clampScore(data.fitScore);
+  const fit = parseFitScore(data.fitScore);
   const employees = firstNumber(data.employeeCount);
-  const sites = firstNumber(data.siteFootprint);
+  const sites = parseSiteCount(data.siteCount).label;
   const ownership = ownershipType(data.ownershipStructure);
   const redFlags = !!data.disqualifiers && !isNone(data.disqualifiers);
   const days = daysSince(data.lastEnriched);
@@ -56,16 +57,17 @@ function CallPrep({ actions }: { actions: Parameters<typeof useClayData>[0] }) {
   return (
     <Flex direction="column" gap="sm">
       <Flex direction="row" gap="sm" align="center">
-        {score !== null && <ScoreCircle score={score} />}
+        {fit && <ScoreCircle score={Math.round(fit.score * 10)} />}
         <Flex direction="column" gap="xs">
           <Flex direction="row" gap="xs" wrap="wrap">
-            {redFlags ? <Tag variant="error">Check disqualifiers</Tag> : <Tag variant="success">Clear to engage</Tag>}
+            {fit && <Tag variant="default">{`Fit ${fit.score}/10`}</Tag>}
+            {redFlags ? <Tag variant="warning">Friction noted</Tag> : <Tag variant="success">No disqualifiers</Tag>}
             {ownership && <Tag variant="info">{ownership}</Tag>}
           </Flex>
           <Text variant="microcopy">
             {[
               employees !== null && `${formatCompact(employees)} employees`,
-              sites !== null && `${formatCompact(sites)} sites`,
+              sites && `${sites} sites`,
             ]
               .filter(Boolean)
               .join(' · ')}
@@ -101,7 +103,7 @@ function CallPrep({ actions }: { actions: Parameters<typeof useClayData>[0] }) {
         <>
           <Divider distance="xs" />
           <SectionTitle icon="warning">Watch-outs</SectionTitle>
-          <TagCloud value={data.disqualifiers} variant="error" />
+          <TagCloud value={data.disqualifiers} variant="warning" />
         </>
       )}
 
