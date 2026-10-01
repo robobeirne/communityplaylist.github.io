@@ -1,0 +1,11 @@
+{
+  "uid": "protex_account_intel_tab",
+  "type": "card",
+  "config": {
+    "name": "Account Intel",
+    "description": "Clay account brief: opening angle, why Protex, sites, safety and sources.",
+    "location": "crm.record.tab",
+    "entrypoint": "/app/cards/AccountIntel.tsx",
+    "objectTypes": ["COMPANY"]
+  }
+}

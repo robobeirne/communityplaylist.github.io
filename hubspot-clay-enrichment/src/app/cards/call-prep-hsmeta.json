@@ -1,0 +1,11 @@
+{
+  "uid": "protex_call_prep_sidebar",
+  "type": "card",
+  "config": {
+    "name": "Pre-call brief",
+    "description": "Fit score, opening angle, why Protex and watch-outs at a glance.",
+    "location": "crm.record.sidebar",
+    "entrypoint": "/app/cards/CallPrep.tsx",
+    "objectTypes": ["COMPANY"]
+  }
+}

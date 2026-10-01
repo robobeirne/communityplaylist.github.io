@@ -32,7 +32,7 @@ to the record.
 ## Properties
 
 [SETUP.md](SETUP.md) has the full Clay field to HubSpot property table. The
-mapping lives in [`src/app/extensions/lib/config.ts`](src/app/extensions/lib/config.ts),
+mapping lives in [`src/app/cards/lib/config.ts`](src/app/cards/lib/config.ts),
 and `scripts/create-properties.mjs` creates every property.
 
 ## Deploy
@@ -40,10 +40,10 @@ and `scripts/create-properties.mjs` creates every property.
 You need the HubSpot CLI and Super Admin (or developer) access to the portal.
 
 ```bash
-npm install -g @hubspot/cli
+npm install -g @hubspot/cli@latest   # 2025.2 projects need a recent CLI
 hs account auth                       # connect your HubSpot account
 cd protex-account-intel
-(cd src/app/extensions && npm install)
+(cd src/app/cards && npm install)
 hs project upload                     # builds and deploys
 ```
 
@@ -62,7 +62,7 @@ prompts.
 ## Develop
 
 ```bash
-cd src/app/extensions
+cd src/app/cards
 npm run typecheck   # checks the cards against the real @hubspot/ui-extensions types
 npm test            # unit tests for the Clay text parsing
 ```
@@ -70,11 +70,11 @@ npm test            # unit tests for the Clay text parsing
 Files:
 
 ```
-hsproject.json                    project config (platformVersion 2025.1)
-src/app/app.json                  private app: name, scopes, cards
-src/app/extensions/
-  account-intel-card.json         record tab card definition
-  call-prep-card.json             sidebar card definition
+hsproject.json                    project config (platformVersion 2025.2)
+src/app/app-hsmeta.json           private app: name, scopes, permitted image URLs
+src/app/cards/
+  account-intel-hsmeta.json       record tab card definition
+  call-prep-hsmeta.json           sidebar card definition
   AccountIntel.tsx                record tab card
   CallPrep.tsx                    sidebar card
   lib/config.ts                   property mapping

@@ -1,0 +1,28 @@
+{
+  "uid": "protex_account_intel",
+  "type": "app",
+  "config": {
+    "description": "Turns Clay enrichment on company records into a call-ready account brief for reps.",
+    "name": "Protex Account Intel",
+    "distribution": "private",
+    "auth": {
+      "type": "static",
+      "requiredScopes": [
+        "oauth",
+        "crm.objects.companies.read"
+      ],
+      "optionalScopes": [],
+      "conditionallyRequiredScopes": []
+    },
+    "permittedUrls": {
+      "fetch": [],
+      "iframe": [],
+      "img": ["https://www.google.com"]
+    },
+    "support": {
+      "supportEmail": "rob.obeirne@protex.ai",
+      "documentationUrl": "https://github.com/robobeirne/communityplaylist.github.io/tree/claude/hubspot-clay-enrichment-app-br8s9r/hubspot-clay-enrichment",
+      "supportUrl": "https://github.com/robobeirne/communityplaylist.github.io/tree/claude/hubspot-clay-enrichment-app-br8s9r/hubspot-clay-enrichment"
+    }
+  }
+}

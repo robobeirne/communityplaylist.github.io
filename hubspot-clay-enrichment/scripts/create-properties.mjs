@@ -5,7 +5,7 @@
 //   HUBSPOT_TOKEN=pat-xxx node scripts/create-properties.mjs
 //
 // The token needs the crm.schemas.companies.write scope. Internal names must
-// match src/app/extensions/lib/config.ts.
+// match src/app/cards/lib/config.ts.
 
 const TOKEN = process.env.HUBSPOT_TOKEN;
 if (!TOKEN) {

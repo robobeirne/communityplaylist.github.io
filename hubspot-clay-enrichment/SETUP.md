@@ -22,11 +22,12 @@ Do these steps in order. Total time is about 45 minutes.
    node --version
    ```
    You should see `v20` or higher.
-4. Install the HubSpot CLI:
+4. Install or update the HubSpot CLI. The project uses platform version 2025.2, which needs a recent CLI:
    ```
-   npm install -g @hubspot/cli
+   npm install -g @hubspot/cli@latest
+   hs --version
    ```
-   On Mac, if this fails with a permissions error, run it again with `sudo` at the front.
+   On Mac, if this fails with a permissions error, run it again with `sudo` at the front. `hs --version` should show 8.x or newer.
 5. Unzip `protex-account-intel.zip` somewhere easy, for example your Desktop.
 6. In the terminal, go into the folder:
    ```
@@ -109,7 +110,7 @@ All commands run from the `protex-account-intel` folder.
    A browser opens. Log in, choose the right HubSpot account and generate a **personal access key**. Copy it and paste it back into the terminal. Give the account a short name, such as `protex`. On an older CLI, the command is `hs init`.
 2. Install the card's code packages:
    ```
-   cd src/app/extensions
+   cd src/app/cards
    npm install
    cd ../../..
    ```
