@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --test --experimental-strip-types lib/parse.test.ts discovery/score.test.ts",
-    "test:render": "esbuild discovery/render.test.tsx --bundle --platform=node --format=esm --outfile=.render-test.mjs --log-level=warning && node .render-test.mjs"
+    "test": "node --test --experimental-strip-types lib/parse.test.ts discovery/score.test.ts contact/contact.test.ts",
+    "test:render": "esbuild discovery/render.test.tsx --bundle --platform=node --format=esm --outfile=.render-test.mjs --log-level=warning && node .render-test.mjs && esbuild contact/render.test.tsx --bundle --platform=node --format=esm --outfile=.render-test.mjs --log-level=warning && node .render-test.mjs"
   },
   "dependencies": {
     "@hubspot/ui-extensions": "^0.17.0",

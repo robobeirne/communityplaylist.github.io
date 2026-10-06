@@ -1,0 +1,11 @@
+{
+  "uid": "protex_contact_profile_tab",
+  "type": "card",
+  "config": {
+    "name": "Profile summary",
+    "description": "Clay person profile: role, remit, deal role, priorities, hooks and paths in.",
+    "location": "crm.record.tab",
+    "entrypoint": "/app/cards/ContactProfile.tsx",
+    "objectTypes": ["CONTACT"]
+  }
+}

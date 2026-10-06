@@ -1,0 +1,11 @@
+{
+  "uid": "protex_contact_prep_sidebar",
+  "type": "card",
+  "config": {
+    "name": "Before you reach out",
+    "description": "Deal role, buying authority, approach, hooks and paths in at a glance.",
+    "location": "crm.record.sidebar",
+    "entrypoint": "/app/cards/ContactPrep.tsx",
+    "objectTypes": ["CONTACT"]
+  }
+}

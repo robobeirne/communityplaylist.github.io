@@ -82,10 +82,10 @@ export function NotEnriched() {
 }
 
 /** The whole card on a company Clay hasn't enriched: one line, no illustration. */
-export function NotEnrichedLine() {
+export function NotEnrichedLine({ subject = 'company' }: { subject?: string }) {
   return (
     <Text variant="microcopy" format={{ italic: true }}>
-      No Clay brief for this company yet.
+      {`No Clay brief for this ${subject} yet.`}
     </Text>
   );
 }

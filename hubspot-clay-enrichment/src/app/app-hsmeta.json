@@ -2,7 +2,7 @@
   "uid": "protex_account_intel",
   "type": "app",
   "config": {
-    "description": "Clay account intel on companies and the discovery assessment on deals.",
+    "description": "Clay intel on companies and contacts, and the discovery assessment on deals.",
     "name": "Protex Account Intel",
     "distribution": "private",
     "auth": {
@@ -10,7 +10,8 @@
       "requiredScopes": [
         "oauth",
         "crm.objects.companies.read",
-        "crm.objects.deals.read"
+        "crm.objects.deals.read",
+        "crm.objects.contacts.read"
       ],
       "optionalScopes": [],
       "conditionallyRequiredScopes": []

@@ -2,7 +2,7 @@
 // render. Clay columns are usually AI-written text, so everything here is
 // forgiving: bad input falls back to plain text, it never throws.
 
-import { FIELDS, type ClayData, type FieldKey } from './config.ts';
+import { FIELDS, type ClayData } from './config.ts';
 
 const EMPTY_VALUES = new Set(['', '-', '—', 'n/a', 'na', 'null', 'undefined', 'unknown']);
 const NONE_VALUES = /^(none|no|nil|none (identified|found|known)|no (disqualifiers|red flags)( (identified|found))?)\.?$/i;
@@ -13,12 +13,15 @@ export function clean(value: string | null | undefined): string {
   return EMPTY_VALUES.has(v.toLowerCase()) ? '' : v;
 }
 
-/** Picks the first non-empty property for each field. */
-export function resolveFields(properties: Record<string, string | null | undefined>): ClayData {
-  const out = {} as ClayData;
-  for (const key of Object.keys(FIELDS) as FieldKey[]) {
+/** Picks the first non-empty property for each field of any field map. */
+export function resolveWith<K extends string>(
+  fields: Record<K, readonly string[]>,
+  properties: Record<string, string | null | undefined>
+): Record<K, string> {
+  const out = {} as Record<K, string>;
+  for (const key of Object.keys(fields) as K[]) {
     out[key] = '';
-    for (const prop of FIELDS[key]) {
+    for (const prop of fields[key]) {
       const v = clean(properties[prop]);
       if (v) {
         out[key] = v;
@@ -27,6 +30,25 @@ export function resolveFields(properties: Record<string, string | null | undefin
     }
   }
   return out;
+}
+
+/** Picks the first non-empty property for each company field. */
+export function resolveFields(properties: Record<string, string | null | undefined>): ClayData {
+  return resolveWith(FIELDS, properties) as ClayData;
+}
+
+/**
+ * A short label from the start of a Clay answer, for a tag: the part before
+ * " — " or ":" when that's short, otherwise the first few words.
+ */
+export function leadTag(value: string, max = 36): string {
+  const v = clean(value).replace(/\s+/g, ' ');
+  if (!v) return '';
+  const m = v.match(/^(.{2,40}?)\s+[—–-]\s+/) || v.match(/^([^:]{2,40}):\s+/);
+  const lead = (m ? m[1] : firstSentence(v, 200)).replace(/[.]$/, '').trim();
+  if (lead.length <= max) return lead;
+  const cut = lead.slice(0, max).replace(/\s+\S*$/, '');
+  return `${cut}…`;
 }
 
 /** True for values like "None identified" that mean "nothing to worry about". */
