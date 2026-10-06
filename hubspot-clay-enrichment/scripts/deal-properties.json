@@ -1,0 +1,3093 @@
+[
+  {
+    "groupLabel": "Discovery — Summary",
+    "label": "Industry",
+    "name": "da_industry",
+    "description": "Shows the right money question and industry details.",
+    "question": null,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Logistics",
+        "value": "logistics"
+      },
+      {
+        "label": "Manufacturing",
+        "value": "manufacturing"
+      },
+      {
+        "label": "Retail",
+        "value": "retail"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "Which sites are in scope, and what happens on them? — how well answered",
+    "name": "da_sites_status",
+    "description": "Sets the size of the deal and the risk profile before you ask anything harder. Single small sites lose more often.",
+    "question": 1,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "Which sites are in scope, and what happens on them? — notes",
+    "name": "da_sites_notes",
+    "description": "What they said.",
+    "question": 1,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "Which sites are in scope, and what happens on them? — source",
+    "name": "da_sites_source",
+    "description": "Name, role, date.",
+    "question": 1,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "Which sites are in scope, and what happens on them? — details captured",
+    "name": "da_sites_details",
+    "description": "Tick what you have.",
+    "question": 1,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Number of sites, named, with country",
+        "value": "number_of_sites_named_with_country"
+      },
+      {
+        "label": "What each site does (production, DC, cross-dock, store back-of-house)",
+        "value": "what_each_site_does_production_dc_cross_dock_store_back_of_house"
+      },
+      {
+        "label": "Headcount per site, and the share that is agency or seasonal",
+        "value": "headcount_per_site_and_the_share_that_is_agency_or_seasonal"
+      },
+      {
+        "label": "Shift pattern and weekend or night working",
+        "value": "shift_pattern_and_weekend_or_night_working"
+      },
+      {
+        "label": "Vehicle fleet by type (forklifts, reach trucks, AGVs, HGV movements)",
+        "value": "vehicle_fleet_by_type_forklifts_reach_trucks_agvs_hgv_movements"
+      },
+      {
+        "label": "Contractors or third parties on site",
+        "value": "contractors_or_third_parties_on_site"
+      },
+      {
+        "label": "[M] Continuous or discrete production",
+        "value": "m_continuous_or_discrete_production"
+      },
+      {
+        "label": "lines or cells in scope",
+        "value": "lines_or_cells_in_scope"
+      },
+      {
+        "label": "[L] Client contracts per site and renewal dates",
+        "value": "l_client_contracts_per_site_and_renewal_dates"
+      },
+      {
+        "label": "[R] DCs only, or back-of-house in stores too",
+        "value": "r_dcs_only_or_back_of_house_in_stores_too"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "Where is the risk, and how much of it can they actually see today? — how well answered",
+    "name": "da_risk_status",
+    "description": "The gap between where the risk is and what anyone sees is the reason Protex exists. It also tells you where cameras go.",
+    "question": 2,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "Where is the risk, and how much of it can they actually see today? — notes",
+    "name": "da_risk_notes",
+    "description": "What they said, in their words.",
+    "question": 2,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "Where is the risk, and how much of it can they actually see today? — source",
+    "name": "da_risk_source",
+    "description": "Name, role, date.",
+    "question": 2,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "Where is the risk, and how much of it can they actually see today? — details captured",
+    "name": "da_risk_details",
+    "description": "Tick what you have.",
+    "question": 2,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Highest-risk areas, named by the buyer",
+        "value": "highest_risk_areas_named_by_the_buyer"
+      },
+      {
+        "label": "Their own estimate of how much of the floor they see (most / about half / under a quarter)",
+        "value": "their_own_estimate_of_how_much_of_the_floor_they_see_most_about_half_under_a_qua"
+      },
+      {
+        "label": "Share of a shift that site walks and observations actually cover",
+        "value": "share_of_a_shift_that_site_walks_and_observations_actually_cover"
+      },
+      {
+        "label": "Observation programme: how many are required vs actually done",
+        "value": "observation_programme_how_many_are_required_vs_actually_done"
+      },
+      {
+        "label": "What happens on nights and weekends when safety isn't there",
+        "value": "what_happens_on_nights_and_weekends_when_safety_isn_t_there"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "Where is the risk, and how much of it can they actually see today? — Self-rated floor visibility",
+    "name": "da_risk_self_rated_floor_visibility",
+    "description": "",
+    "question": 2,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Most",
+        "value": "most"
+      },
+      {
+        "label": "About half",
+        "value": "about_half"
+      },
+      {
+        "label": "A quarter to half",
+        "value": "a_quarter_to_half"
+      },
+      {
+        "label": "Under a quarter",
+        "value": "under_a_quarter"
+      },
+      {
+        "label": "Under 10%",
+        "value": "under_10"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "What do they measure and report today? — how well answered",
+    "name": "da_measure_status",
+    "description": "The baseline every business case is measured against. Without it there is no 'before'.",
+    "question": 3,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "What do they measure and report today? — notes",
+    "name": "da_measure_notes",
+    "description": "What they said.",
+    "question": 3,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "What do they measure and report today? — source",
+    "name": "da_measure_source",
+    "description": "Name, role, date.",
+    "question": 3,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "What do they measure and report today? — details captured",
+    "name": "da_measure_details",
+    "description": "Tick what you have.",
+    "question": 3,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Recordable or lost-time rates by site for the last two years (TRIR, LTIFR, RIDDOR)",
+        "value": "recordable_or_lost_time_rates_by_site_for_the_last_two_years_trir_ltifr_riddor"
+      },
+      {
+        "label": "Serious-injury-potential events per year",
+        "value": "serious_injury_potential_events_per_year"
+      },
+      {
+        "label": "Near misses reported per month, and their guess at how many go unreported",
+        "value": "near_misses_reported_per_month_and_their_guess_at_how_many_go_unreported"
+      },
+      {
+        "label": "Leading indicators they track, and where each number comes from",
+        "value": "leading_indicators_they_track_and_where_each_number_comes_from"
+      },
+      {
+        "label": "EHS system that holds incidents and actions (Enablon, Intelex, Cority, Sphera, EcoOnline…)",
+        "value": "ehs_system_that_holds_incidents_and_actions_enablon_intelex_cority_sphera_ecoonl"
+      },
+      {
+        "label": "[M] Certifications held and next audit date",
+        "value": "m_certifications_held_and_next_audit_date"
+      },
+      {
+        "label": "[L] Safety KPIs clients hold them to",
+        "value": "l_safety_kpis_clients_hold_them_to"
+      },
+      {
+        "label": "[R] Injury mix and the share that is manual handling",
+        "value": "r_injury_mix_and_the_share_that_is_manual_handling"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "What do they measure and report today? — Recordable / lost-time rate (latest)",
+    "name": "da_measure_recordable_lost_time_rate_latest",
+    "description": "",
+    "question": 3,
+    "type": "number",
+    "fieldType": "number"
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "What do they measure and report today? — Near misses reported per month",
+    "name": "da_measure_near_misses_reported_per_month",
+    "description": "",
+    "question": 3,
+    "type": "number",
+    "fieldType": "number"
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "What happens after something is found? — how well answered",
+    "name": "da_after_status",
+    "description": "Tells you whether they can act on what we surface. Buyers name capacity, not detection, as what holds them back.",
+    "question": 4,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "What happens after something is found? — notes",
+    "name": "da_after_notes",
+    "description": "What they said, in their words.",
+    "question": 4,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "What happens after something is found? — source",
+    "name": "da_after_source",
+    "description": "Name, role, date.",
+    "question": 4,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "What happens after something is found? — details captured",
+    "name": "da_after_details",
+    "description": "Tick what you have.",
+    "question": 4,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Where corrective actions are logged, and how many are open",
+        "value": "where_corrective_actions_are_logged_and_how_many_are_open"
+      },
+      {
+        "label": "How closure is checked: does anyone verify the fix worked?",
+        "value": "how_closure_is_checked_does_anyone_verify_the_fix_worked"
+      },
+      {
+        "label": "Who would review what the system finds, and how many hours a week they really have",
+        "value": "who_would_review_what_the_system_finds_and_how_many_hours_a_week_they_really_hav"
+      },
+      {
+        "label": "How findings reach the people who can change the process",
+        "value": "how_findings_reach_the_people_who_can_change_the_process"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "What happens after something is found? — Open corrective actions",
+    "name": "da_after_open_corrective_actions",
+    "description": "",
+    "question": 4,
+    "type": "number",
+    "fieldType": "number"
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "What happens after something is found? — Reviewer hours per week",
+    "name": "da_after_reviewer_hours_per_week",
+    "description": "",
+    "question": 4,
+    "type": "number",
+    "fieldType": "number"
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "What does an incident cost the line? — how well answered",
+    "name": "da_money_m_status",
+    "description": "In manufacturing the throughput number usually dwarfs claim cost, and it's the one that reaches a COO.",
+    "question": 5,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "What does an incident cost the line? — notes",
+    "name": "da_money_m_notes",
+    "description": "What they said.",
+    "question": 5,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "What does an incident cost the line? — source",
+    "name": "da_money_m_source",
+    "description": "Name, role, date.",
+    "question": 5,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "What does an incident cost the line? — details captured",
+    "name": "da_money_m_details",
+    "description": "Tick what you have.",
+    "question": 5,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Cost per hour of downtime, or the productivity measure they use instead",
+        "value": "cost_per_hour_of_downtime_or_the_productivity_measure_they_use_instead"
+      },
+      {
+        "label": "Insurance or captive cost charged to the plant",
+        "value": "insurance_or_captive_cost_charged_to_the_plant"
+      },
+      {
+        "label": "Open regulator notices, recent inspections or fines",
+        "value": "open_regulator_notices_recent_inspections_or_fines"
+      },
+      {
+        "label": "High-energy exposures beyond vehicles: guarding, LOTO, cranes, confined space, hot work",
+        "value": "high_energy_exposures_beyond_vehicles_guarding_loto_cranes_confined_space_hot_wo"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "What's riding on client contracts? — how well answered",
+    "name": "da_money_l_status",
+    "description": "In 3PL the case is contract retention, so contract value and renewal dates are the numbers that matter.",
+    "question": 6,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "What's riding on client contracts? — notes",
+    "name": "da_money_l_notes",
+    "description": "What they said.",
+    "question": 6,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "What's riding on client contracts? — source",
+    "name": "da_money_l_source",
+    "description": "Name, role, date.",
+    "question": 6,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "What's riding on client contracts? — details captured",
+    "name": "da_money_l_details",
+    "description": "Tick what you have.",
+    "question": 6,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Contract value per site and in total",
+        "value": "contract_value_per_site_and_in_total"
+      },
+      {
+        "label": "Renewal dates and tender calendar",
+        "value": "renewal_dates_and_tender_calendar"
+      },
+      {
+        "label": "Safety penalty or exit clauses, and how much safety weighs in tenders",
+        "value": "safety_penalty_or_exit_clauses_and_how_much_safety_weighs_in_tenders"
+      },
+      {
+        "label": "Margin per unit, and how much of it goes on insurance",
+        "value": "margin_per_unit_and_how_much_of_it_goes_on_insurance"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "What do claims and turnover cost? — how well answered",
+    "name": "da_money_r_status",
+    "description": "In retail, manual-handling claims usually dominate cost, and risk management often holds the budget.",
+    "question": 7,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "What do claims and turnover cost? — notes",
+    "name": "da_money_r_notes",
+    "description": "What they said.",
+    "question": 7,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "What do claims and turnover cost? — source",
+    "name": "da_money_r_source",
+    "description": "Name, role, date.",
+    "question": 7,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — The operation",
+    "label": "What do claims and turnover cost? — details captured",
+    "name": "da_money_r_details",
+    "description": "Tick what you have.",
+    "question": 7,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Claims per year and average cost by injury type, manual handling separated",
+        "value": "claims_per_year_and_average_cost_by_injury_type_manual_handling_separated"
+      },
+      {
+        "label": "Premium or self-insured, deductible, loss ratio",
+        "value": "premium_or_self_insured_deductible_loss_ratio"
+      },
+      {
+        "label": "Cost per hire and annual turnover cost",
+        "value": "cost_per_hire_and_annual_turnover_cost"
+      },
+      {
+        "label": "Share of claims litigated",
+        "value": "share_of_claims_litigated"
+      },
+      {
+        "label": "Peak-season injury spike",
+        "value": "peak_season_injury_spike"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Cameras & infrastructure",
+    "label": "Do their cameras see the risk? — how well answered",
+    "name": "da_cameras_status",
+    "description": "Camera estates kill more deals than competitors. Find out early whether this is a licence conversation or a capital works one.",
+    "question": 8,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Cameras & infrastructure",
+    "label": "Do their cameras see the risk? — notes",
+    "name": "da_cameras_notes",
+    "description": "What they said.",
+    "question": 8,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — Cameras & infrastructure",
+    "label": "Do their cameras see the risk? — source",
+    "name": "da_cameras_source",
+    "description": "Name, role, date.",
+    "question": 8,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — Cameras & infrastructure",
+    "label": "Do their cameras see the risk? — details captured",
+    "name": "da_cameras_details",
+    "description": "Tick what you have.",
+    "question": 8,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Cameras per site, and how many face the floor rather than gates and fences",
+        "value": "cameras_per_site_and_how_many_face_the_floor_rather_than_gates_and_fences"
+      },
+      {
+        "label": "Make, model and resolution",
+        "value": "make_model_and_resolution"
+      },
+      {
+        "label": "analogue vs IP",
+        "value": "analogue_vs_ip"
+      },
+      {
+        "label": "Which of the named risk areas are covered, and which aren't",
+        "value": "which_of_the_named_risk_areas_are_covered_and_which_aren_t"
+      },
+      {
+        "label": "Recording system (VMS or NVR) and whether we can get a stream",
+        "value": "recording_system_vms_or_nvr_and_whether_we_can_get_a_stream"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Cameras & infrastructure",
+    "label": "Who owns the cameras and the network? — how well answered",
+    "name": "da_owner_status",
+    "description": "If someone else owns the estate, they can stop the deal however good the case is.",
+    "question": 9,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Cameras & infrastructure",
+    "label": "Who owns the cameras and the network? — notes",
+    "name": "da_owner_notes",
+    "description": "What they said, in their words.",
+    "question": 9,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — Cameras & infrastructure",
+    "label": "Who owns the cameras and the network? — source",
+    "name": "da_owner_source",
+    "description": "Name, role, date.",
+    "question": 9,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — Cameras & infrastructure",
+    "label": "Who owns the cameras and the network? — details captured",
+    "name": "da_owner_details",
+    "description": "Tick what you have.",
+    "question": 9,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Who owns the cameras: us, Security, the landlord or the client",
+        "value": "who_owns_the_cameras_us_security_the_landlord_or_the_client"
+      },
+      {
+        "label": "What they were installed for",
+        "value": "what_they_were_installed_for"
+      },
+      {
+        "label": "Network: bandwidth, how IT and OT are separated, rack space and power on site",
+        "value": "network_bandwidth_how_it_and_ot_are_separated_rack_space_and_power_on_site"
+      },
+      {
+        "label": "Camera refresh cycle and whose capital pays for it",
+        "value": "camera_refresh_cycle_and_whose_capital_pays_for_it"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Cameras & infrastructure",
+    "label": "Who owns the cameras and the network? — Camera owner",
+    "name": "da_owner_camera_owner",
+    "description": "",
+    "question": 9,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Us",
+        "value": "us"
+      },
+      {
+        "label": "Security",
+        "value": "security"
+      },
+      {
+        "label": "Landlord",
+        "value": "landlord"
+      },
+      {
+        "label": "Client",
+        "value": "client"
+      },
+      {
+        "label": "Mixed",
+        "value": "mixed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Cameras & infrastructure",
+    "label": "What will IT, security and data rules require? — how well answered",
+    "name": "da_rules_status",
+    "description": "IT, security or AI-governance approval was the gate at 89 accounts. IT on the deal is the sharpest sign of a win.",
+    "question": 10,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Cameras & infrastructure",
+    "label": "What will IT, security and data rules require? — notes",
+    "name": "da_rules_notes",
+    "description": "What they said.",
+    "question": 10,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — Cameras & infrastructure",
+    "label": "What will IT, security and data rules require? — source",
+    "name": "da_rules_source",
+    "description": "Name, role, date.",
+    "question": 10,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — Cameras & infrastructure",
+    "label": "What will IT, security and data rules require? — details captured",
+    "name": "da_rules_details",
+    "description": "Tick what you have.",
+    "question": 10,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Security review and how long it takes",
+        "value": "security_review_and_how_long_it_takes"
+      },
+      {
+        "label": "AI committee or AI policy, and whether anything is frozen",
+        "value": "ai_committee_or_ai_policy_and_whether_anything_is_frozen"
+      },
+      {
+        "label": "Cloud rules (AWS, Azure) and where data must stay",
+        "value": "cloud_rules_aws_azure_and_where_data_must_stay"
+      },
+      {
+        "label": "Footage retention and who may view it",
+        "value": "footage_retention_and_who_may_view_it"
+      },
+      {
+        "label": "Whether processing must stay on site",
+        "value": "whether_processing_must_stay_on_site"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The problem",
+    "label": "What is actually going wrong, in their words? — how well answered",
+    "name": "da_problem_status",
+    "description": "The problem has to be theirs, said by them. One we recognised from our own research doesn't count.",
+    "question": 11,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The problem",
+    "label": "What is actually going wrong, in their words? — notes",
+    "name": "da_problem_notes",
+    "description": "What they said, in their words.",
+    "question": 11,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — The problem",
+    "label": "What is actually going wrong, in their words? — source",
+    "name": "da_problem_source",
+    "description": "Name, role, date.",
+    "question": 11,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — The problem",
+    "label": "What is actually going wrong, in their words? — details captured",
+    "name": "da_problem_details",
+    "description": "Tick what you have.",
+    "question": 11,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Which process is failing: vehicles near people, PPE or procedure, actions not closing, ergonomics, seeing the floor, near-miss reporting, reporting for leadership, contractors",
+        "value": "which_process_is_failing_vehicles_near_people_ppe_or_procedure_actions_not_closi"
+      },
+      {
+        "label": "How often it happens, in a number",
+        "value": "how_often_it_happens_in_a_number"
+      },
+      {
+        "label": "Who sees it happen, by role",
+        "value": "who_sees_it_happen_by_role"
+      },
+      {
+        "label": "Evidence they can show: a log, an incident, footage",
+        "value": "evidence_they_can_show_a_log_an_incident_footage"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The problem",
+    "label": "Why does it keep happening? — how well answered",
+    "name": "da_why_status",
+    "description": "Decides whether we're the right answer at all. If people can't watch it 24/7, we fix it. If nobody acts on what they already know, we don't.",
+    "question": 12,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The problem",
+    "label": "Why does it keep happening? — notes",
+    "name": "da_why_notes",
+    "description": "What they said, in their words.",
+    "question": 12,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — The problem",
+    "label": "Why does it keep happening? — source",
+    "name": "da_why_source",
+    "description": "Name, role, date.",
+    "question": 12,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — The problem",
+    "label": "Why does it keep happening? — details captured",
+    "name": "da_why_details",
+    "description": "Tick what you have.",
+    "question": 12,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "The reason, in their words: coverage, capacity to act, accountability, data scattered, or controls bypassed",
+        "value": "the_reason_in_their_words_coverage_capacity_to_act_accountability_data_scattered"
+      },
+      {
+        "label": "How it came to be this way (cameras bought for security, team cut, acquisition)",
+        "value": "how_it_came_to_be_this_way_cameras_bought_for_security_team_cut_acquisition"
+      },
+      {
+        "label": "One other explanation they've ruled out, and why",
+        "value": "one_other_explanation_they_ve_ruled_out_and_why"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The problem",
+    "label": "Why does it keep happening? — Root cause",
+    "name": "da_why_root_cause",
+    "description": "",
+    "question": 12,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Coverage",
+        "value": "coverage"
+      },
+      {
+        "label": "Capacity to act",
+        "value": "capacity_to_act"
+      },
+      {
+        "label": "Accountability",
+        "value": "accountability"
+      },
+      {
+        "label": "Data scattered",
+        "value": "data_scattered"
+      },
+      {
+        "label": "Controls bypassed",
+        "value": "controls_bypassed"
+      },
+      {
+        "label": "Other",
+        "value": "other"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The problem",
+    "label": "Would more people fix it, and would they pay for them? — how well answered",
+    "name": "da_headcount_status",
+    "description": "Tells you whether you're competing with headcount on price, or whether headcount is the cost you replace.",
+    "question": 13,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The problem",
+    "label": "Would more people fix it, and would they pay for them? — notes",
+    "name": "da_headcount_notes",
+    "description": "What they said, in their words.",
+    "question": 13,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — The problem",
+    "label": "Would more people fix it, and would they pay for them? — source",
+    "name": "da_headcount_source",
+    "description": "Name, role, date.",
+    "question": 13,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — The problem",
+    "label": "Would more people fix it, and would they pay for them? — details captured",
+    "name": "da_headcount_details",
+    "description": "Tick what you have.",
+    "question": 13,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Answer to 'would ten more safety officers solve it?'",
+        "value": "answer_to_would_ten_more_safety_officers_solve_it"
+      },
+      {
+        "label": "Answer to 'would you fund them?'",
+        "value": "answer_to_would_you_fund_them"
+      },
+      {
+        "label": "What that headcount would cost, in their numbers",
+        "value": "what_that_headcount_would_cost_in_their_numbers"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The problem",
+    "label": "What have they already tried, and why didn't it stick? — how well answered",
+    "name": "da_tried_status",
+    "description": "Someone who has spent money and been let down wants it fixed. It also stops us pitching what they abandoned two years ago.",
+    "question": 14,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The problem",
+    "label": "What have they already tried, and why didn't it stick? — notes",
+    "name": "da_tried_notes",
+    "description": "What they said, in their words.",
+    "question": 14,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — The problem",
+    "label": "What have they already tried, and why didn't it stick? — source",
+    "name": "da_tried_source",
+    "description": "Name, role, date.",
+    "question": 14,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — The problem",
+    "label": "What have they already tried, and why didn't it stick? — details captured",
+    "name": "da_tried_details",
+    "description": "Tick what you have.",
+    "question": 14,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Training, signs, floor markings, speed limits",
+        "value": "training_signs_floor_markings_speed_limits"
+      },
+      {
+        "label": "More supervisors or safety staff",
+        "value": "more_supervisors_or_safety_staff"
+      },
+      {
+        "label": "EHS software and what it does or doesn't do",
+        "value": "ehs_software_and_what_it_does_or_doesn_t_do"
+      },
+      {
+        "label": "Previous camera or AI pilots: who, what happened, why it stopped",
+        "value": "previous_camera_or_ai_pilots_who_what_happened_why_it_stopped"
+      },
+      {
+        "label": "What is still running today",
+        "value": "what_is_still_running_today"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The problem",
+    "label": "How aware are they, and who agrees there's a problem? — how well answered",
+    "name": "da_aware_status",
+    "description": "A thin record means different things at different stages. Agreement only counts if two people say it, including whoever owns the number.",
+    "question": 15,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The problem",
+    "label": "How aware are they, and who agrees there's a problem? — notes",
+    "name": "da_aware_notes",
+    "description": "What they said, in their words.",
+    "question": 15,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — The problem",
+    "label": "How aware are they, and who agrees there's a problem? — source",
+    "name": "da_aware_source",
+    "description": "Name, role, date.",
+    "question": 15,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — The problem",
+    "label": "How aware are they, and who agrees there's a problem? — details captured",
+    "name": "da_aware_details",
+    "description": "Tick what you have.",
+    "question": 15,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Where they are: not yet aware / aware / comparing options",
+        "value": "where_they_are_not_yet_aware_aware_comparing_options"
+      },
+      {
+        "label": "The line they said that shows it",
+        "value": "the_line_they_said_that_shows_it"
+      },
+      {
+        "label": "Who volunteered the problem with a number, and whether the owner of the number agrees",
+        "value": "who_volunteered_the_problem_with_a_number_and_whether_the_owner_of_the_number_ag"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The problem",
+    "label": "How aware are they, and who agrees there's a problem? — Awareness",
+    "name": "da_aware_awareness",
+    "description": "",
+    "question": 15,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not yet aware",
+        "value": "not_yet_aware"
+      },
+      {
+        "label": "Aware",
+        "value": "aware"
+      },
+      {
+        "label": "Comparing options",
+        "value": "comparing_options"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Business impact",
+    "label": "Which number does it hurt, and whose number is it? — how well answered",
+    "name": "da_number_status",
+    "description": "A problem nobody is measured on doesn't get funded. This finds the owner and the gap between today and target.",
+    "question": 16,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Business impact",
+    "label": "Which number does it hurt, and whose number is it? — notes",
+    "name": "da_number_notes",
+    "description": "What they said, in their words.",
+    "question": 16,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — Business impact",
+    "label": "Which number does it hurt, and whose number is it? — source",
+    "name": "da_number_source",
+    "description": "Name, role, date.",
+    "question": 16,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — Business impact",
+    "label": "Which number does it hurt, and whose number is it? — details captured",
+    "name": "da_number_details",
+    "description": "Tick what you have.",
+    "question": 16,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "The metric: recordables, lost time, serious-injury potential, claims cost, a board target",
+        "value": "the_metric_recordables_lost_time_serious_injury_potential_claims_cost_a_board_ta"
+      },
+      {
+        "label": "Today's value and the target",
+        "value": "today_s_value_and_the_target"
+      },
+      {
+        "label": "The person who owns it",
+        "value": "the_person_who_owns_it"
+      },
+      {
+        "label": "What happens if they miss it, in their words",
+        "value": "what_happens_if_they_miss_it_in_their_words"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Business impact",
+    "label": "Which number does it hurt, and whose number is it? — Metric",
+    "name": "da_number_metric",
+    "description": "",
+    "question": 16,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — Business impact",
+    "label": "Which number does it hurt, and whose number is it? — Current value",
+    "name": "da_number_current_value",
+    "description": "",
+    "question": 16,
+    "type": "number",
+    "fieldType": "number"
+  },
+  {
+    "groupLabel": "Discovery — Business impact",
+    "label": "Which number does it hurt, and whose number is it? — Target value",
+    "name": "da_number_target_value",
+    "description": "",
+    "question": 16,
+    "type": "number",
+    "fieldType": "number"
+  },
+  {
+    "groupLabel": "Discovery — Business impact",
+    "label": "Which business priority does it ladder to? — how well answered",
+    "name": "da_priority_status",
+    "description": "Executives fund their own priorities, not safety for its own sake. This finds the one they already care about.",
+    "question": 17,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Business impact",
+    "label": "Which business priority does it ladder to? — notes",
+    "name": "da_priority_notes",
+    "description": "What they said.",
+    "question": 17,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — Business impact",
+    "label": "Which business priority does it ladder to? — source",
+    "name": "da_priority_source",
+    "description": "Name, role, date.",
+    "question": 17,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — Business impact",
+    "label": "Which business priority does it ladder to? — details captured",
+    "name": "da_priority_details",
+    "description": "Tick what you have.",
+    "question": 17,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "The business priority it hits: [M] downtime, serious-injury and regulatory exposure, plant insurance cost, standards across plants · [L] contract retention, claims against margin, labour, exposure across sites · [R] claims and loss ratio, labour turnover, brand incidents, standards across stores",
+        "value": "the_business_priority_it_hits_m_downtime_serious_injury_and_regulatory_exposure"
+      },
+      {
+        "label": "Whether the person who owns that priority said so themselves",
+        "value": "whether_the_person_who_owns_that_priority_said_so_themselves"
+      },
+      {
+        "label": "Their target, and the payback they need",
+        "value": "their_target_and_the_payback_they_need"
+      },
+      {
+        "label": "What they're already spending against it some other way",
+        "value": "what_they_re_already_spending_against_it_some_other_way"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Business impact",
+    "label": "Which business priority does it ladder to? — Business priority",
+    "name": "da_priority_business_priority",
+    "description": "",
+    "question": 17,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Manufacturing: downtime",
+        "value": "manufacturing_downtime"
+      },
+      {
+        "label": "Manufacturing: serious-injury and regulatory exposure",
+        "value": "manufacturing_serious_injury_and_regulatory_exposure"
+      },
+      {
+        "label": "Manufacturing: plant insurance cost",
+        "value": "manufacturing_plant_insurance_cost"
+      },
+      {
+        "label": "Manufacturing: standards across plants",
+        "value": "manufacturing_standards_across_plants"
+      },
+      {
+        "label": "Logistics: contract retention",
+        "value": "logistics_contract_retention"
+      },
+      {
+        "label": "Logistics: claims against margin",
+        "value": "logistics_claims_against_margin"
+      },
+      {
+        "label": "Logistics: labour",
+        "value": "logistics_labour"
+      },
+      {
+        "label": "Logistics: exposure across sites",
+        "value": "logistics_exposure_across_sites"
+      },
+      {
+        "label": "Retail: claims and loss ratio",
+        "value": "retail_claims_and_loss_ratio"
+      },
+      {
+        "label": "Retail: labour turnover",
+        "value": "retail_labour_turnover"
+      },
+      {
+        "label": "Retail: brand incidents",
+        "value": "retail_brand_incidents"
+      },
+      {
+        "label": "Retail: standards across stores",
+        "value": "retail_standards_across_stores"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Business impact",
+    "label": "What does it cost them, on their own numbers? — how well answered",
+    "name": "da_cost_status",
+    "description": "The business case has to be their arithmetic. Buyers reject our averages.",
+    "question": 18,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Business impact",
+    "label": "What does it cost them, on their own numbers? — notes",
+    "name": "da_cost_notes",
+    "description": "What they said, in their words.",
+    "question": 18,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — Business impact",
+    "label": "What does it cost them, on their own numbers? — source",
+    "name": "da_cost_source",
+    "description": "Name, role, date.",
+    "question": 18,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — Business impact",
+    "label": "What does it cost them, on their own numbers? — details captured",
+    "name": "da_cost_details",
+    "description": "Tick what you have.",
+    "question": 18,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Cost per recordable, direct and indirect, on their numbers",
+        "value": "cost_per_recordable_direct_and_indirect_on_their_numbers"
+      },
+      {
+        "label": "Downtime or output lost",
+        "value": "downtime_or_output_lost"
+      },
+      {
+        "label": "Hours spent on observations, investigations and safety reporting",
+        "value": "hours_spent_on_observations_investigations_and_safety_reporting"
+      },
+      {
+        "label": "Insurance: premium, deductible, renewal movement",
+        "value": "insurance_premium_deductible_renewal_movement"
+      },
+      {
+        "label": "Damage to racking, vehicles and product",
+        "value": "damage_to_racking_vehicles_and_product"
+      },
+      {
+        "label": "Fines and regulator response",
+        "value": "fines_and_regulator_response"
+      },
+      {
+        "label": "Absence cover and turnover",
+        "value": "absence_cover_and_turnover"
+      },
+      {
+        "label": "Share of these figures the buyer gave us (aim for 60%+)",
+        "value": "share_of_these_figures_the_buyer_gave_us_aim_for_60"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Business impact",
+    "label": "What does it cost them, on their own numbers? — Cost per recordable (their figure)",
+    "name": "da_cost_cost_per_recordable_their_figure",
+    "description": "",
+    "question": 18,
+    "type": "number",
+    "fieldType": "number"
+  },
+  {
+    "groupLabel": "Discovery — Business impact",
+    "label": "What does it cost them, on their own numbers? — Share of inputs buyer-stated %",
+    "name": "da_cost_share_of_inputs_buyer_stated",
+    "description": "",
+    "question": 18,
+    "type": "number",
+    "fieldType": "number"
+  },
+  {
+    "groupLabel": "Discovery — Business impact",
+    "label": "Why now? — how well answered",
+    "name": "da_now_status",
+    "description": "Stable problems don't create deadlines. A date they're organising around is what turns interest into a decision.",
+    "question": 19,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Business impact",
+    "label": "Why now? — notes",
+    "name": "da_now_notes",
+    "description": "What they said, in their words.",
+    "question": 19,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — Business impact",
+    "label": "Why now? — source",
+    "name": "da_now_source",
+    "description": "Name, role, date.",
+    "question": 19,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — Business impact",
+    "label": "Why now? — details captured",
+    "name": "da_now_details",
+    "description": "Tick what you have.",
+    "question": 19,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "The date, and what happens on it",
+        "value": "the_date_and_what_happens_on_it"
+      },
+      {
+        "label": "Who set it (board, client, regulator, insurer, audit)",
+        "value": "who_set_it_board_client_regulator_insurer_audit"
+      },
+      {
+        "label": "Open regulator notices or a recent serious incident",
+        "value": "open_regulator_notices_or_a_recent_serious_incident"
+      },
+      {
+        "label": "Governance calendar: board safety review, audit, insurance renewal",
+        "value": "governance_calendar_board_safety_review_audit_insurance_renewal"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Business impact",
+    "label": "Why now? — Compelling date",
+    "name": "da_now_compelling_date",
+    "description": "",
+    "question": 19,
+    "type": "date",
+    "fieldType": "date"
+  },
+  {
+    "groupLabel": "Discovery — Business impact",
+    "label": "Why now? — Who set it",
+    "name": "da_now_who_set_it",
+    "description": "",
+    "question": 19,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Board",
+        "value": "board"
+      },
+      {
+        "label": "Client",
+        "value": "client"
+      },
+      {
+        "label": "Regulator",
+        "value": "regulator"
+      },
+      {
+        "label": "Insurer",
+        "value": "insurer"
+      },
+      {
+        "label": "Audit",
+        "value": "audit"
+      },
+      {
+        "label": "Incident",
+        "value": "incident"
+      },
+      {
+        "label": "Internal",
+        "value": "internal"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The future they want",
+    "label": "What does good look like, and by when? — how well answered",
+    "name": "da_good_status",
+    "description": "Turns 'improve safety' into a condition with a number and a date that a pilot can be judged against.",
+    "question": 20,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The future they want",
+    "label": "What does good look like, and by when? — notes",
+    "name": "da_good_notes",
+    "description": "What they said, in their words.",
+    "question": 20,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — The future they want",
+    "label": "What does good look like, and by when? — source",
+    "name": "da_good_source",
+    "description": "Name, role, date.",
+    "question": 20,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — The future they want",
+    "label": "What does good look like, and by when? — details captured",
+    "name": "da_good_details",
+    "description": "Tick what you have.",
+    "question": 20,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "The target, with a unit and a date, against today's figure",
+        "value": "the_target_with_a_unit_and_a_date_against_today_s_figure"
+      },
+      {
+        "label": "How much of the floor they want visible, and by when",
+        "value": "how_much_of_the_floor_they_want_visible_and_by_when"
+      },
+      {
+        "label": "What they'll be able to do that they can't today",
+        "value": "what_they_ll_be_able_to_do_that_they_can_t_today"
+      },
+      {
+        "label": "Who will use it, by role",
+        "value": "who_will_use_it_by_role"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The future they want",
+    "label": "How will they know it worked, and who says so? — how well answered",
+    "name": "da_proof_status",
+    "description": "Deals without written success criteria give the customer an easy way out at renewal.",
+    "question": 21,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The future they want",
+    "label": "How will they know it worked, and who says so? — notes",
+    "name": "da_proof_notes",
+    "description": "What they said, in their words.",
+    "question": 21,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — The future they want",
+    "label": "How will they know it worked, and who says so? — source",
+    "name": "da_proof_source",
+    "description": "Name, role, date.",
+    "question": 21,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — The future they want",
+    "label": "How will they know it worked, and who says so? — details captured",
+    "name": "da_proof_details",
+    "description": "Tick what you have.",
+    "question": 21,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Two or three measures for 90 days and 12 months, with baselines",
+        "value": "two_or_three_measures_for_90_days_and_12_months_with_baselines"
+      },
+      {
+        "label": "Who declares success",
+        "value": "who_declares_success"
+      },
+      {
+        "label": "What happens if the pilot passes",
+        "value": "what_happens_if_the_pilot_passes"
+      },
+      {
+        "label": "Pass or fail conditions: accuracy, relevance, sites, dates",
+        "value": "pass_or_fail_conditions_accuracy_relevance_sites_dates"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The future they want",
+    "label": "How much can their team actually act on? — how well answered",
+    "name": "da_load_status",
+    "description": "Volume, not detection, is what stalls live accounts. Set the bar before go-live, not after.",
+    "question": 22,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The future they want",
+    "label": "How much can their team actually act on? — notes",
+    "name": "da_load_notes",
+    "description": "What they said.",
+    "question": 22,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — The future they want",
+    "label": "How much can their team actually act on? — source",
+    "name": "da_load_source",
+    "description": "Name, role, date.",
+    "question": 22,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — The future they want",
+    "label": "How much can their team actually act on? — details captured",
+    "name": "da_load_details",
+    "description": "Tick what you have.",
+    "question": 22,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Events per week the team can review and act on",
+        "value": "events_per_week_the_team_can_review_and_act_on"
+      },
+      {
+        "label": "Share that must be relevant for them to keep using it",
+        "value": "share_that_must_be_relevant_for_them_to_keep_using_it"
+      },
+      {
+        "label": "Who acts, and when in the week",
+        "value": "who_acts_and_when_in_the_week"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The future they want",
+    "label": "How much can their team actually act on? — Events per week they can act on",
+    "name": "da_load_events_per_week_they_can_act_on",
+    "description": "",
+    "question": 22,
+    "type": "number",
+    "fieldType": "number"
+  },
+  {
+    "groupLabel": "Discovery — The future they want",
+    "label": "How much can their team actually act on? — Relevance bar %",
+    "name": "da_load_relevance_bar",
+    "description": "",
+    "question": 22,
+    "type": "number",
+    "fieldType": "number"
+  },
+  {
+    "groupLabel": "Discovery — The future they want",
+    "label": "Is it worth it on their maths? — how well answered",
+    "name": "da_worth_status",
+    "description": "The honest number: today's cost against the target, minus what the change costs them, including their own time.",
+    "question": 23,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The future they want",
+    "label": "Is it worth it on their maths? — notes",
+    "name": "da_worth_notes",
+    "description": "What they said.",
+    "question": 23,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — The future they want",
+    "label": "Is it worth it on their maths? — source",
+    "name": "da_worth_source",
+    "description": "Name, role, date.",
+    "question": 23,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — The future they want",
+    "label": "Is it worth it on their maths? — details captured",
+    "name": "da_worth_details",
+    "description": "Tick what you have.",
+    "question": 23,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Annual value of the change, in their currency",
+        "value": "annual_value_of_the_change_in_their_currency"
+      },
+      {
+        "label": "Full first-year cost: licence, IT effort, cameras, consultation, training, internal time",
+        "value": "full_first_year_cost_licence_it_effort_cameras_consultation_training_internal_ti"
+      },
+      {
+        "label": "Ratio of value to cost (aim for 3:1)",
+        "value": "ratio_of_value_to_cost_aim_for_3_1"
+      },
+      {
+        "label": "Anyone who takes on a new risk or workload if it goes in (HR, works council, Security, site GM)",
+        "value": "anyone_who_takes_on_a_new_risk_or_workload_if_it_goes_in_hr_works_council_securi"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — The future they want",
+    "label": "Is it worth it on their maths? — Annual value (their numbers)",
+    "name": "da_worth_annual_value_their_numbers",
+    "description": "",
+    "question": 23,
+    "type": "number",
+    "fieldType": "number"
+  },
+  {
+    "groupLabel": "Discovery — The future they want",
+    "label": "Is it worth it on their maths? — First-year cost of change",
+    "name": "da_worth_first_year_cost_of_change",
+    "description": "",
+    "question": 23,
+    "type": "number",
+    "fieldType": "number"
+  },
+  {
+    "groupLabel": "Discovery — People & power",
+    "label": "Who's involved, and how wide is the deal? — how well answered",
+    "name": "da_who_status",
+    "description": "Breadth is the strongest single predictor of a new-business win. Safety alone doesn't close.",
+    "question": 24,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — People & power",
+    "label": "Who's involved, and how wide is the deal? — notes",
+    "name": "da_who_notes",
+    "description": "What they said.",
+    "question": 24,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — People & power",
+    "label": "Who's involved, and how wide is the deal? — source",
+    "name": "da_who_source",
+    "description": "Name, role, date.",
+    "question": 24,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — People & power",
+    "label": "Who's involved, and how wide is the deal? — details captured",
+    "name": "da_who_details",
+    "description": "Tick what you have.",
+    "question": 24,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Number of people engaged (3+ is where odds turn",
+        "value": "number_of_people_engaged_3_is_where_odds_turn"
+      },
+      {
+        "label": "5+ is likely to close)",
+        "value": "5_is_likely_to_close"
+      },
+      {
+        "label": "An Operations or plant leader engaged",
+        "value": "an_operations_or_plant_leader_engaged"
+      },
+      {
+        "label": "IT or OT engaged",
+        "value": "it_or_ot_engaged"
+      },
+      {
+        "label": "Someone VP or above engaged",
+        "value": "someone_vp_or_above_engaged"
+      },
+      {
+        "label": "Finance or risk engaged",
+        "value": "finance_or_risk_engaged"
+      },
+      {
+        "label": "HR, legal or works council engaged",
+        "value": "hr_legal_or_works_council_engaged"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — People & power",
+    "label": "Who signs, and have we met them? — how well answered",
+    "name": "da_signer_status",
+    "description": "Naming the signer doesn't move the odds. Meeting and aligning with them does.",
+    "question": 25,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — People & power",
+    "label": "Who signs, and have we met them? — notes",
+    "name": "da_signer_notes",
+    "description": "What they said.",
+    "question": 25,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — People & power",
+    "label": "Who signs, and have we met them? — source",
+    "name": "da_signer_source",
+    "description": "Name, role, date.",
+    "question": 25,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — People & power",
+    "label": "Who signs, and have we met them? — details captured",
+    "name": "da_signer_details",
+    "description": "Tick what you have.",
+    "question": 25,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Name and title of whoever signs above pilot scale",
+        "value": "name_and_title_of_whoever_signs_above_pilot_scale"
+      },
+      {
+        "label": "Whether they own a multi-site budget",
+        "value": "whether_they_own_a_multi_site_budget"
+      },
+      {
+        "label": "Whether we have met them on this, and what they said",
+        "value": "whether_we_have_met_them_on_this_and_what_they_said"
+      },
+      {
+        "label": "Whose budget this comes from, and whether it exists this year",
+        "value": "whose_budget_this_comes_from_and_whether_it_exists_this_year"
+      },
+      {
+        "label": "Budget cycle and approval thresholds",
+        "value": "budget_cycle_and_approval_thresholds"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — People & power",
+    "label": "Who is selling for us when we're not in the room? — how well answered",
+    "name": "da_champion_status",
+    "description": "A champion who hasn't been tested is a coach. Test by what they do, not what they say.",
+    "question": 26,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — People & power",
+    "label": "Who is selling for us when we're not in the room? — notes",
+    "name": "da_champion_notes",
+    "description": "What they said.",
+    "question": 26,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — People & power",
+    "label": "Who is selling for us when we're not in the room? — source",
+    "name": "da_champion_source",
+    "description": "Name, role, date.",
+    "question": 26,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — People & power",
+    "label": "Who is selling for us when we're not in the room? — details captured",
+    "name": "da_champion_details",
+    "description": "Tick what you have.",
+    "question": 26,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Name, role, and who they report to",
+        "value": "name_role_and_who_they_report_to"
+      },
+      {
+        "label": "Something they've got approved before",
+        "value": "something_they_ve_got_approved_before"
+      },
+      {
+        "label": "Something they did for us between meetings (an introduction, internal data, a meeting set up)",
+        "value": "something_they_did_for_us_between_meetings_an_introduction_internal_data_a_meeti"
+      },
+      {
+        "label": "Something they warned us about that we didn't want to hear",
+        "value": "something_they_warned_us_about_that_we_didn_t_want_to_hear"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — People & power",
+    "label": "What does this mean for them personally? — how well answered",
+    "name": "da_personal_status",
+    "description": "People act on personal stakes. It also tells you what they'll defend if this gets hard.",
+    "question": 27,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — People & power",
+    "label": "What does this mean for them personally? — notes",
+    "name": "da_personal_notes",
+    "description": "What they said, in their words.",
+    "question": 27,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — People & power",
+    "label": "What does this mean for them personally? — source",
+    "name": "da_personal_source",
+    "description": "Name, role, date.",
+    "question": 27,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — People & power",
+    "label": "What does this mean for them personally? — details captured",
+    "name": "da_personal_details",
+    "description": "Tick what you have.",
+    "question": 27,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "What they personally risk if nothing changes",
+        "value": "what_they_personally_risk_if_nothing_changes"
+      },
+      {
+        "label": "What they gain if it works",
+        "value": "what_they_gain_if_it_works"
+      },
+      {
+        "label": "Their honest concern about this, in their words",
+        "value": "their_honest_concern_about_this_in_their_words"
+      },
+      {
+        "label": "Why this target and not a higher one, and who it's committed to (board, client, regulator)",
+        "value": "why_this_target_and_not_a_higher_one_and_who_it_s_committed_to_board_client_regu"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — People & power",
+    "label": "Who could say no, and what would change their mind? — how well answered",
+    "name": "da_veto_status",
+    "description": "Silent stakeholders with a veto stall deals that look healthy. Find them while there's time.",
+    "question": 28,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — People & power",
+    "label": "Who could say no, and what would change their mind? — notes",
+    "name": "da_veto_notes",
+    "description": "What they said.",
+    "question": 28,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — People & power",
+    "label": "Who could say no, and what would change their mind? — source",
+    "name": "da_veto_source",
+    "description": "Name, role, date.",
+    "question": 28,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — People & power",
+    "label": "Who could say no, and what would change their mind? — details captured",
+    "name": "da_veto_details",
+    "description": "Tick what you have.",
+    "question": 28,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Each person who can block it: IT, AI committee, Security, union or works council, HR, legal, procurement",
+        "value": "each_person_who_can_block_it_it_ai_committee_security_union_or_works_council_hr"
+      },
+      {
+        "label": "What each needs to say yes",
+        "value": "what_each_needs_to_say_yes"
+      },
+      {
+        "label": "Anyone who takes on a new risk if this goes in",
+        "value": "anyone_who_takes_on_a_new_risk_if_this_goes_in"
+      },
+      {
+        "label": "Any disagreement between buyers on the target, the baseline, the signer or the date",
+        "value": "any_disagreement_between_buyers_on_the_target_the_baseline_the_signer_or_the_dat"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — How they'll buy",
+    "label": "How will they decide? — how well answered",
+    "name": "da_decide_status",
+    "description": "If they're already comparing options against criteria, find out who wrote them while they can still change.",
+    "question": 29,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — How they'll buy",
+    "label": "How will they decide? — notes",
+    "name": "da_decide_notes",
+    "description": "What they said.",
+    "question": 29,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — How they'll buy",
+    "label": "How will they decide? — source",
+    "name": "da_decide_source",
+    "description": "Name, role, date.",
+    "question": 29,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — How they'll buy",
+    "label": "How will they decide? — details captured",
+    "name": "da_decide_details",
+    "description": "Tick what you have.",
+    "question": 29,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "The criteria, how much each weighs, and who owns each one",
+        "value": "the_criteria_how_much_each_weighs_and_who_owns_each_one"
+      },
+      {
+        "label": "Whether the criteria came from them or from another vendor",
+        "value": "whether_the_criteria_came_from_them_or_from_another_vendor"
+      },
+      {
+        "label": "Where we win a high-weighted criterion, and where we lose one",
+        "value": "where_we_win_a_high_weighted_criterion_and_where_we_lose_one"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — How they'll buy",
+    "label": "What happens between 'yes' and a signature? — how well answered",
+    "name": "da_steps_status",
+    "description": "Most late losses are stalls. Every step with an owner and a duration is a step that can't surprise you.",
+    "question": 30,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — How they'll buy",
+    "label": "What happens between 'yes' and a signature? — notes",
+    "name": "da_steps_notes",
+    "description": "What they said.",
+    "question": 30,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — How they'll buy",
+    "label": "What happens between 'yes' and a signature? — source",
+    "name": "da_steps_source",
+    "description": "Name, role, date.",
+    "question": 30,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — How they'll buy",
+    "label": "What happens between 'yes' and a signature? — details captured",
+    "name": "da_steps_details",
+    "description": "Tick what you have.",
+    "question": 30,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Every step: legal, procurement, security review, AI committee, works council, capex approval, each with an owner and duration",
+        "value": "every_step_legal_procurement_security_review_ai_committee_works_council_capex_ap"
+      },
+      {
+        "label": "Whether we need to be a preferred vendor or sign an MSA",
+        "value": "whether_we_need_to_be_a_preferred_vendor_or_sign_an_msa"
+      },
+      {
+        "label": "Days of steps vs days to their deadline",
+        "value": "days_of_steps_vs_days_to_their_deadline"
+      },
+      {
+        "label": "Any step type still unknown",
+        "value": "any_step_type_still_unknown"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — How they'll buy",
+    "label": "Where does it start, and where does it go? — how well answered",
+    "name": "da_scope_status",
+    "description": "A pilot at the easiest site lands and then stalls. Choose a site that proves something to whoever signs the rollout.",
+    "question": 31,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — How they'll buy",
+    "label": "Where does it start, and where does it go? — notes",
+    "name": "da_scope_notes",
+    "description": "What they said.",
+    "question": 31,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — How they'll buy",
+    "label": "Where does it start, and where does it go? — source",
+    "name": "da_scope_source",
+    "description": "Name, role, date.",
+    "question": 31,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — How they'll buy",
+    "label": "Where does it start, and where does it go? — details captured",
+    "name": "da_scope_details",
+    "description": "Tick what you have.",
+    "question": 31,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Pilot site and why it was chosen",
+        "value": "pilot_site_and_why_it_was_chosen"
+      },
+      {
+        "label": "Areas, cameras and risks in and out of scope",
+        "value": "areas_cameras_and_risks_in_and_out_of_scope"
+      },
+      {
+        "label": "What would justify a rollout, in their words",
+        "value": "what_would_justify_a_rollout_in_their_words"
+      },
+      {
+        "label": "Rollout sites, sequence and timing",
+        "value": "rollout_sites_sequence_and_timing"
+      },
+      {
+        "label": "Whether the signer can approve the rollout at that scale",
+        "value": "whether_the_signer_can_approve_the_rollout_at_that_scale"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — How they'll buy",
+    "label": "How will the workforce, unions and privacy be handled? — how well answered",
+    "name": "da_workforce_status",
+    "description": "The union or works council question decides whether the floor accepts it. Raise it early; it is usually solvable.",
+    "question": 32,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — How they'll buy",
+    "label": "How will the workforce, unions and privacy be handled? — notes",
+    "name": "da_workforce_notes",
+    "description": "What they said, in their words.",
+    "question": 32,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — How they'll buy",
+    "label": "How will the workforce, unions and privacy be handled? — source",
+    "name": "da_workforce_source",
+    "description": "Name, role, date.",
+    "question": 32,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — How they'll buy",
+    "label": "How will the workforce, unions and privacy be handled? — details captured",
+    "name": "da_workforce_details",
+    "description": "Tick what you have.",
+    "question": 32,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Sites with a union or works council, what consultation requires, and how long",
+        "value": "sites_with_a_union_or_works_council_what_consultation_requires_and_how_long"
+      },
+      {
+        "label": "Whether findings will be used for coaching or discipline, and whether that's in writing",
+        "value": "whether_findings_will_be_used_for_coaching_or_discipline_and_whether_that_s_in_w"
+      },
+      {
+        "label": "Whether anyone expects to identify individuals",
+        "value": "whether_anyone_expects_to_identify_individuals"
+      },
+      {
+        "label": "Retention and viewing rules",
+        "value": "retention_and_viewing_rules"
+      },
+      {
+        "label": "Monitoring technology introduced before, and how it landed",
+        "value": "monitoring_technology_introduced_before_and_how_it_landed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Competition & proof",
+    "label": "What else are they considering? — how well answered",
+    "name": "da_alternatives_status",
+    "description": "The real competitor is often doing nothing, hiring, or the EHS platform's own AI.",
+    "question": 33,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Competition & proof",
+    "label": "What else are they considering? — notes",
+    "name": "da_alternatives_notes",
+    "description": "What they said.",
+    "question": 33,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — Competition & proof",
+    "label": "What else are they considering? — source",
+    "name": "da_alternatives_source",
+    "description": "Name, role, date.",
+    "question": 33,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — Competition & proof",
+    "label": "What else are they considering? — details captured",
+    "name": "da_alternatives_details",
+    "description": "Tick what you have.",
+    "question": 33,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "Other vendors being looked at or piloted anywhere in the group",
+        "value": "other_vendors_being_looked_at_or_piloted_anywhere_in_the_group"
+      },
+      {
+        "label": "Doing nothing, building in-house, or adding headcount",
+        "value": "doing_nothing_building_in_house_or_adding_headcount"
+      },
+      {
+        "label": "The EHS platform's own AI add-on",
+        "value": "the_ehs_platform_s_own_ai_add_on"
+      },
+      {
+        "label": "Anything a competitor has told them about us",
+        "value": "anything_a_competitor_has_told_them_about_us"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Competition & proof",
+    "label": "What would make them sure? — how well answered",
+    "name": "da_sure_status",
+    "description": "Proof bars set after a failed pilot are specific. Know them before you design the pilot.",
+    "question": 34,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Competition & proof",
+    "label": "What would make them sure? — notes",
+    "name": "da_sure_notes",
+    "description": "What they said.",
+    "question": 34,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — Competition & proof",
+    "label": "What would make them sure? — source",
+    "name": "da_sure_source",
+    "description": "Name, role, date.",
+    "question": 34,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — Competition & proof",
+    "label": "What would make them sure? — details captured",
+    "name": "da_sure_details",
+    "description": "Tick what you have.",
+    "question": 34,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "The risks they've stated, and the proof each needs",
+        "value": "the_risks_they_ve_stated_and_the_proof_each_needs"
+      },
+      {
+        "label": "Accuracy and relevance bar, and figures other vendors quoted",
+        "value": "accuracy_and_relevance_bar_and_figures_other_vendors_quoted"
+      },
+      {
+        "label": "Reference they'd trust: same industry, scale, union environment",
+        "value": "reference_they_d_trust_same_industry_scale_union_environment"
+      },
+      {
+        "label": "What happens to them if it fails",
+        "value": "what_happens_to_them_if_it_fails"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Momentum",
+    "label": "What will they do next, and by when? — how well answered",
+    "name": "da_next_status",
+    "description": "A next step on our calendar isn't progress. A next step on theirs, that costs them something, is.",
+    "question": 35,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Momentum",
+    "label": "What will they do next, and by when? — notes",
+    "name": "da_next_notes",
+    "description": "What they said.",
+    "question": 35,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — Momentum",
+    "label": "What will they do next, and by when? — source",
+    "name": "da_next_source",
+    "description": "Name, role, date.",
+    "question": 35,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — Momentum",
+    "label": "What will they do next, and by when? — details captured",
+    "name": "da_next_details",
+    "description": "Tick what you have.",
+    "question": 35,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "The next thing they'll do, with a date",
+        "value": "the_next_thing_they_ll_do_with_a_date"
+      },
+      {
+        "label": "Commitments they've already made: an introduction upward, data they had to fetch, a site walk, a business case co-written, senior time booked",
+        "value": "commitments_they_ve_already_made_an_introduction_upward_data_they_had_to_fetch_a"
+      },
+      {
+        "label": "Whether the last thing they promised happened",
+        "value": "whether_the_last_thing_they_promised_happened"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Momentum",
+    "label": "What will they do next, and by when? — Next step date",
+    "name": "da_next_next_step_date",
+    "description": "",
+    "question": 35,
+    "type": "date",
+    "fieldType": "date"
+  },
+  {
+    "groupLabel": "Discovery — Momentum",
+    "label": "Is there anything that should stop us? — how well answered",
+    "name": "da_stop_status",
+    "description": "Losses are mostly stalls. These are the patterns that predicted them; each has a known fix or none.",
+    "question": 36,
+    "type": "enumeration",
+    "fieldType": "select",
+    "options": [
+      {
+        "label": "Not discussed",
+        "value": "not_discussed"
+      },
+      {
+        "label": "Touched on",
+        "value": "touched_on"
+      },
+      {
+        "label": "Answered",
+        "value": "answered"
+      },
+      {
+        "label": "Confirmed",
+        "value": "confirmed"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Momentum",
+    "label": "Is there anything that should stop us? — notes",
+    "name": "da_stop_notes",
+    "description": "What they said.",
+    "question": 36,
+    "type": "string",
+    "fieldType": "textarea"
+  },
+  {
+    "groupLabel": "Discovery — Momentum",
+    "label": "Is there anything that should stop us? — source",
+    "name": "da_stop_source",
+    "description": "Name, role, date.",
+    "question": 36,
+    "type": "string",
+    "fieldType": "text"
+  },
+  {
+    "groupLabel": "Discovery — Momentum",
+    "label": "Is there anything that should stop us? — details captured",
+    "name": "da_stop_details",
+    "description": "Tick what you have.",
+    "question": 36,
+    "type": "enumeration",
+    "fieldType": "checkbox",
+    "options": [
+      {
+        "label": "No route to a VP-level budget owner",
+        "value": "no_route_to_a_vp_level_budget_owner"
+      },
+      {
+        "label": "No cameras where the risk is",
+        "value": "no_cameras_where_the_risk_is"
+      },
+      {
+        "label": "A union bar with no other site to start",
+        "value": "a_union_bar_with_no_other_site_to_start"
+      },
+      {
+        "label": "Nobody with time to own it",
+        "value": "nobody_with_time_to_own_it"
+      },
+      {
+        "label": "A clean record and no Operations angle",
+        "value": "a_clean_record_and_no_operations_angle"
+      },
+      {
+        "label": "Licence cost out of scale with the site",
+        "value": "licence_cost_out_of_scale_with_the_site"
+      },
+      {
+        "label": "They don't act on what they already know",
+        "value": "they_don_t_act_on_what_they_already_know"
+      },
+      {
+        "label": "Budget locked or frozen",
+        "value": "budget_locked_or_frozen"
+      },
+      {
+        "label": "AI freeze, new AI committee, or a decision to build",
+        "value": "ai_freeze_new_ai_committee_or_a_decision_to_build"
+      },
+      {
+        "label": "They want individuals identified",
+        "value": "they_want_individuals_identified"
+      },
+      {
+        "label": "Outside our core industries and site sizes",
+        "value": "outside_our_core_industries_and_site_sizes"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Discovery — Momentum",
+    "label": "Is there anything that should stop us? — ticked with no known fix",
+    "name": "da_stop_unresolved",
+    "type": "bool",
+    "fieldType": "booleancheckbox",
+    "options": [
+      {
+        "label": "Yes",
+        "value": "true"
+      },
+      {
+        "label": "No",
+        "value": "false"
+      }
+    ],
+    "description": "Tick if any blocker above has no known fix. Sets the close band to At risk.",
+    "question": 36
+  }
+]

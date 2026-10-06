@@ -1,0 +1,11 @@
+{
+  "uid": "protex_discovery_assessment",
+  "type": "card",
+  "config": {
+    "name": "Discovery assessment",
+    "description": "The 36-question discovery assessment, with discovery health and likelihood to close.",
+    "location": "crm.record.tab",
+    "entrypoint": "/app/cards/Discovery.tsx",
+    "objectTypes": ["DEAL"]
+  }
+}

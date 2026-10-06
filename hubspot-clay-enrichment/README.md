@@ -4,7 +4,12 @@ A HubSpot private app, built with projects, that turns Clay enrichment on a
 company record into a brief a rep can read before a call. It adds two cards to
 company records.
 
-**Step-by-step setup: see [SETUP.md](SETUP.md).**
+**Step-by-step setup: see [SETUP.md](SETUP.md).** The deal card has its own guide: [DISCOVERY.md](DISCOVERY.md).
+
+The project has three cards:
+
+- **Account Intel** and **Pre-call brief** on companies (Clay enrichment), described below.
+- **Discovery assessment** on deals: the 36-question discovery assessment with live discovery health and likelihood to close. See [DISCOVERY.md](DISCOVERY.md).
 
 **Account Intel** (record tab, middle column)
 - Header: logo, company name, one-line summary, a "No disqualifiers" or
@@ -80,7 +85,15 @@ src/app/cards/
   lib/config.ts                   property mapping
   lib/parse.ts                    Clay text parsing (unit tested)
   lib/components.tsx              shared hook and display components
-scripts/create-properties.mjs     creates the HubSpot properties
+  lib/hooks.ts                    loads and live-syncs record properties
+  discovery-hsmeta.json           deal record tab card definition
+  Discovery.tsx                   discovery assessment card
+  discovery/data.ts               questions and guidance (generated from the sheet)
+  discovery/score.ts              discovery health and close points (unit tested)
+scripts/create-properties.mjs     creates the company properties
+scripts/build-discovery.py        regenerates discovery data from the sheet
+scripts/deal-properties.json      deal property definitions (generated)
+scripts/create-deal-properties.mjs creates the deal properties
 ```
 
 ## Notes

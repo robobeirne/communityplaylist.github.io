@@ -10,6 +10,6 @@
     "allowImportingTsExtensions": true,
     "esModuleInterop": true
   },
-  "include": ["*.tsx", "lib/**/*.ts", "lib/**/*.tsx"],
-  "exclude": ["lib/**/*.test.ts"]
+  "include": ["*.tsx", "lib/**/*.ts", "lib/**/*.tsx", "discovery/**/*.ts"],
+  "exclude": ["lib/**/*.test.ts", "discovery/**/*.test.ts"]
 }
