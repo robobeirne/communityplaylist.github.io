@@ -51,7 +51,7 @@ All commands run from the project folder (`protex-account-intel`).
    cd ../../..
    hs project upload
    ```
-   The app now also asks to read deals (`crm.objects.deals.read`). If HubSpot asks you to approve the new permission, open **Development > Projects > protex-account-intel > Protex Account Intel** and accept it.
+   The app now also reads deals (`crm.objects.deals.read`). **Reinstall the app so the new permission takes effect:** open **Development > Projects > protex-account-intel > Protex Account Intel**, go to the **Distribution** tab and reinstall it in your account. Until you do, the scope shows on the Auth tab but the installed app doesn't have it, and HubSpot hides the Discovery card from the deal card library. Do the same any time the app's scopes change.
 3. **Put the card on deals:** go to **Settings > Objects > Deals > Record customization** and open the default view. Add a tab called **Discovery**, click **Add cards**, filter by **App** and choose **Discovery assessment**. Click **Save and exit**.
 4. **Check a deal:** open a new-business deal, set **Industry** at the top of the card, then open a question and set its status. The health ring and close points update as you save.
 
