@@ -101,12 +101,8 @@
         "value": "contractors_or_third_parties_on_site"
       },
       {
-        "label": "[M] Continuous or discrete production",
-        "value": "m_continuous_or_discrete_production"
-      },
-      {
-        "label": "lines or cells in scope",
-        "value": "lines_or_cells_in_scope"
+        "label": "[M] Continuous or discrete production; lines or cells in scope",
+        "value": "m_continuous_or_discrete_production_lines_or_cells_in_scope"
       },
       {
         "label": "[L] Client contracts per site and renewal dates",
@@ -700,12 +696,8 @@
         "value": "cameras_per_site_and_how_many_face_the_floor_rather_than_gates_and_fences"
       },
       {
-        "label": "Make, model and resolution",
-        "value": "make_model_and_resolution"
-      },
-      {
-        "label": "analogue vs IP",
-        "value": "analogue_vs_ip"
+        "label": "Make, model and resolution; analogue vs IP",
+        "value": "make_model_and_resolution_analogue_vs_ip"
       },
       {
         "label": "Which of the named risk areas are covered, and which aren't",
@@ -2136,14 +2128,6 @@
     "type": "enumeration",
     "fieldType": "checkbox",
     "options": [
-      {
-        "label": "Number of people engaged (3+ is where odds turn",
-        "value": "number_of_people_engaged_3_is_where_odds_turn"
-      },
-      {
-        "label": "5+ is likely to close)",
-        "value": "5_is_likely_to_close"
-      },
       {
         "label": "An Operations or plant leader engaged",
         "value": "an_operations_or_plant_leader_engaged"

@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DiscoveryAssessment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["call_summary", "questions", "stop_signals", "people"],
+  "properties": {
+    "call_summary": { "type": "string", "maxLength": 500 },
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "level", "why_level", "evidence", "summary", "details", "numbers", "missing", "next_ask", "confidence"],
+        "properties": {
+          "id": { "type": "string" },
+          "level": { "enum": ["not_discussed", "touched_on", "answered", "confirmed"] },
+          "why_level": { "type": "string", "maxLength": 300 },
+          "evidence": {
+            "type": "array",
+            "maxItems": 3,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["quote", "segment", "speaker_email", "provenance"],
+              "properties": {
+                "quote": { "type": "string", "maxLength": 400 },
+                "segment": { "type": "integer", "minimum": 0 },
+                "speaker_email": { "type": "string" },
+                "provenance": { "enum": ["volunteered", "answered_when_asked", "agreed_with_us"] }
+              }
+            }
+          },
+          "summary": { "type": "string", "maxLength": 350 },
+          "details": { "type": "array", "items": { "type": "string" } },
+          "numbers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["what", "value"],
+              "properties": { "what": { "type": "string" }, "value": { "type": "string" }, "unit": { "type": "string" } }
+            }
+          },
+          "missing": { "type": "array", "items": { "type": "string", "maxLength": 120 }, "maxItems": 6 },
+          "next_ask": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["who", "question"],
+            "properties": { "who": { "type": "string" }, "question": { "type": "string", "maxLength": 240 } }
+          },
+          "confidence": { "enum": ["high", "medium", "low"] },
+          "contradicts": { "type": ["string", "null"], "maxLength": 300 }
+        }
+      }
+    },
+    "stop_signals": { "type": "array", "items": { "type": "string" } },
+    "people": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["email", "role", "because"],
+        "properties": { "email": { "type": "string" }, "role": { "type": "string" }, "because": { "type": "string", "maxLength": 200 } }
+      }
+    }
+  }
+}

@@ -1745,10 +1745,6 @@ export const QUESTIONS: Question[] = [
     ],
     "details": [
       {
-        "label": "Number of people engaged (3+ is where odds turn; 5+ is likely to close)",
-        "value": "number_of_people_engaged_3_is_where_odds_turn_5_is_likely_to_close"
-      },
-      {
         "label": "An Operations or plant leader engaged",
         "value": "an_operations_or_plant_leader_engaged"
       },

@@ -10,7 +10,7 @@ The project has five cards:
 
 - **Account Intel** and **Pre-call brief** on companies (Clay enrichment), described below.
 - **Profile summary** and **Before you reach out** on contacts (Clay person research). See [CONTACTS.md](CONTACTS.md).
-- **Discovery assessment** on deals: the 36-question discovery assessment with live discovery health and likelihood to close. See [DISCOVERY.md](DISCOVERY.md).
+- **Discovery assessment** on deals: the 36-question discovery assessment, filled by AI from Avoma calls, with live discovery health and likelihood to close. See [DISCOVERY.md](DISCOVERY.md).
 
 **Account Intel** (record tab, middle column)
 - Header: logo, company name, one-line summary, a "No disqualifiers" or
@@ -76,7 +76,7 @@ npm test            # unit tests for the Clay text parsing
 Files:
 
 ```
-hsproject.json                    project config (platformVersion 2025.2)
+hsproject.json                    project config (platformVersion 2026.03)
 src/app/app-hsmeta.json           private app: name, scopes, permitted image URLs
 src/app/cards/
   account-intel-hsmeta.json       record tab card definition
@@ -91,6 +91,11 @@ src/app/cards/
   Discovery.tsx                   discovery assessment card
   discovery/data.ts               questions and guidance (generated from the sheet)
   discovery/score.ts              discovery health and close points (unit tested)
+  discovery/guide.ts              level descriptions and what counts, per question
+src/app/functions/
+  save-discovery.js               saves industry and level corrections from the Discovery card
+assessor/                         Avoma → Claude → HubSpot runner that fills the Discovery card
+tests/save-discovery.test.mjs     tests for the save function
   ContactProfile.tsx, ContactPrep.tsx  contact cards
   contact/config.ts               contact property mapping
 scripts/create-properties.mjs     creates the company properties

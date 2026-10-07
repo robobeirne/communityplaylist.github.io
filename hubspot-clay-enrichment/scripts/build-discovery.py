@@ -29,6 +29,10 @@ STYLE_COLUMNS = [
     ('accusationAudit', 'Accusation audit', 'Accusation audit'),
     ('summary', "That's right", 'Summary for "that\'s right"'),
 ]
+# Checklist items that are counted elsewhere, so they aren't ticked by hand.
+# "Number of people engaged" comes from the deal's associated contacts.
+DROP_DETAILS = {'da_who_details': ('Number of people engaged',)}
+
 INDUSTRY_CODES = {'All': 'All', 'Logistics': 'L', 'Manufacturing': 'M', 'Retail': 'R', 'L': 'L', 'M': 'M', 'R': 'R'}
 
 # One extra property the sheet's Deal scorer needs as an input ("Something
@@ -223,7 +227,8 @@ def main(xlsx):
         status = next((p for p in qprops if p.endswith('_status')), None)
         prefix = status[: -len('_status')] if status else None
         details_prop = f'{prefix}_details' if prefix else None
-        detail_labels = bullets(a.get('Details to capture'))
+        detail_labels = [d for d in bullets(a.get('Details to capture'))
+                         if not d.startswith(DROP_DETAILS.get(details_prop or '', ()) or ('\0',))]
         questions.append({
             'n': n,
             'topic': text(a.get('Topic')),
@@ -279,6 +284,11 @@ def main(xlsx):
             taken = set()
             if p['name'].endswith('_status'):
                 p['options'] = [{'label': l, 'value': slug(l, taken)} for l in STATUS_OPTIONS]
+            elif p['name'] in checklists:
+                # Checklist options come from the Assessment bullets, not the
+                # properties tab: its option list is split on ';', which breaks
+                # items that contain a semicolon.
+                p['options'] = [{'label': l, 'value': slug(l, taken)} for l in checklists[p['name']]]
             else:
                 p['options'] = [{'label': l, 'value': slug(l, taken)} for l in labels]
     deal_properties += EXTRA_PROPERTIES

@@ -6,6 +6,8 @@ export type CrmActions = {
     properties: string[] | '*',
     callback: (properties: Record<string, string>, error?: { message: string }) => void
   ) => void;
+  refreshObjectProperties: () => void;
+  addAlert: (args: { type?: 'info' | 'warning' | 'success' | 'danger' | 'tip'; message: string; title?: string }) => void;
 };
 
 /**

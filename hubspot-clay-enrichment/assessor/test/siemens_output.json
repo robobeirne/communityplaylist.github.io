@@ -1,0 +1,197 @@
+{
+  "call_summary": "Intro call with a US EHS professional who was already briefed by Johannes. It established how little review time site EHS managers have, that integration with a new incident management platform matters, and that union concerns vary by region. It did not establish a problem, a number, sites, a signer or a dated next step.",
+  "questions": [
+    {
+      "id": "load",
+      "level": "touched_on",
+      "why_level": "A real capacity figure (5 minutes a day or 30 minutes a week per site EHS manager), but no event volume or relevance bar, so not Answered.",
+      "evidence": [
+        { "quote": "as simple as it can be for an EHS manager at a site that's already handling 10, 15 different other applications where they might only look at this realistically 5 minutes a day or you know, maybe one day a week for 30 minutes", "segment": 18, "speaker_email": "dylan.devine@siemens.com", "provenance": "volunteered" }
+      ],
+      "summary": "Site EHS managers juggle \"10, 15 different other applications\" and might look at this \"5 minutes a day\" or \"one day a week for 30 minutes\". Whatever goes in has to earn its place in that window.",
+      "details": ["who_acts_and_when_in_the_week"],
+      "numbers": [ { "what": "Review time per site EHS manager", "value": "5 minutes a day, or 30 minutes one day a week", "unit": "time" }, { "what": "Other applications an EHS manager already handles", "value": "10–15", "unit": "applications" } ],
+      "missing": ["Events per week the team can review and act on", "Share that must be relevant to keep using it"],
+      "next_ask": { "who": "Dylan (site EHS view) or a site EHS manager", "question": "If a site EHS manager has 30 minutes a week for this, how many events could they actually look at and act on in that time?" },
+      "confidence": "high",
+      "contradicts": null
+    },
+    {
+      "id": "after",
+      "level": "touched_on",
+      "why_level": "Says findings must flow into the incident management platform and who would review them, but nothing on open actions or how closure is checked.",
+      "evidence": [
+        { "quote": "we wanna know that we'll be able to kind of integrate it with our incident management platform", "segment": 21, "speaker_email": "dylan.devine@siemens.com", "provenance": "volunteered" },
+        { "quote": "how much would the Protex team be able to help format the output of the data to something that could be accepted right into our application?", "segment": 23, "speaker_email": "dylan.devine@siemens.com", "provenance": "volunteered" }
+      ],
+      "summary": "Findings need to land in the incident management platform they are selecting, ideally pre-formatted by Protex. Reviewers are site EHS managers with very little time.",
+      "details": ["who_would_review_what_the_system_finds_and_how_many_hours_a_week_they_really_hav", "how_findings_reach_the_people_who_can_change_the_process"],
+      "numbers": [],
+      "missing": ["Where corrective actions are logged today and how many are open", "Whether anyone checks a fix worked"],
+      "next_ask": { "who": "Dylan", "question": "When something is found today, where does the corrective action go, and how do you know it was actually closed out?" },
+      "confidence": "medium",
+      "contradicts": null
+    },
+    {
+      "id": "measure",
+      "level": "touched_on",
+      "why_level": "Only that a new incident management platform is being selected; no rates, near-miss volume or leading indicators.",
+      "evidence": [
+        { "quote": "the one we're looking at should have some ability to input external data", "segment": 21, "speaker_email": "dylan.devine@siemens.com", "provenance": "volunteered" }
+      ],
+      "summary": "Siemens US is choosing a new incident management platform (not named on the call) that should accept external data.",
+      "details": ["ehs_system_that_holds_incidents_and_actions_enablon_intelex_cority_sphera_ecoonl"],
+      "numbers": [],
+      "missing": ["Recordable or lost-time rates by site", "Near misses reported per month", "Which platform they're selecting"],
+      "next_ask": { "who": "Dylan", "question": "Which incident platform are you leaning towards, and what will you be reporting out of it each month?" },
+      "confidence": "medium",
+      "contradicts": null
+    },
+    {
+      "id": "why",
+      "level": "touched_on",
+      "why_level": "Names a capacity limit in his own words, but from the site EHS view rather than the Group EHS lead, and nothing ruled out.",
+      "evidence": [
+        { "quote": "We don't quite have the same manpower as you might see in some of our facilities, you know, over the pond.", "segment": 18, "speaker_email": "dylan.devine@siemens.com", "provenance": "volunteered" }
+      ],
+      "summary": "US sites run with less EHS manpower than Siemens' European facilities. Points to capacity rather than coverage or accountability, but untested.",
+      "details": ["the_reason_in_their_words_coverage_capacity_to_act_accountability_data_scattered"],
+      "numbers": [],
+      "missing": ["Confirmation from the Group EHS lead", "One other explanation ruled out"],
+      "next_ask": { "who": "Johannes or the US EHS lead", "question": "If the US sites had the same safety headcount as Europe, would this problem go away?" },
+      "confidence": "medium",
+      "contradicts": null
+    },
+    {
+      "id": "workforce",
+      "level": "touched_on",
+      "why_level": "Union concerns raised unprompted, but no sites, consultation requirement or duration.",
+      "evidence": [
+        { "quote": "just with the union's concerns, you know, in different regions", "segment": 18, "speaker_email": "dylan.devine@siemens.com", "provenance": "volunteered" },
+        { "quote": "So that's definitely important to help some of slides.", "segment": 54, "speaker_email": "dylan.devine@siemens.com", "provenance": "agreed_with_us" }
+      ],
+      "summary": "Union concerns differ by US region. He agreed de-identification matters after Jeff described it.",
+      "details": [],
+      "numbers": [],
+      "missing": ["Which sites have a union, and what consultation requires", "How long consultation takes"],
+      "next_ask": { "who": "Dylan, then HR or labour relations", "question": "Which of the sites you'd start with have a union, and what would they need to see before cameras are used this way?" },
+      "confidence": "high",
+      "contradicts": null
+    },
+    {
+      "id": "decide",
+      "level": "touched_on",
+      "why_level": "Names what matters to him (simplicity, integration, on-site setup help, pricing basis) but no weighting or owner.",
+      "evidence": [
+        { "quote": "how we can make these applications that we would wanna bring on as simple as it can be for an EHS manager at a site", "segment": 18, "speaker_email": "dylan.devine@siemens.com", "provenance": "volunteered" },
+        { "quote": "Now do you guys offer a service where you would come into a site and you know, also kind of help set up some of these programs?", "segment": 48, "speaker_email": "dylan.devine@siemens.com", "provenance": "volunteered" }
+      ],
+      "summary": "What he'll judge on: simple enough for a busy site EHS manager, integrates with the incident platform, Protex helps set up on site, and a price that scales with sites.",
+      "details": [],
+      "numbers": [],
+      "missing": ["Which criteria weigh most, and who owns each", "Whether the criteria came from them or another vendor"],
+      "next_ask": { "who": "Dylan, then Johannes", "question": "When the business units look at this, what will they weigh most heavily, and who has the final say on each of those?" },
+      "confidence": "medium",
+      "contradicts": null
+    },
+    {
+      "id": "who",
+      "level": "touched_on",
+      "why_level": "Mentions Johannes and other business units and stakeholders, but no names, roles or seniority beyond that.",
+      "evidence": [
+        { "quote": "kinda get it over to some of the different business units, stakeholders, and then also kind of showcase it and get their input", "segment": 35, "speaker_email": "dylan.devine@siemens.com", "provenance": "volunteered" },
+        { "quote": "I'll have to talk to Johannes to get some of his, inputs and thoughts on all this here", "segment": 63, "speaker_email": "dylan.devine@siemens.com", "provenance": "volunteered" }
+      ],
+      "summary": "Dylan will take it to Johannes and then to \"different business units, stakeholders\" for input. None named.",
+      "details": [],
+      "numbers": [],
+      "missing": ["Names and roles of the business-unit stakeholders", "An Operations or plant leader", "IT or OT"],
+      "next_ask": { "who": "Dylan", "question": "Which business units would you show this to first, and who in each would need to be in the room?" },
+      "confidence": "high",
+      "contradicts": null
+    },
+    {
+      "id": "signer",
+      "level": "touched_on",
+      "why_level": "Raises sharing the cost with Operations, but no budget owner, amount or cycle.",
+      "evidence": [
+        { "quote": "Especially if we wanna, you know, be able to split that cost with the software.", "segment": 46, "speaker_email": "dylan.devine@siemens.com", "provenance": "answered_when_asked" }
+      ],
+      "summary": "He expects the cost may be split between Safety and Operations. No signer or budget named.",
+      "details": [],
+      "numbers": [],
+      "missing": ["Name and title of whoever signs above pilot scale", "Whose budget, and whether it exists this year"],
+      "next_ask": { "who": "Johannes", "question": "If Safety and Operations split this, whose budget would it actually come out of, and who signs off at that level?" },
+      "confidence": "medium",
+      "contradicts": null
+    },
+    {
+      "id": "scope",
+      "level": "touched_on",
+      "why_level": "Multiple sites and business units implied, but no pilot site or rollout plan.",
+      "evidence": [
+        { "quote": "there's a lot of sites that might not even quite understand what benefits some of it might bring them", "segment": 50, "speaker_email": "dylan.devine@siemens.com", "provenance": "volunteered" }
+      ],
+      "summary": "Many US sites, several of which may not yet see the value. Pricing he expects to depend on \"how many sites would be utilizing the platform\".",
+      "details": [],
+      "numbers": [],
+      "missing": ["Pilot site and why", "Rollout sites and timing"],
+      "next_ask": { "who": "Dylan", "question": "Which site would you want to prove this at first, and why that one?" },
+      "confidence": "medium",
+      "contradicts": null
+    },
+    {
+      "id": "sure",
+      "level": "touched_on",
+      "why_level": "Wants to see it hands-on and get stakeholder input; no stated risks or proof bar.",
+      "evidence": [
+        { "quote": "I definitely wanna, you know, understand the products, see it a little bit more hands on", "segment": 35, "speaker_email": "dylan.devine@siemens.com", "provenance": "volunteered" }
+      ],
+      "summary": "Next for him is seeing it hands-on (at the Nashville event) and getting business-unit input.",
+      "details": [],
+      "numbers": [],
+      "missing": ["The risks they've stated and the proof each needs", "A reference they'd trust"],
+      "next_ask": { "who": "Dylan", "question": "After seeing it in Nashville, what would you need to see or hear to be confident putting it in front of the business units?" },
+      "confidence": "high",
+      "contradicts": null
+    },
+    {
+      "id": "next",
+      "level": "touched_on",
+      "why_level": "His own next step is a meeting with Johannes in about a week, but nothing that costs him something, and no date for us.",
+      "evidence": [
+        { "quote": "I believe him and myself have a meeting scheduled here in a week", "segment": 14, "speaker_email": "dylan.devine@siemens.com", "provenance": "volunteered" },
+        { "quote": "Definitely, looking forward to seeing it more hands on in person.", "segment": 65, "speaker_email": "dylan.devine@siemens.com", "provenance": "volunteered" }
+      ],
+      "summary": "Meeting Johannes in about a week; seeing Protex in person at the Nashville event.",
+      "details": [],
+      "numbers": [],
+      "missing": ["Something he'll do for the deal, with a date"],
+      "next_ask": { "who": "Dylan", "question": "After you and Johannes meet, what would you be comfortable doing before Nashville, for example bringing one site lead along?" },
+      "confidence": "high",
+      "contradicts": null
+    },
+    {
+      "id": "money-m",
+      "level": "answered",
+      "why_level": "Test of the guard: the model over-reaches here on a rep line.",
+      "evidence": [
+        { "quote": "Our cost model is based on the number of sites that you'd roll out to", "segment": 34, "speaker_email": "jeff.sullivan@protex.ai", "provenance": "volunteered" }
+      ],
+      "summary": "Deliberately wrong entry to show a Protex quote is thrown out.",
+      "details": [], "numbers": [], "missing": [], "next_ask": { "who": "", "question": "" }, "confidence": "high", "contradicts": null
+    },
+    {
+      "id": "problem",
+      "level": "answered",
+      "why_level": "Test of the guard: an invented quote.",
+      "evidence": [
+        { "quote": "We have forklift near misses every week at our Pittsburgh plant", "segment": 18, "speaker_email": "dylan.devine@siemens.com", "provenance": "volunteered" }
+      ],
+      "summary": "Deliberately invented quote to show it is thrown out.",
+      "details": [], "numbers": [], "missing": [], "next_ask": { "who": "", "question": "" }, "confidence": "high", "contradicts": null
+    }
+  ],
+  "stop_signals": [],
+  "people": []
+}

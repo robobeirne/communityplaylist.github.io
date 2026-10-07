@@ -6,6 +6,11 @@
 //   HUBSPOT_TOKEN=pat-xxx node scripts/create-deal-properties.mjs
 //
 // The token needs the crm.schemas.deals.write scope.
+//
+// To replace the options of properties that already exist (for example after
+// fixing a checklist in the sheet), name them with --fix:
+//
+//   node scripts/create-deal-properties.mjs --fix da_who_details,da_sites_details,da_cameras_details
 
 import { readFileSync } from 'node:fs';
 
@@ -41,6 +46,38 @@ async function post(url, body) {
     if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
     return 'created';
   }
+}
+
+const fixArg = process.argv.find((a) => a.startsWith('--fix'));
+if (fixArg) {
+  const names = (fixArg.includes('=') ? fixArg.split('=')[1] : process.argv[process.argv.indexOf(fixArg) + 1] ?? '')
+    .split(',')
+    .map((n) => n.trim())
+    .filter(Boolean);
+  if (!names.length) {
+    console.error('Name the properties to fix, e.g. --fix da_who_details,da_sites_details');
+    process.exit(1);
+  }
+  let failedFix = 0;
+  for (const name of names) {
+    const p = PROPERTIES.find((x) => x.name === name);
+    if (!p?.options) {
+      console.error(`${name}: not a dropdown or checkbox property in deal-properties.json`);
+      failedFix++;
+      continue;
+    }
+    const res = await fetch(`${API}/${name}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ options: p.options.map((o, j) => ({ ...o, displayOrder: j })) }),
+    });
+    if (res.ok) console.log(`${name}: options replaced (${p.options.length})`);
+    else {
+      failedFix++;
+      console.error(`${name}: FAILED ${res.status} ${await res.text()}`);
+    }
+  }
+  process.exit(failedFix ? 1 : 0);
 }
 
 const groups = [...new Set(PROPERTIES.map((p) => p.groupLabel))];

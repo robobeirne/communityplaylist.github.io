@@ -11,13 +11,16 @@
         "oauth",
         "crm.objects.companies.read",
         "crm.objects.deals.read",
-        "crm.objects.contacts.read"
+        "crm.objects.contacts.read",
+        "crm.objects.deals.write"
       ],
       "optionalScopes": [],
       "conditionallyRequiredScopes": []
     },
     "permittedUrls": {
-      "fetch": [],
+      "fetch": [
+        "https://api.hubapi.com"
+      ],
       "iframe": [],
       "img": [
         "https://www.google.com"

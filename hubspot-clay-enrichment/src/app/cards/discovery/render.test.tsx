@@ -1,94 +1,90 @@
-// Renders the Discovery card with HubSpot's test renderer and a sample deal,
-// to catch runtime errors before uploading. Run with `npm run test:render`.
+// Renders the Discovery card with HubSpot's test renderer, using the real
+// Siemens call assessment (6 Oct) as the deal's data. Run with `npm run test:render`.
 import React from 'react';
 import assert from 'node:assert/strict';
 import { createRenderer } from '@hubspot/ui-extensions/testing';
-import { Accordion, Alert, Button, Heading, ScoreCircle, StatusTag, Tab, Tag, Text } from '@hubspot/ui-extensions';
-import { CrmPropertyList } from '@hubspot/ui-extensions/crm';
+import { Alert, Heading, Link, LoadingButton, StatusTag, Tag, Text, TextArea, Tile, ToggleGroup } from '@hubspot/ui-extensions';
 import { Discovery } from '../Discovery.tsx';
-import { QUESTIONS, STATUS_OPTIONS, WHO_DETAIL_VALUES } from './data.ts';
+import siemens from './fixtures/siemens_writes.json';
 
-const LEVELS = [2, 2, 1, 1, 1, 0, 0, 2, 2, 1, 2, 1, 1, 2, 2, 2, 1, 1, 1, 1, 0, 0, 0, 2, 1, 2, 1, 1, 1, 0, 0, 2, 2, 0, 2, 2];
+// hubspot.serverless() calls the platform's worker global; record what the card sends.
+const calls: { name: string; parameters: Record<string, unknown> }[] = [];
+const g = globalThis as Record<string, unknown>;
+g.self ??= globalThis; // the extension worker's global, which hubspot.serverless() reads
+g.serverless = async (name: string, opts: { parameters: Record<string, unknown> }) => {
+  calls.push({ name, parameters: opts.parameters });
+  return { statusCode: 200, body: { ok: true, properties: { da_load_status: 'answered' } } };
+};
 
 async function renderWith(props: Record<string, string>) {
-  const renderer = createRenderer('crm.record.tab');
-  renderer.mocks.actions.fetchCrmObjectProperties.willCall(async () => props);
-  renderer.mocks.actions.onCrmPropertiesUpdate.willCall(() => {});
-  renderer.render(<Discovery actions={renderer.mocks.actions as never} />);
-  await renderer.waitFor(() => assert.ok(renderer.maybeFind(ScoreCircle) || renderer.maybeFind(Text)));
-  return renderer;
+  const r = createRenderer('crm.record.tab');
+  r.mocks.actions.fetchCrmObjectProperties.willCall(async () => props);
+  r.mocks.actions.onCrmPropertiesUpdate.willCall(() => {});
+  r.mocks.actions.refreshObjectProperties.willCall(() => {});
+  r.render(<Discovery actions={r.mocks.actions as never} dealId="123" user="rep@protex.ai" />);
+  await r.waitFor(() => assert.ok(r.maybeFind(Text)));
+  return r;
 }
+const texts = (r: Awaited<ReturnType<typeof renderWith>>) => r.findAll(Text).map((t) => t.text);
 
-const example: Record<string, string> = {
-  dealname: 'Sample deal',
-  pipeline: 'default',
-  dealstage: 'qualifiedtobuy',
-  da_industry: 'manufacturing',
-  num_associated_contacts: '4',
-  da_who_details: WHO_DETAIL_VALUES.vp,
-  da_sites_details: QUESTIONS[0].details.slice(0, 2).map((d) => d.value).join(';'),
-};
-QUESTIONS.forEach((q, i) => {
-  if (q.statusProperty) example[q.statusProperty] = STATUS_OPTIONS[LEVELS[i]].value;
+// The Siemens test from the mock: Discovery stage, Manufacturing.
+const deal = { pipeline: 'default', dealstage: '54122954', da_industry: 'manufacturing', num_associated_contacts: '1', ...(siemens as Record<string, string>) };
+const r = await renderWith(deal);
+
+assert.ok(texts(r).includes('Discovery 29%'), 'discovery health matches the mock');
+assert.ok(texts(r).includes('Close 0/100'));
+assert.equal(r.findAll(StatusTag)[0].text, 'Low');
+assert.equal(r.find(Heading).text, 'Still to find out for Discovery (13)', 'gap count matches the mock');
+assert.ok(r.findAll(Link).some((l) => l.text === 'Dylan and Jeff connect on Protex'), 'last call links to Avoma');
+console.log('Siemens deal: 29%, 0/100 Low, 13 to find out — matches the mock');
+
+
+// Open "How much can their team actually act on?" from Everything we know.
+const load = r.findAll(Link).find((l) => l.text === 'How much can their team actually act on?');
+assert.ok(load, 'question link');
+load!.trigger('onClick');
+await r.waitFor(() => assert.equal(r.find(Heading).text, 'How much can their team actually act on?'));
+assert.equal(r.findAll(StatusTag)[0].text, 'Touched on');
+assert.ok(r.findAll(Tile).length >= 2, 'quote tile and ask tile');
+assert.ok(texts(r).some((t) => t.startsWith('“as simple as it can be for an EHS manager')), 'buyer quote shows');
+assert.ok(texts(r).some((t) => t.startsWith('Already have:') && t.includes('Who acts, and when in the week')));
+console.log('question view shows the quote, what is missing and what we already have');
+
+// Correct the level: needs a level change and a reason, then calls save_discovery.
+const save = r.find(LoadingButton);
+assert.equal(save.props.disabled, true, 'save is disabled until something changes');
+r.findAll(ToggleGroup).find((t) => t.props.name === 'level')!.trigger('onChange', 'answered' as never);
+r.find(TextArea).trigger('onChange', 'Confirmed in an email from the plant manager, 8 Oct' as never);
+await r.waitFor(() => assert.equal(r.find(LoadingButton).props.disabled, false));
+r.find(LoadingButton).trigger('onClick');
+await r.waitFor(() => assert.equal(calls.length, 1));
+assert.equal(calls[0].name, 'save_discovery');
+assert.deepEqual(calls[0].parameters, {
+  dealId: '123',
+  user: 'rep@protex.ai',
+  override: { key: 'load', level: 'answered', note: 'Confirmed in an email from the plant manager, 8 Oct' },
 });
+console.log('Save correction calls save_discovery with the override');
 
-const r = await renderWith(example);
-const score = r.find(ScoreCircle);
-assert.equal(score.props.score, 85);
-const tabs = r.findAll(Tab).filter((t) => ['next', 'all', 'who', 'close'].includes(String(t.props.tabId))).map((t) => t.props.title);
-assert.deepEqual(tabs, ['Up next (6)', 'All questions', 'By who to ask', 'Close signals']);
-assert.ok(r.findAll(Accordion).length >= 9, 'topic and persona accordions render');
-const openButtons = r.findAll(Button).filter((b) => b.props.size === 'xs');
-assert.ok(openButtons.length > 36, `question buttons render (${openButtons.length})`);
-assert.equal(r.findAll(CrmPropertyList).length, 0, 'no question forms until a question is opened');
+// Back to the list.
+r.findAll(Link).find((l) => l.text === '← Back')!.trigger('onClick');
+await r.waitFor(() => assert.ok(r.find(Heading).text.startsWith('Still to find out')));
 
-// Open the first "Up next" question: the list is replaced by its detail.
-openButtons[0].trigger('onClick');
-await r.waitFor(() => assert.ok(r.findAll(CrmPropertyList).length === 1));
-const form = r.find(CrmPropertyList);
-assert.ok(r.findAll(Heading).length >= 2, 'question heading shows');
-assert.ok(form.props.properties.length >= 4, 'status, notes, source and details are editable');
-assert.equal(r.findAll(Tab).filter((t) => t.props.tabId === 'next').length, 0, 'list is hidden while a question is open');
-const firstForm = form.props.properties.join(',');
-const next = r.findAll(Button).find((b) => b.props.variant === 'primary' && b.props.size === 'sm');
-assert.ok(next, 'Next button');
-next!.trigger('onClick');
-await r.waitFor(() => assert.notEqual(r.find(CrmPropertyList).props.properties.join(','), firstForm));
-console.log('opened', firstForm.split(',')[0], 'then Next →', r.find(CrmPropertyList).props.properties[0]);
-const back = r.findAll(Button).find((b) => b.props.variant === 'transparent');
-back!.trigger('onClick');
-await r.waitFor(() => assert.equal(r.findAll(CrmPropertyList).length, 0));
-console.log('back to the list');
-assert.ok(r.findAll(StatusTag).length > 36);
-console.log('example deal renders: 85% health, 6 up next,', openButtons.length, 'question buttons');
+// No industry yet: the card asks for it, and saving it calls the function.
+const fresh = await renderWith({ pipeline: 'default', dealstage: '54122954' });
+const ind = fresh.findAll(ToggleGroup).find((t) => t.props.name === 'da_industry');
+assert.ok(ind, 'industry picker shows');
+ind!.trigger('onChange', 'logistics' as never);
+await fresh.waitFor(() => assert.equal(calls.length, 2));
+assert.deepEqual(calls[1].parameters, { dealId: '123', user: 'rep@protex.ai', properties: { da_industry: 'logistics' } });
+assert.ok(texts(fresh).some((t) => t.startsWith('No calls assessed yet')));
+console.log('new deal asks for the industry and shows no calls yet');
 
-const empty = await renderWith({ pipeline: 'default', dealstage: '54122954' });
-assert.equal(empty.find(ScoreCircle).props.score, 0);
-assert.ok(empty.findAll(Alert).some((a) => a.props.title === 'Pick the industry'));
-console.log('empty deal renders with the industry prompt');
-
+// Expansion deals get one line; an unresolved blocker shows At risk.
 const other = await renderWith({ pipeline: '25788392', dealstage: '80167154' });
-assert.equal(other.maybeFind(ScoreCircle), null);
-console.log('expansion deal shows the one-line note');
-
-const risk = await renderWith({ ...example, da_stop_unresolved: 'true' });
-assert.ok(risk.findAll(Alert).some((a) => String(a.props.title).startsWith('At risk')));
-console.log('unresolved blocker shows At risk');
-
-const ai = await renderWith({
-  ...example,
-  da_ai_assessment: 'Strong on the operation; the signer is still unmet.',
-  da_ai_last_meeting: 'Deep dive with Group EHS, 6 Oct',
-  da_ai_last_run: String(Date.now() - 2 * 86_400_000),
-  da_discovery_health: '72',
-  da_close_points: '38',
-  da_close_band: 'medium',
-});
-const texts = ai.findAll(Text).map((t) => t.text);
-assert.ok(texts.includes('Last call assessed: Deep dive with Group EHS, 6 Oct'));
-assert.ok(texts.includes('At that assessment: health 72% · 38 points · Medium'));
-assert.ok(ai.findAll(Tag).some((t) => t.text === 'Assessed 2 days ago'));
-assert.ok(ai.findAll(Accordion).some((a) => a.props.title === 'Read the assessment'));
-assert.equal(r.findAll(Accordion).some((a) => a.props.title === 'Read the assessment'), false, 'hidden when no assessment');
-console.log('AI assessment shows when written');
+assert.equal(other.find(Text).text, 'The discovery assessment is for new-business deals.');
+const risk = await renderWith({ ...deal, da_stop_unresolved: 'true' });
+assert.ok(risk.findAll(Alert).some((a) => a.props.title === 'At risk'));
+assert.ok(risk.findAll(Tag).length >= 2);
+console.log('expansion deal and At risk behave');
 console.log('ok');

@@ -1,0 +1,8 @@
+{
+  "uid": "save_discovery",
+  "type": "app-function",
+  "config": {
+    "entrypoint": "/app/functions/save-discovery.js",
+    "secretKeys": []
+  }
+}

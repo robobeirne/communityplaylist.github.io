@@ -1,0 +1,3275 @@
+{
+ "version": "2026-10-07",
+ "levels": [
+  "not_discussed",
+  "touched_on",
+  "answered",
+  "confirmed"
+ ],
+ "roles": {
+  "sponsor": {
+   "label": "Group EHS lead",
+   "titles": {
+    "L": "Group HSE Director, VP Health Safety & Compliance",
+    "M": "Corporate EHS Director, VP EHS & Sustainability",
+    "R": "Director of Safety & Risk, VP HSE"
+   }
+  },
+  "operator": {
+   "label": "Site EHS manager",
+   "titles": {
+    "L": "Site HSE Manager, Regional HSE Business Partner",
+    "M": "Plant EHS Manager, Site Safety Engineer",
+    "R": "DC Safety Manager, Regional Safety Manager"
+   }
+  },
+  "ops": {
+   "label": "Ops or plant leader",
+   "titles": {
+    "L": "Site GM, Regional Ops Director, VP Network Ops",
+    "M": "Plant Manager, Director of Manufacturing",
+    "R": "DC General Manager, VP Supply Chain"
+   }
+  },
+  "exec": {
+   "label": "Exec sponsor (COO / CFO / VP)",
+   "titles": {
+    "L": "CFO, COO, VP Network Operations",
+    "M": "COO, VP Manufacturing, Group Risk Director",
+    "R": "CFO, VP Risk Management, COO"
+   }
+  },
+  "it": {
+   "label": "IT / OT",
+   "titles": {
+    "L": "Group IT, frequently an outsourced MSP",
+    "M": "IT/OT Manager, Controls Engineering, Plant IT",
+    "R": "Retail IT, Store Systems, DC Systems"
+   }
+  },
+  "security": {
+   "label": "Security or camera owner",
+   "titles": {
+    "L": "Site Security, often the landlord or the client",
+    "M": "Site Security Manager, Facilities",
+    "R": "Loss Prevention / Asset Protection Director — a principal, not a gate"
+   }
+  },
+  "finance": {
+   "label": "Finance or risk",
+   "titles": {
+    "L": "CFO, Group Risk Manager, Insurance Manager",
+    "M": "Group Risk & Insurance, Captive Manager",
+    "R": "VP Risk Management, Workers' Comp Manager — frequently the Exec too"
+   }
+  },
+  "people": {
+   "label": "HR, legal or works council",
+   "titles": {
+    "L": "HR Director, agency labour partner",
+    "M": "Works Council, union convenor, Employee Relations",
+    "R": "HR Business Partner, Labour Relations"
+   }
+  },
+  "champion": {
+   "label": "Champion"
+  }
+ },
+ "questions": [
+  {
+   "id": "sites",
+   "topic": "The operation",
+   "question": "Which sites are in scope, and what happens on them?",
+   "why": "Sets the size of the deal and the risk profile before you ask anything harder. Single small sites lose more often.",
+   "industry": "All",
+   "verbatim_required": false,
+   "key": true,
+   "ask": [
+    "operator",
+    "ops"
+   ],
+   "must_come_from": [
+    "operator"
+   ],
+   "levels": {
+    "not_discussed": "Fewer than 2 elements, or no named source",
+    "touched_on": "2–4 elements, a numeric present as an adjective, or the observation programme without its actual completion rate",
+    "answered": "All 5 universal elements and the industry element, attributed, numerics numeric",
+    "confirmed": "Answered plus a supporting artefact — site list, injury log export, layout drawing — and two elements confirmed by a second persona"
+   },
+   "levels_apply_to_area": "Operations (core)",
+   "test": "Could someone else walk the site and confirm this number?",
+   "counts": [
+    "\"Three sites in scope; Amesbury is the pilot.\"",
+    "\"Supervisors are meant to log 8 observations a month. We manage about 2.\"",
+    "\"Nine recordables at Amesbury last year, 12.5 a year across the network.\""
+   ],
+   "does_not_count": [
+    "\"Safety culture is poor.\" (An opinion. Not a fact of any kind, and not usable.)",
+    "\"They need better visibility.\" (A future state — “Desired future state”.)",
+    "\"Injuries cost them a fortune.\" (Impact — “Quantified impact”, and it needs a number.)"
+   ],
+   "confused_with": "“Technical problem”. Environment is the setting. A technical problem is a mechanism failing inside it.",
+   "traps": "\"Multi-site\" without the count. Group-level injury rate with no site breakdown. Observation cadence without actual completion.",
+   "listen_for": "A count and names, not 'multi-site'. Nights and agency labour are where risk usually concentrates.",
+   "red_flag": "Only one small site, or no site count after two calls. Deals of $40–80K are the worst-converting band.",
+   "details": [
+    {
+     "value": "number_of_sites_named_with_country",
+     "label": "Number of sites, named, with country"
+    },
+    {
+     "value": "what_each_site_does_production_dc_cross_dock_store_back_of_house",
+     "label": "What each site does (production, DC, cross-dock, store back-of-house)"
+    },
+    {
+     "value": "headcount_per_site_and_the_share_that_is_agency_or_seasonal",
+     "label": "Headcount per site, and the share that is agency or seasonal"
+    },
+    {
+     "value": "shift_pattern_and_weekend_or_night_working",
+     "label": "Shift pattern and weekend or night working"
+    },
+    {
+     "value": "vehicle_fleet_by_type_forklifts_reach_trucks_agvs_hgv_movements",
+     "label": "Vehicle fleet by type (forklifts, reach trucks, AGVs, HGV movements)"
+    },
+    {
+     "value": "contractors_or_third_parties_on_site",
+     "label": "Contractors or third parties on site"
+    },
+    {
+     "value": "m_continuous_or_discrete_production_lines_or_cells_in_scope",
+     "label": "[M] Continuous or discrete production; lines or cells in scope",
+     "industry": "M"
+    },
+    {
+     "value": "l_client_contracts_per_site_and_renewal_dates",
+     "label": "[L] Client contracts per site and renewal dates",
+     "industry": "L"
+    },
+    {
+     "value": "r_dcs_only_or_back_of_house_in_stores_too",
+     "label": "[R] DCs only, or back-of-house in stores too",
+     "industry": "R"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     1,
+     2,
+     2,
+     2,
+     2
+    ],
+    "M": [
+     1,
+     2,
+     2,
+     2,
+     2
+    ],
+    "R": [
+     1,
+     2,
+     2,
+     2,
+     2
+    ]
+   },
+   "recheck": "12 months",
+   "hubspot": {
+    "status": "da_sites_status",
+    "notes": "da_sites_notes",
+    "source": "da_sites_source",
+    "details": "da_sites_details"
+   }
+  },
+  {
+   "id": "risk",
+   "topic": "The operation",
+   "question": "Where is the risk, and how much of it can they actually see today?",
+   "why": "The gap between where the risk is and what anyone sees is the reason Protex exists. It also tells you where cameras go.",
+   "industry": "All",
+   "verbatim_required": true,
+   "key": true,
+   "ask": [
+    "operator",
+    "sponsor"
+   ],
+   "must_come_from": [
+    "operator"
+   ],
+   "levels": {
+    "not_discussed": "Fewer than 2 elements, or no named source",
+    "touched_on": "2–4 elements, a numeric present as an adjective, or the observation programme without its actual completion rate",
+    "answered": "All 5 universal elements and the industry element, attributed, numerics numeric",
+    "confirmed": "Answered plus a supporting artefact — site list, injury log export, layout drawing — and two elements confirmed by a second persona"
+   },
+   "levels_apply_to_area": "Operations (core)",
+   "test": "Could someone else walk the site and confirm this number?",
+   "counts": [
+    "\"Three sites in scope; Amesbury is the pilot.\"",
+    "\"Supervisors are meant to log 8 observations a month. We manage about 2.\"",
+    "\"Nine recordables at Amesbury last year, 12.5 a year across the network.\""
+   ],
+   "does_not_count": [
+    "\"Safety culture is poor.\" (An opinion. Not a fact of any kind, and not usable.)",
+    "\"They need better visibility.\" (A future state — “Desired future state”.)",
+    "\"Injuries cost them a fortune.\" (Impact — “Quantified impact”, and it needs a number.)"
+   ],
+   "confused_with": "“Technical problem”. Environment is the setting. A technical problem is a mechanism failing inside it.",
+   "traps": "\"Multi-site\" without the count. Group-level injury rate with no site breakdown. Observation cadence without actual completion.",
+   "listen_for": "A band they chose themselves. 89% of 18 EHS and ops leaders surveyed see half or less of their floor in time to act. Typical coverage: safety staff on site about 19% of the year.",
+   "red_flag": "'We see everything' with no evidence: they're unaware there's a problem, so expect a long cycle. They can't name a worst area: they've never measured it.",
+   "details": [
+    {
+     "value": "highest_risk_areas_named_by_the_buyer",
+     "label": "Highest-risk areas, named by the buyer"
+    },
+    {
+     "value": "their_own_estimate_of_how_much_of_the_floor_they_see_most_about_half_under_a_qua",
+     "label": "Their own estimate of how much of the floor they see (most / about half / under a quarter)"
+    },
+    {
+     "value": "share_of_a_shift_that_site_walks_and_observations_actually_cover",
+     "label": "Share of a shift that site walks and observations actually cover"
+    },
+    {
+     "value": "observation_programme_how_many_are_required_vs_actually_done",
+     "label": "Observation programme: how many are required vs actually done"
+    },
+    {
+     "value": "what_happens_on_nights_and_weekends_when_safety_isn_t_there",
+     "label": "What happens on nights and weekends when safety isn't there"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     1,
+     2,
+     2,
+     2,
+     2
+    ],
+    "M": [
+     1,
+     2,
+     2,
+     2,
+     2
+    ],
+    "R": [
+     1,
+     2,
+     2,
+     2,
+     2
+    ]
+   },
+   "recheck": "12 months",
+   "hubspot": {
+    "status": "da_risk_status",
+    "notes": "da_risk_notes",
+    "source": "da_risk_source",
+    "details": "da_risk_details"
+   }
+  },
+  {
+   "id": "measure",
+   "topic": "The operation",
+   "question": "What do they measure and report today?",
+   "why": "The baseline every business case is measured against. Without it there is no 'before'.",
+   "industry": "All",
+   "verbatim_required": false,
+   "key": true,
+   "ask": [
+    "operator",
+    "sponsor"
+   ],
+   "must_come_from": [
+    "operator"
+   ],
+   "levels": {
+    "not_discussed": "Fewer than 2 elements, or no named source",
+    "touched_on": "2–4 elements, a numeric present as an adjective, or the observation programme without its actual completion rate",
+    "answered": "All 5 universal elements and the industry element, attributed, numerics numeric",
+    "confirmed": "Answered plus a supporting artefact — site list, injury log export, layout drawing — and two elements confirmed by a second persona"
+   },
+   "levels_apply_to_area": "Operations (core)",
+   "test": "Could someone else walk the site and confirm this number?",
+   "counts": [
+    "\"Three sites in scope; Amesbury is the pilot.\"",
+    "\"Supervisors are meant to log 8 observations a month. We manage about 2.\"",
+    "\"Nine recordables at Amesbury last year, 12.5 a year across the network.\""
+   ],
+   "does_not_count": [
+    "\"Safety culture is poor.\" (An opinion. Not a fact of any kind, and not usable.)",
+    "\"They need better visibility.\" (A future state — “Desired future state”.)",
+    "\"Injuries cost them a fortune.\" (Impact — “Quantified impact”, and it needs a number.)"
+   ],
+   "confused_with": "“Technical problem”. Environment is the setting. A technical problem is a mechanism failing inside it.",
+   "traps": "\"Multi-site\" without the count. Group-level injury rate with no site breakdown. Observation cadence without actual completion.",
+   "listen_for": "Numbers by site, not a group average. 'Probably 50 percent or more of our incidents go unreported' (EHS lead, Bunzl).",
+   "red_flag": "Only a group-level rate. A low near-miss count read as good news.",
+   "details": [
+    {
+     "value": "recordable_or_lost_time_rates_by_site_for_the_last_two_years_trir_ltifr_riddor",
+     "label": "Recordable or lost-time rates by site for the last two years (TRIR, LTIFR, RIDDOR)"
+    },
+    {
+     "value": "serious_injury_potential_events_per_year",
+     "label": "Serious-injury-potential events per year"
+    },
+    {
+     "value": "near_misses_reported_per_month_and_their_guess_at_how_many_go_unreported",
+     "label": "Near misses reported per month, and their guess at how many go unreported"
+    },
+    {
+     "value": "leading_indicators_they_track_and_where_each_number_comes_from",
+     "label": "Leading indicators they track, and where each number comes from"
+    },
+    {
+     "value": "ehs_system_that_holds_incidents_and_actions_enablon_intelex_cority_sphera_ecoonl",
+     "label": "EHS system that holds incidents and actions (Enablon, Intelex, Cority, Sphera, EcoOnline…)"
+    },
+    {
+     "value": "m_certifications_held_and_next_audit_date",
+     "label": "[M] Certifications held and next audit date",
+     "industry": "M"
+    },
+    {
+     "value": "l_safety_kpis_clients_hold_them_to",
+     "label": "[L] Safety KPIs clients hold them to",
+     "industry": "L"
+    },
+    {
+     "value": "r_injury_mix_and_the_share_that_is_manual_handling",
+     "label": "[R] Injury mix and the share that is manual handling",
+     "industry": "R"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     1,
+     2,
+     2,
+     2,
+     2
+    ],
+    "M": [
+     1,
+     2,
+     2,
+     2,
+     2
+    ],
+    "R": [
+     1,
+     2,
+     2,
+     2,
+     2
+    ]
+   },
+   "recheck": "12 months",
+   "hubspot": {
+    "status": "da_measure_status",
+    "notes": "da_measure_notes",
+    "source": "da_measure_source",
+    "details": "da_measure_details"
+   }
+  },
+  {
+   "id": "after",
+   "topic": "The operation",
+   "question": "What happens after something is found?",
+   "why": "Tells you whether they can act on what we surface. Buyers name capacity, not detection, as what holds them back.",
+   "industry": "All",
+   "verbatim_required": true,
+   "key": true,
+   "ask": [
+    "operator",
+    "sponsor"
+   ],
+   "must_come_from": [
+    "operator"
+   ],
+   "levels": {
+    "not_discussed": "None recorded, or only outcomes recorded as problems",
+    "touched_on": "One problem, entries without “Frequency or volume of the failure” or “Coverage gap quantified”, or wording lifted from the PIC library",
+    "answered": "Two or more distinct problems, all elements each, at least one with a quantified coverage gap",
+    "confirmed": "Answered with three or more problems, one confirmed by a persona other than the Site EHS manager, each linked to a root cause and a business problem"
+   },
+   "levels_apply_to_area": "Technical problem",
+   "test": "Can you name the thing that is broken, how often it fails, and what proportion of the time it works?",
+   "counts": [
+    "\"Our only source of forklift-pedestrian data is voluntary near-miss cards. Six a month across 400 staff.\"",
+    "\"Manual inspections cover 19% of the observations we're supposed to be doing.\"",
+    "\"CCTV only gets pulled after an incident, so nobody ever watches 99% of it.\"",
+    "\"Nothing tells us whether the guard we installed actually changed how people work around it.\""
+   ],
+   "does_not_count": [
+    "\"We had four forklift incidents last quarter.\" (An outcome, not a mechanism. It belongs in “Business problem” and “Quantified impact”.)",
+    "\"Safety culture is weak.\" (Too vague to measure, so it cannot be shown to have improved.)",
+    "\"They have no leading indicators.\" (True, but it describes the absence of our product. Say which mechanism produces that absence.)",
+    "\"Injuries are costing them money.\" (Impact — “Quantified impact”.)"
+   ],
+   "confused_with": "“Business problem”, constantly. A technical problem is a broken mechanism the safety team lives with daily. A business problem is the consequence the business carries. Technical pain moves you down the org chart; business pain moves you up.",
+   "traps": "",
+   "listen_for": "A named reviewer and hours per week. 'We have the data. We just don't have the capacity to analyze it in time' (Compleat Food).",
+   "red_flag": "'No one is making corrective action at this time.' That's an accountability problem, not ours. Also a red flag: 'The team will find time.'",
+   "details": [
+    {
+     "value": "where_corrective_actions_are_logged_and_how_many_are_open",
+     "label": "Where corrective actions are logged, and how many are open"
+    },
+    {
+     "value": "how_closure_is_checked_does_anyone_verify_the_fix_worked",
+     "label": "How closure is checked: does anyone verify the fix worked?"
+    },
+    {
+     "value": "who_would_review_what_the_system_finds_and_how_many_hours_a_week_they_really_hav",
+     "label": "Who would review what the system finds, and how many hours a week they really have"
+    },
+    {
+     "value": "how_findings_reach_the_people_who_can_change_the_process",
+     "label": "How findings reach the people who can change the process"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ],
+    "M": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ],
+    "R": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ]
+   },
+   "recheck": "6 months",
+   "hubspot": {
+    "status": "da_after_status",
+    "notes": "da_after_notes",
+    "source": "da_after_source",
+    "details": "da_after_details"
+   }
+  },
+  {
+   "id": "money-m",
+   "topic": "The operation",
+   "question": "What does an incident cost the line?",
+   "why": "In manufacturing the throughput number usually dwarfs claim cost, and it's the one that reaches a COO.",
+   "industry": "M",
+   "verbatim_required": false,
+   "key": true,
+   "ask": [
+    "ops",
+    "finance"
+   ],
+   "must_come_from": [
+    "ops",
+    "finance"
+   ],
+   "levels": {
+    "not_discussed": "No figures, or industry benchmarks only",
+    "touched_on": "Some denominators, or figures we modelled rather than they stated",
+    "answered": "All three industry denominators present and attributed",
+    "confirmed": "Answered plus at least one sourced directly from Finance or Risk"
+   },
+   "levels_apply_to_area": null,
+   "test": "Is this a rate or a price that they themselves use internally?",
+   "counts": [
+    "\"A recordable costs us about $40,000 direct, and our risk team applies a 2× indirect multiplier.\"",
+    "\"A 5.66% productivity uplift is worth $644,000 to us.\"",
+    "\"Premium is $X, deductible $Y, loss ratio Z%.\""
+   ],
+   "does_not_count": [
+    "\"Industry average is $42,000 per recordable.\" (A benchmark. It is not their number and it will not survive their CFO.)",
+    "\"Downtime costs us a lot.\" (No unit, so nothing can be multiplied by it.)"
+   ],
+   "confused_with": "“Quantified impact”. These are the inputs. “Quantified impact” is the arithmetic done with them.",
+   "traps": "",
+   "listen_for": "Their own basis (cost per hour or a productivity percentage). Don't impose ours.",
+   "red_flag": "Nobody in Operations will share the number: the case stays a safety case.",
+   "details": [
+    {
+     "value": "cost_per_hour_of_downtime_or_the_productivity_measure_they_use_instead",
+     "label": "Cost per hour of downtime, or the productivity measure they use instead"
+    },
+    {
+     "value": "insurance_or_captive_cost_charged_to_the_plant",
+     "label": "Insurance or captive cost charged to the plant"
+    },
+    {
+     "value": "open_regulator_notices_recent_inspections_or_fines",
+     "label": "Open regulator notices, recent inspections or fines"
+    },
+    {
+     "value": "high_energy_exposures_beyond_vehicles_guarding_loto_cranes_confined_space_hot_wo",
+     "label": "High-energy exposures beyond vehicles: guarding, LOTO, cranes, confined space, hot work"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ],
+    "M": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ],
+    "R": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ]
+   },
+   "recheck": "6 months",
+   "hubspot": {
+    "status": "da_money_m_status",
+    "notes": "da_money_m_notes",
+    "source": "da_money_m_source",
+    "details": "da_money_m_details"
+   }
+  },
+  {
+   "id": "money-l",
+   "topic": "The operation",
+   "question": "What's riding on client contracts?",
+   "why": "In 3PL the case is contract retention, so contract value and renewal dates are the numbers that matter.",
+   "industry": "L",
+   "verbatim_required": false,
+   "key": true,
+   "ask": [
+    "ops",
+    "finance"
+   ],
+   "must_come_from": [
+    "ops",
+    "finance"
+   ],
+   "levels": {
+    "not_discussed": "No figures, or industry benchmarks only",
+    "touched_on": "Some denominators, or figures we modelled rather than they stated",
+    "answered": "All three industry denominators present and attributed",
+    "confirmed": "Answered plus at least one sourced directly from Finance or Risk"
+   },
+   "levels_apply_to_area": null,
+   "test": "Is this a rate or a price that they themselves use internally?",
+   "counts": [
+    "\"A recordable costs us about $40,000 direct, and our risk team applies a 2× indirect multiplier.\"",
+    "\"A 5.66% productivity uplift is worth $644,000 to us.\"",
+    "\"Premium is $X, deductible $Y, loss ratio Z%.\""
+   ],
+   "does_not_count": [
+    "\"Industry average is $42,000 per recordable.\" (A benchmark. It is not their number and it will not survive their CFO.)",
+    "\"Downtime costs us a lot.\" (No unit, so nothing can be multiplied by it.)"
+   ],
+   "confused_with": "“Quantified impact”. These are the inputs. “Quantified impact” is the arithmetic done with them.",
+   "traps": "",
+   "listen_for": "A renewal date is often the real deadline. Penalty clauses turn 'clients care about safety' into a number.",
+   "red_flag": "Cameras owned by the landlord or client, and that owner can't approve this.",
+   "details": [
+    {
+     "value": "contract_value_per_site_and_in_total",
+     "label": "Contract value per site and in total"
+    },
+    {
+     "value": "renewal_dates_and_tender_calendar",
+     "label": "Renewal dates and tender calendar"
+    },
+    {
+     "value": "safety_penalty_or_exit_clauses_and_how_much_safety_weighs_in_tenders",
+     "label": "Safety penalty or exit clauses, and how much safety weighs in tenders"
+    },
+    {
+     "value": "margin_per_unit_and_how_much_of_it_goes_on_insurance",
+     "label": "Margin per unit, and how much of it goes on insurance"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ],
+    "M": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ],
+    "R": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ]
+   },
+   "recheck": "6 months",
+   "hubspot": {
+    "status": "da_money_l_status",
+    "notes": "da_money_l_notes",
+    "source": "da_money_l_source",
+    "details": "da_money_l_details"
+   }
+  },
+  {
+   "id": "money-r",
+   "topic": "The operation",
+   "question": "What do claims and turnover cost?",
+   "why": "In retail, manual-handling claims usually dominate cost, and risk management often holds the budget.",
+   "industry": "R",
+   "verbatim_required": false,
+   "key": true,
+   "ask": [
+    "finance",
+    "sponsor"
+   ],
+   "must_come_from": [
+    "ops",
+    "finance"
+   ],
+   "levels": {
+    "not_discussed": "No figures, or industry benchmarks only",
+    "touched_on": "Some denominators, or figures we modelled rather than they stated",
+    "answered": "All three industry denominators present and attributed",
+    "confirmed": "Answered plus at least one sourced directly from Finance or Risk"
+   },
+   "levels_apply_to_area": null,
+   "test": "Is this a rate or a price that they themselves use internally?",
+   "counts": [
+    "\"A recordable costs us about $40,000 direct, and our risk team applies a 2× indirect multiplier.\"",
+    "\"A 5.66% productivity uplift is worth $644,000 to us.\"",
+    "\"Premium is $X, deductible $Y, loss ratio Z%.\""
+   ],
+   "does_not_count": [
+    "\"Industry average is $42,000 per recordable.\" (A benchmark. It is not their number and it will not survive their CFO.)",
+    "\"Downtime costs us a lot.\" (No unit, so nothing can be multiplied by it.)"
+   ],
+   "confused_with": "“Quantified impact”. These are the inputs. “Quantified impact” is the arithmetic done with them.",
+   "traps": "",
+   "listen_for": "Manual handling separated out. Self-insured means every avoided claim is cash.",
+   "red_flag": "No claims breakdown available, and nobody from risk involved.",
+   "details": [
+    {
+     "value": "claims_per_year_and_average_cost_by_injury_type_manual_handling_separated",
+     "label": "Claims per year and average cost by injury type, manual handling separated"
+    },
+    {
+     "value": "premium_or_self_insured_deductible_loss_ratio",
+     "label": "Premium or self-insured, deductible, loss ratio"
+    },
+    {
+     "value": "cost_per_hire_and_annual_turnover_cost",
+     "label": "Cost per hire and annual turnover cost"
+    },
+    {
+     "value": "share_of_claims_litigated",
+     "label": "Share of claims litigated"
+    },
+    {
+     "value": "peak_season_injury_spike",
+     "label": "Peak-season injury spike"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     null,
+     2,
+     2,
+     2,
+     2
+    ],
+    "M": [
+     null,
+     2,
+     2,
+     2,
+     2
+    ],
+    "R": [
+     null,
+     2,
+     2,
+     2,
+     2
+    ]
+   },
+   "recheck": "6 months",
+   "hubspot": {
+    "status": "da_money_r_status",
+    "notes": "da_money_r_notes",
+    "source": "da_money_r_source",
+    "details": "da_money_r_details"
+   }
+  },
+  {
+   "id": "cameras",
+   "topic": "Cameras & infrastructure",
+   "question": "Do their cameras see the risk?",
+   "why": "Camera estates kill more deals than competitors. Find out early whether this is a licence conversation or a capital works one.",
+   "industry": "All",
+   "verbatim_required": false,
+   "key": true,
+   "ask": [
+    "it",
+    "security"
+   ],
+   "must_come_from": [
+    "it",
+    "security"
+   ],
+   "levels": {
+    "not_discussed": "Not captured, or camera count only",
+    "touched_on": "Sourced via EHS or Ops rather than IT/Security, or “Coverage of the named high-risk areas, gaps,…”, “Whether RTSP or an API is exposed” or “Camera ownership” missing",
+    "answered": "Elements 1–14 plus industry, sourced directly from IT/OT and Camera owner",
+    "confirmed": "Answered plus an artefact — camera schedule, VMS export, network diagram, site photos — and a feasibility verdict per site"
+   },
+   "levels_apply_to_area": "Cameras & network",
+   "test": "Could you write the install order today without asking another question?",
+   "counts": [
+    "\"Milestone 2023 R2, RTSP exposed, cameras on their own VLAN.\"",
+    "\"1080p IP throughout the pick aisles; the dock is analogue and would need replacing.\"",
+    "\"The estate is managed by an external vendor — credentials sit with them, not us.\""
+   ],
+   "does_not_count": [
+    "\"They've got cameras everywhere.\" (A count with no capability. Resolution, RTSP and ownership are the questions.)",
+    "\"IT will be fine with it.\" (An assumption, and not sourced from IT — which caps this field at Touched on.)"
+   ],
+   "confused_with": "Nothing, but it is the field most often skipped rather than confused. Skipping it is how a deal dies after being named vendor of choice.",
+   "traps": "A camera count with no coverage map. \"They have cameras everywhere\" without resolution or ownership.",
+   "listen_for": "Roughly 1080p at 8–10 fps on the risk areas. Camera coverage gaps came up at 61 accounts in 2026.",
+   "red_flag": "Entrance and fence-line cameras only. An analogue or banned estate means capital works first.",
+   "details": [
+    {
+     "value": "cameras_per_site_and_how_many_face_the_floor_rather_than_gates_and_fences",
+     "label": "Cameras per site, and how many face the floor rather than gates and fences"
+    },
+    {
+     "value": "make_model_and_resolution_analogue_vs_ip",
+     "label": "Make, model and resolution; analogue vs IP"
+    },
+    {
+     "value": "which_of_the_named_risk_areas_are_covered_and_which_aren_t",
+     "label": "Which of the named risk areas are covered, and which aren't"
+    },
+    {
+     "value": "recording_system_vms_or_nvr_and_whether_we_can_get_a_stream",
+     "label": "Recording system (VMS or NVR) and whether we can get a stream"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     2,
+     2,
+     2,
+     2,
+     3
+    ],
+    "M": [
+     1,
+     2,
+     2,
+     2,
+     3
+    ],
+    "R": [
+     1,
+     2,
+     2,
+     2,
+     3
+    ]
+   },
+   "recheck": "12 months",
+   "hubspot": {
+    "status": "da_cameras_status",
+    "notes": "da_cameras_notes",
+    "source": "da_cameras_source",
+    "details": "da_cameras_details"
+   }
+  },
+  {
+   "id": "owner",
+   "topic": "Cameras & infrastructure",
+   "question": "Who owns the cameras and the network?",
+   "why": "If someone else owns the estate, they can stop the deal however good the case is.",
+   "industry": "All",
+   "verbatim_required": true,
+   "key": true,
+   "ask": [
+    "security",
+    "it"
+   ],
+   "must_come_from": [
+    "it",
+    "security"
+   ],
+   "levels": {
+    "not_discussed": "Not captured, or camera count only",
+    "touched_on": "Sourced via EHS or Ops rather than IT/Security, or “Coverage of the named high-risk areas, gaps,…”, “Whether RTSP or an API is exposed” or “Camera ownership” missing",
+    "answered": "Elements 1–14 plus industry, sourced directly from IT/OT and Camera owner",
+    "confirmed": "Answered plus an artefact — camera schedule, VMS export, network diagram, site photos — and a feasibility verdict per site"
+   },
+   "levels_apply_to_area": "Cameras & network",
+   "test": "Could you write the install order today without asking another question?",
+   "counts": [
+    "\"Milestone 2023 R2, RTSP exposed, cameras on their own VLAN.\"",
+    "\"1080p IP throughout the pick aisles; the dock is analogue and would need replacing.\"",
+    "\"The estate is managed by an external vendor — credentials sit with them, not us.\""
+   ],
+   "does_not_count": [
+    "\"They've got cameras everywhere.\" (A count with no capability. Resolution, RTSP and ownership are the questions.)",
+    "\"IT will be fine with it.\" (An assumption, and not sourced from IT — which caps this field at Touched on.)"
+   ],
+   "confused_with": "Nothing, but it is the field most often skipped rather than confused. Skipping it is how a deal dies after being named vendor of choice.",
+   "traps": "A camera count with no coverage map. \"They have cameras everywhere\" without resolution or ownership.",
+   "listen_for": "Security owns or controls the cameras at 23 accounts in 2026. 'Do not want us to tap into their cameras' (FedEx EU).",
+   "red_flag": "A landlord or client owns the estate and can't approve the change.",
+   "details": [
+    {
+     "value": "who_owns_the_cameras_us_security_the_landlord_or_the_client",
+     "label": "Who owns the cameras: us, Security, the landlord or the client"
+    },
+    {
+     "value": "what_they_were_installed_for",
+     "label": "What they were installed for"
+    },
+    {
+     "value": "network_bandwidth_how_it_and_ot_are_separated_rack_space_and_power_on_site",
+     "label": "Network: bandwidth, how IT and OT are separated, rack space and power on site"
+    },
+    {
+     "value": "camera_refresh_cycle_and_whose_capital_pays_for_it",
+     "label": "Camera refresh cycle and whose capital pays for it"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     2,
+     2,
+     2,
+     2,
+     3
+    ],
+    "M": [
+     1,
+     2,
+     2,
+     2,
+     3
+    ],
+    "R": [
+     1,
+     2,
+     2,
+     2,
+     3
+    ]
+   },
+   "recheck": "12 months",
+   "hubspot": {
+    "status": "da_owner_status",
+    "notes": "da_owner_notes",
+    "source": "da_owner_source",
+    "details": "da_owner_details"
+   }
+  },
+  {
+   "id": "rules",
+   "topic": "Cameras & infrastructure",
+   "question": "What will IT, security and data rules require?",
+   "why": "IT, security or AI-governance approval was the gate at 89 accounts. IT on the deal is the sharpest sign of a win.",
+   "industry": "All",
+   "verbatim_required": false,
+   "key": true,
+   "ask": [
+    "it"
+   ],
+   "must_come_from": [
+    "it",
+    "security"
+   ],
+   "levels": {
+    "not_discussed": "Not captured, or camera count only",
+    "touched_on": "Sourced via EHS or Ops rather than IT/Security, or “Coverage of the named high-risk areas, gaps,…”, “Whether RTSP or an API is exposed” or “Camera ownership” missing",
+    "answered": "Elements 1–14 plus industry, sourced directly from IT/OT and Camera owner",
+    "confirmed": "Answered plus an artefact — camera schedule, VMS export, network diagram, site photos — and a feasibility verdict per site"
+   },
+   "levels_apply_to_area": "Cameras & network",
+   "test": "Could you write the install order today without asking another question?",
+   "counts": [
+    "\"Milestone 2023 R2, RTSP exposed, cameras on their own VLAN.\"",
+    "\"1080p IP throughout the pick aisles; the dock is analogue and would need replacing.\"",
+    "\"The estate is managed by an external vendor — credentials sit with them, not us.\""
+   ],
+   "does_not_count": [
+    "\"They've got cameras everywhere.\" (A count with no capability. Resolution, RTSP and ownership are the questions.)",
+    "\"IT will be fine with it.\" (An assumption, and not sourced from IT — which caps this field at Touched on.)"
+   ],
+   "confused_with": "Nothing, but it is the field most often skipped rather than confused. Skipping it is how a deal dies after being named vendor of choice.",
+   "traps": "A camera count with no coverage map. \"They have cameras everywhere\" without resolution or ownership.",
+   "listen_for": "IT was on 34% of wins vs 6% of losses (six times more likely). Get them in before the pilot.",
+   "red_flag": "A new AI council or AI freeze (Weir). Cloud mismatch (Eaton lost over AWS vs Azure). 'Video cannot leave our network' (Fuyao).",
+   "details": [
+    {
+     "value": "security_review_and_how_long_it_takes",
+     "label": "Security review and how long it takes"
+    },
+    {
+     "value": "ai_committee_or_ai_policy_and_whether_anything_is_frozen",
+     "label": "AI committee or AI policy, and whether anything is frozen"
+    },
+    {
+     "value": "cloud_rules_aws_azure_and_where_data_must_stay",
+     "label": "Cloud rules (AWS, Azure) and where data must stay"
+    },
+    {
+     "value": "footage_retention_and_who_may_view_it",
+     "label": "Footage retention and who may view it"
+    },
+    {
+     "value": "whether_processing_must_stay_on_site",
+     "label": "Whether processing must stay on site"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     1,
+     1,
+     2,
+     2,
+     3
+    ],
+    "M": [
+     1,
+     1,
+     2,
+     2,
+     3
+    ],
+    "R": [
+     1,
+     1,
+     2,
+     2,
+     3
+    ]
+   },
+   "recheck": "12 months",
+   "hubspot": {
+    "status": "da_rules_status",
+    "notes": "da_rules_notes",
+    "source": "da_rules_source",
+    "details": "da_rules_details"
+   }
+  },
+  {
+   "id": "problem",
+   "topic": "The problem",
+   "question": "What is actually going wrong, in their words?",
+   "why": "The problem has to be theirs, said by them. One we recognised from our own research doesn't count.",
+   "industry": "All",
+   "verbatim_required": true,
+   "key": true,
+   "ask": [
+    "operator",
+    "sponsor"
+   ],
+   "must_come_from": [
+    "operator"
+   ],
+   "levels": {
+    "not_discussed": "None recorded, or only outcomes recorded as problems",
+    "touched_on": "One problem, entries without “Frequency or volume of the failure” or “Coverage gap quantified”, or wording lifted from the PIC library",
+    "answered": "Two or more distinct problems, all elements each, at least one with a quantified coverage gap",
+    "confirmed": "Answered with three or more problems, one confirmed by a persona other than the Site EHS manager, each linked to a root cause and a business problem"
+   },
+   "levels_apply_to_area": "Technical problem",
+   "test": "Can you name the thing that is broken, how often it fails, and what proportion of the time it works?",
+   "counts": [
+    "\"Our only source of forklift-pedestrian data is voluntary near-miss cards. Six a month across 400 staff.\"",
+    "\"Manual inspections cover 19% of the observations we're supposed to be doing.\"",
+    "\"CCTV only gets pulled after an incident, so nobody ever watches 99% of it.\"",
+    "\"Nothing tells us whether the guard we installed actually changed how people work around it.\""
+   ],
+   "does_not_count": [
+    "\"We had four forklift incidents last quarter.\" (An outcome, not a mechanism. It belongs in “Business problem” and “Quantified impact”.)",
+    "\"Safety culture is weak.\" (Too vague to measure, so it cannot be shown to have improved.)",
+    "\"They have no leading indicators.\" (True, but it describes the absence of our product. Say which mechanism produces that absence.)",
+    "\"Injuries are costing them money.\" (Impact — “Quantified impact”.)"
+   ],
+   "confused_with": "“Business problem”, constantly. A technical problem is a broken mechanism the safety team lives with daily. A business problem is the consequence the business carries. Technical pain moves you down the org chart; business pain moves you up.",
+   "traps": "",
+   "listen_for": "Vehicles near people came up at 57 accounts in 2026; PPE and procedure at 48; actions not closing at 34; ergonomics at 31.",
+   "red_flag": "We described the problem and they nodded. The words on the record are ours.",
+   "details": [
+    {
+     "value": "which_process_is_failing_vehicles_near_people_ppe_or_procedure_actions_not_closi",
+     "label": "Which process is failing: vehicles near people, PPE or procedure, actions not closing, ergonomics, seeing the floor, near-miss reporting, reporting for leadership, contractors"
+    },
+    {
+     "value": "how_often_it_happens_in_a_number",
+     "label": "How often it happens, in a number"
+    },
+    {
+     "value": "who_sees_it_happen_by_role",
+     "label": "Who sees it happen, by role"
+    },
+    {
+     "value": "evidence_they_can_show_a_log_an_incident_footage",
+     "label": "Evidence they can show: a log, an incident, footage"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     1,
+     2,
+     2,
+     2,
+     2
+    ],
+    "M": [
+     1,
+     2,
+     2,
+     2,
+     2
+    ],
+    "R": [
+     1,
+     2,
+     2,
+     2,
+     2
+    ]
+   },
+   "recheck": "6 months",
+   "hubspot": {
+    "status": "da_problem_status",
+    "notes": "da_problem_notes",
+    "source": "da_problem_source",
+    "details": "da_problem_details"
+   }
+  },
+  {
+   "id": "why",
+   "topic": "The problem",
+   "question": "Why does it keep happening?",
+   "why": "Decides whether we're the right answer at all. If people can't watch it 24/7, we fix it. If nobody acts on what they already know, we don't.",
+   "industry": "All",
+   "verbatim_required": true,
+   "key": true,
+   "ask": [
+    "sponsor"
+   ],
+   "must_come_from": [
+    "sponsor"
+   ],
+   "levels": {
+    "not_discussed": "Absent, or a restatement of the Technical Problem (auto-fail)",
+    "touched_on": "A mechanism named but no ruled-out alternative and no headcount test",
+    "answered": "All five elements, sourced from the Group EHS lead or IT/OT",
+    "confirmed": "Answered plus confirmation from a persona other than the champion, and a statement of which specific capability closes it"
+   },
+   "levels_apply_to_area": "Root cause",
+   "test": "Two questions. If this were fixed, would the technical problem disappear? And would ten more safety officers fix it? If yes to the second, it is a resourcing problem and we are the expensive answer.",
+   "counts": [
+    "\"Human observation can't cover 24/7. Supervisors have production duties first, and there's no verification layer over what they log.\"",
+    "\"The cameras were specified for shrink and asset protection, so there's no analytics layer and the VMS has no API.\"",
+    "\"Our measurement architecture triggers on injury, so anything that doesn't hurt somebody generates no record at all.\""
+   ],
+   "does_not_count": [
+    "\"Observation completion is low.\" (The technical problem restated in different words. This is the single most common failure in the whole model.)",
+    "\"They don't take safety seriously.\" (A judgement about people, not a mechanism.)",
+    "\"They need Protex.\" (The solution, not the cause.)"
+   ],
+   "confused_with": "“Technical problem”. If you cannot state the cause without reusing the problem's own words, you have not got it yet.",
+   "traps": "",
+   "listen_for": "Capacity is the cause buyers name most: 'That frontline becomes the capacity bottleneck' (Munters).",
+   "red_flag": "Accountability: they know and nobody acts. We'd be selling data into an organisation that ignores its data.",
+   "details": [
+    {
+     "value": "the_reason_in_their_words_coverage_capacity_to_act_accountability_data_scattered",
+     "label": "The reason, in their words: coverage, capacity to act, accountability, data scattered, or controls bypassed"
+    },
+    {
+     "value": "how_it_came_to_be_this_way_cameras_bought_for_security_team_cut_acquisition",
+     "label": "How it came to be this way (cameras bought for security, team cut, acquisition)"
+    },
+    {
+     "value": "one_other_explanation_they_ve_ruled_out_and_why",
+     "label": "One other explanation they've ruled out, and why"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ],
+    "M": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ],
+    "R": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ]
+   },
+   "recheck": "12 months",
+   "hubspot": {
+    "status": "da_why_status",
+    "notes": "da_why_notes",
+    "source": "da_why_source",
+    "details": "da_why_details"
+   }
+  },
+  {
+   "id": "headcount",
+   "topic": "The problem",
+   "question": "Would more people fix it, and would they pay for them?",
+   "why": "Tells you whether you're competing with headcount on price, or whether headcount is the cost you replace.",
+   "industry": "All",
+   "verbatim_required": true,
+   "key": false,
+   "ask": [
+    "sponsor",
+    "finance"
+   ],
+   "must_come_from": [
+    "sponsor"
+   ],
+   "levels": {
+    "not_discussed": "Absent, or a restatement of the Technical Problem (auto-fail)",
+    "touched_on": "A mechanism named but no ruled-out alternative and no headcount test",
+    "answered": "All five elements, sourced from the Group EHS lead or IT/OT",
+    "confirmed": "Answered plus confirmation from a persona other than the champion, and a statement of which specific capability closes it"
+   },
+   "levels_apply_to_area": "Root cause",
+   "test": "Two questions. If this were fixed, would the technical problem disappear? And would ten more safety officers fix it? If yes to the second, it is a resourcing problem and we are the expensive answer.",
+   "counts": [
+    "\"Human observation can't cover 24/7. Supervisors have production duties first, and there's no verification layer over what they log.\"",
+    "\"The cameras were specified for shrink and asset protection, so there's no analytics layer and the VMS has no API.\"",
+    "\"Our measurement architecture triggers on injury, so anything that doesn't hurt somebody generates no record at all.\""
+   ],
+   "does_not_count": [
+    "\"Observation completion is low.\" (The technical problem restated in different words. This is the single most common failure in the whole model.)",
+    "\"They don't take safety seriously.\" (A judgement about people, not a mechanism.)",
+    "\"They need Protex.\" (The solution, not the cause.)"
+   ],
+   "confused_with": "“Technical problem”. If you cannot state the cause without reusing the problem's own words, you have not got it yet.",
+   "traps": "",
+   "listen_for": "'I could hire two more safety specialists' (Munters). Four safety staff at ~£248k per site (Compleat Food).",
+   "red_flag": "More people would fix it and the money is there: you're competing with headcount on price.",
+   "details": [
+    {
+     "value": "answer_to_would_ten_more_safety_officers_solve_it",
+     "label": "Answer to 'would ten more safety officers solve it?'"
+    },
+    {
+     "value": "answer_to_would_you_fund_them",
+     "label": "Answer to 'would you fund them?'"
+    },
+    {
+     "value": "what_that_headcount_would_cost_in_their_numbers",
+     "label": "What that headcount would cost, in their numbers"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ],
+    "M": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ],
+    "R": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ]
+   },
+   "recheck": "12 months",
+   "hubspot": {
+    "status": "da_headcount_status",
+    "notes": "da_headcount_notes",
+    "source": "da_headcount_source",
+    "details": "da_headcount_details"
+   }
+  },
+  {
+   "id": "tried",
+   "topic": "The problem",
+   "question": "What have they already tried, and why didn't it stick?",
+   "why": "Someone who has spent money and been let down wants it fixed. It also stops us pitching what they abandoned two years ago.",
+   "industry": "All",
+   "verbatim_required": true,
+   "key": true,
+   "ask": [
+    "sponsor",
+    "operator"
+   ],
+   "must_come_from": [
+    "operator"
+   ],
+   "levels": {
+    "not_discussed": "None recorded, or only outcomes recorded as problems",
+    "touched_on": "One problem, entries without “Frequency or volume of the failure” or “Coverage gap quantified”, or wording lifted from the PIC library",
+    "answered": "Two or more distinct problems, all elements each, at least one with a quantified coverage gap",
+    "confirmed": "Answered with three or more problems, one confirmed by a persona other than the Site EHS manager, each linked to a root cause and a business problem"
+   },
+   "levels_apply_to_area": "Technical problem",
+   "test": "Can you name the thing that is broken, how often it fails, and what proportion of the time it works?",
+   "counts": [
+    "\"Our only source of forklift-pedestrian data is voluntary near-miss cards. Six a month across 400 staff.\"",
+    "\"Manual inspections cover 19% of the observations we're supposed to be doing.\"",
+    "\"CCTV only gets pulled after an incident, so nobody ever watches 99% of it.\"",
+    "\"Nothing tells us whether the guard we installed actually changed how people work around it.\""
+   ],
+   "does_not_count": [
+    "\"We had four forklift incidents last quarter.\" (An outcome, not a mechanism. It belongs in “Business problem” and “Quantified impact”.)",
+    "\"Safety culture is weak.\" (Too vague to measure, so it cannot be shown to have improved.)",
+    "\"They have no leading indicators.\" (True, but it describes the absence of our product. Say which mechanism produces that absence.)",
+    "\"Injuries are costing them money.\" (Impact — “Quantified impact”.)"
+   ],
+   "confused_with": "“Business problem”, constantly. A technical problem is a broken mechanism the safety team lives with daily. A business problem is the consequence the business carries. Technical pain moves you down the org chart; business pain moves you up.",
+   "traps": "",
+   "listen_for": "Earlier vision trials 'died at roughly 60 percent and polluted their KPI system'. Free pilots from Intenseye and Voxel are common.",
+   "red_flag": "A rival is already piloting somewhere stronger in the group (we are losing Nestlé US this way).",
+   "details": [
+    {
+     "value": "training_signs_floor_markings_speed_limits",
+     "label": "Training, signs, floor markings, speed limits"
+    },
+    {
+     "value": "more_supervisors_or_safety_staff",
+     "label": "More supervisors or safety staff"
+    },
+    {
+     "value": "ehs_software_and_what_it_does_or_doesn_t_do",
+     "label": "EHS software and what it does or doesn't do"
+    },
+    {
+     "value": "previous_camera_or_ai_pilots_who_what_happened_why_it_stopped",
+     "label": "Previous camera or AI pilots: who, what happened, why it stopped"
+    },
+    {
+     "value": "what_is_still_running_today",
+     "label": "What is still running today"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     1,
+     1,
+     2,
+     2,
+     2
+    ],
+    "M": [
+     1,
+     1,
+     2,
+     2,
+     2
+    ],
+    "R": [
+     1,
+     1,
+     2,
+     2,
+     2
+    ]
+   },
+   "recheck": "6 months",
+   "hubspot": {
+    "status": "da_tried_status",
+    "notes": "da_tried_notes",
+    "source": "da_tried_source",
+    "details": "da_tried_details"
+   }
+  },
+  {
+   "id": "aware",
+   "topic": "The problem",
+   "question": "How aware are they, and who agrees there's a problem?",
+   "why": "A thin record means different things at different stages. Agreement only counts if two people say it, including whoever owns the number.",
+   "industry": "All",
+   "verbatim_required": true,
+   "key": false,
+   "ask": [
+    "sponsor",
+    "exec"
+   ],
+   "must_come_from": [
+    "sponsor",
+    "exec"
+   ],
+   "levels": {
+    "not_discussed": "Unaware: Problem exists in our analysis, absent from their account",
+    "touched_on": "Told and nodded: We described it, they agreed. The words in the record are ours",
+    "answered": "Agreed when asked: Open question, buyer confirmed and added detail",
+    "confirmed": "Volunteered and quantified: Buyer raised it unprompted with a number attached"
+   },
+   "level_names": {
+    "not_discussed": "Unaware",
+    "touched_on": "Told and nodded",
+    "answered": "Agreed when asked",
+    "confirmed": "Volunteered and quantified"
+   },
+   "levels_apply_to_area": null,
+   "test": "Did the buyer say it first, with a number, and does the owner of the number agree?",
+   "counts": [
+    "\"Our near-miss number is fiction. Probably half go unreported.\" (volunteered, with a number)"
+   ],
+   "does_not_count": [
+    "Assent to a rep-introduced framing — only buyer-stated provenance counts",
+    "Agreement whose wording matches the pre-call library, because the record then holds our sentence",
+    "Agreement from anyone with no stake in the anchor",
+    "Silence read as agreement"
+   ],
+   "confused_with": "",
+   "traps": "",
+   "listen_for": "Not yet aware: 'already clean safety record'. Aware: 'probably 50 percent… go unreported'. Comparing: a requirements document or a three-vendor matrix.",
+   "red_flag": "We described the problem and they nodded. Wording that matches our pitch counts as nothing.",
+   "details": [
+    {
+     "value": "where_they_are_not_yet_aware_aware_comparing_options",
+     "label": "Where they are: not yet aware / aware / comparing options"
+    },
+    {
+     "value": "the_line_they_said_that_shows_it",
+     "label": "The line they said that shows it"
+    },
+    {
+     "value": "who_volunteered_the_problem_with_a_number_and_whether_the_owner_of_the_number_ag",
+     "label": "Who volunteered the problem with a number, and whether the owner of the number agrees"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     1,
+     1,
+     2,
+     2,
+     2
+    ],
+    "M": [
+     1,
+     1,
+     2,
+     2,
+     2
+    ],
+    "R": [
+     1,
+     1,
+     2,
+     2,
+     2
+    ]
+   },
+   "recheck": null,
+   "hubspot": {
+    "status": "da_aware_status",
+    "notes": "da_aware_notes",
+    "source": "da_aware_source",
+    "details": "da_aware_details"
+   }
+  },
+  {
+   "id": "number",
+   "topic": "Business impact",
+   "question": "Which number does it hurt, and whose number is it?",
+   "why": "A problem nobody is measured on doesn't get funded. This finds the owner and the gap between today and target.",
+   "industry": "All",
+   "verbatim_required": true,
+   "key": true,
+   "ask": [
+    "sponsor",
+    "exec"
+   ],
+   "must_come_from": [
+    "exec",
+    "sponsor",
+    "ops",
+    "finance"
+   ],
+   "levels": {
+    "not_discussed": "None, or a restatement of the technical problem",
+    "touched_on": "One problem, entries missing “Current value and target”, or any entry with no named anchor",
+    "answered": "Two or more problems, each laddered, owned by two different named stakeholders",
+    "confirmed": "Answered plus one problem stated directly by the Exec who owns that anchor"
+   },
+   "levels_apply_to_area": null,
+   "test": "Would this appear on an operating review slide with safety never being mentioned?",
+   "counts": [
+    "\"Our TRIR is the number clients see at QBR. It's been flat two years and we got scored down in a tender because of it.\"",
+    "\"Premium is up 18% and the broker says our loss record is the reason.\"",
+    "\"Every incident stops the line, and an hour down costs us £14,000.\""
+   ],
+   "does_not_count": [
+    "\"Near-miss reporting is low.\" (A technical problem wearing a suit. Trace it to the anchor it damages and it becomes valid.)",
+    "\"Observation completion is poor.\" (Same. It is “Technical problem”.)",
+    "\"They want to be safer.\" (Not a consequence and not a metric.)"
+   ],
+   "confused_with": "The anchor. The anchor is the category — four per vertical. The business problem is this account's specific instance of one.",
+   "traps": "",
+   "listen_for": "'Safety have a goal to deliver 5–10% reduction in LTI this year, last year saw an 8% increase' (FedEx EU). Audit scores and training completion: no buyer has named these.",
+   "red_flag": "No owner, or a target nobody can state.",
+   "details": [
+    {
+     "value": "the_metric_recordables_lost_time_serious_injury_potential_claims_cost_a_board_ta",
+     "label": "The metric: recordables, lost time, serious-injury potential, claims cost, a board target"
+    },
+    {
+     "value": "today_s_value_and_the_target",
+     "label": "Today's value and the target"
+    },
+    {
+     "value": "the_person_who_owns_it",
+     "label": "The person who owns it"
+    },
+    {
+     "value": "what_happens_if_they_miss_it_in_their_words",
+     "label": "What happens if they miss it, in their words"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     1,
+     2,
+     2,
+     3,
+     3
+    ],
+    "M": [
+     1,
+     2,
+     2,
+     3,
+     3
+    ],
+    "R": [
+     1,
+     2,
+     2,
+     3,
+     3
+    ]
+   },
+   "recheck": "3 months",
+   "hubspot": {
+    "status": "da_number_status",
+    "notes": "da_number_notes",
+    "source": "da_number_source",
+    "details": "da_number_details"
+   }
+  },
+  {
+   "id": "priority",
+   "topic": "Business impact",
+   "question": "Which business priority does it ladder to?",
+   "why": "Executives fund their own priorities, not safety for its own sake. This finds the one they already care about.",
+   "industry": "All",
+   "verbatim_required": false,
+   "key": true,
+   "ask": [
+    "exec"
+   ],
+   "must_come_from": [
+    "exec"
+   ],
+   "levels": {
+    "not_discussed": "No anchor named, or no Exec identified",
+    "touched_on": "Anchor and Exec named but relayed second-hand, “The anchor metric's current value and target” or “Capital threshold” missing",
+    "answered": "All six elements, with 1–4 sourced from the Exec directly",
+    "confirmed": "Answered plus the Exec stating the anchor problem in their own words, and their threshold tested against the “The gap” total"
+   },
+   "levels_apply_to_area": "Exec anchor alignment",
+   "test": "Have you heard their threshold from them, in their words?",
+   "counts": [
+    "\"The COO owns downtime, is held to 96% OEE, and needs 12-month payback.\"",
+    "\"She's already got $400k earmarked for extra supervision, which is what we're really competing with.\""
+   ],
+   "does_not_count": [
+    "\"The VP of EHS is our champion.\" (That is “Champion”. A champion sells internally; an Exec owns the number.)",
+    "\"The CFO will approve it.\" (Have you met them? Relayed exec intent caps this field at Touched on.)"
+   ],
+   "confused_with": "“Champion”. The Exec owns the number. The champion sells in our absence. Sometimes the same person; usually not.",
+   "traps": "",
+   "listen_for": "'Safety is the hook in, operations is the meat' (DHL CIO). 'It has to be a stacked win' (UPS).",
+   "red_flag": "It ties to no business priority: real, but not fundable.",
+   "details": [
+    {
+     "value": "the_business_priority_it_hits_m_downtime_serious_injury_and_regulatory_exposure",
+     "label": "The business priority it hits: [M] downtime, serious-injury and regulatory exposure, plant insurance cost, standards across plants · [L] contract retention, claims against margin, labour, exposure across sites · [R] claims and loss ratio, labour turnover, brand incidents, standards across stores"
+    },
+    {
+     "value": "whether_the_person_who_owns_that_priority_said_so_themselves",
+     "label": "Whether the person who owns that priority said so themselves"
+    },
+    {
+     "value": "their_target_and_the_payback_they_need",
+     "label": "Their target, and the payback they need"
+    },
+    {
+     "value": "what_they_re_already_spending_against_it_some_other_way",
+     "label": "What they're already spending against it some other way"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     null,
+     1,
+     2,
+     3,
+     3
+    ],
+    "M": [
+     null,
+     1,
+     2,
+     3,
+     3
+    ],
+    "R": [
+     null,
+     1,
+     2,
+     3,
+     3
+    ]
+   },
+   "recheck": "3 months",
+   "hubspot": {
+    "status": "da_priority_status",
+    "notes": "da_priority_notes",
+    "source": "da_priority_source",
+    "details": "da_priority_details"
+   }
+  },
+  {
+   "id": "cost",
+   "topic": "Business impact",
+   "question": "What does it cost them, on their own numbers?",
+   "why": "The business case has to be their arithmetic. Buyers reject our averages.",
+   "industry": "All",
+   "verbatim_required": true,
+   "key": true,
+   "ask": [
+    "finance",
+    "ops"
+   ],
+   "must_come_from": [
+    "finance",
+    "ops"
+   ],
+   "levels": {
+    "not_discussed": "No figures, or industry benchmarks only",
+    "touched_on": "A total with no inputs listed, or every input rep-modelled (auto-fail)",
+    "answered": "Industry primary metric present, all inputs tagged, ≥60% buyer-stated, total sent back in writing",
+    "confirmed": "Answered plus one input from the Finance/risk directly, and evidence the buyer has reused the number internally"
+   },
+   "levels_apply_to_area": null,
+   "test": "Could their CFO re-run this from the inputs and get the same number?",
+   "counts": [
+    "\"12.5 recordables a year × $40,000 direct × 2× indirect = $1m annually, on our own claim data.\"",
+    "\"Eight investigations a year, 20 hours each, at a loaded rate of $65 — plus 40 hours a quarter building the board pack.\""
+   ],
+   "does_not_count": [
+    "\"Significant cost.\" (No number.)",
+    "\"Industry data suggests $42,000 per recordable.\" (Our arithmetic, not theirs. Fails the 60% provenance floor.)",
+    "\"$1m of exposure.\" (A total with no inputs cannot be re-run when one variable changes, and it will change.)"
+   ],
+   "confused_with": "“The gap”. Impact is what today costs. The gap is the difference between today and the target, minus what the change costs.",
+   "traps": "",
+   "listen_for": "'The actual cost of workplace injuries… is estimated at £335k per year' (Compleat Food). 'Theoretical models may not reflect practical reality' (Actylis).",
+   "red_flag": "Most inputs are ours. Under 60% buyer-stated means it's our case, not theirs.",
+   "details": [
+    {
+     "value": "cost_per_recordable_direct_and_indirect_on_their_numbers",
+     "label": "Cost per recordable, direct and indirect, on their numbers"
+    },
+    {
+     "value": "downtime_or_output_lost",
+     "label": "Downtime or output lost"
+    },
+    {
+     "value": "hours_spent_on_observations_investigations_and_safety_reporting",
+     "label": "Hours spent on observations, investigations and safety reporting"
+    },
+    {
+     "value": "insurance_premium_deductible_renewal_movement",
+     "label": "Insurance: premium, deductible, renewal movement"
+    },
+    {
+     "value": "damage_to_racking_vehicles_and_product",
+     "label": "Damage to racking, vehicles and product"
+    },
+    {
+     "value": "fines_and_regulator_response",
+     "label": "Fines and regulator response"
+    },
+    {
+     "value": "absence_cover_and_turnover",
+     "label": "Absence cover and turnover"
+    },
+    {
+     "value": "share_of_these_figures_the_buyer_gave_us_aim_for_60",
+     "label": "Share of these figures the buyer gave us (aim for 60%+)"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     1,
+     2,
+     2,
+     3,
+     3
+    ],
+    "M": [
+     1,
+     2,
+     2,
+     3,
+     3
+    ],
+    "R": [
+     1,
+     2,
+     2,
+     3,
+     3
+    ]
+   },
+   "recheck": "3 months",
+   "hubspot": {
+    "status": "da_cost_status",
+    "notes": "da_cost_notes",
+    "source": "da_cost_source",
+    "details": "da_cost_details"
+   }
+  },
+  {
+   "id": "now",
+   "topic": "Business impact",
+   "question": "Why now?",
+   "why": "Stable problems don't create deadlines. A date they're organising around is what turns interest into a decision.",
+   "industry": "All",
+   "verbatim_required": true,
+   "key": true,
+   "ask": [
+    "sponsor",
+    "exec"
+   ],
+   "must_come_from": [
+    "sponsor",
+    "finance",
+    "people"
+   ],
+   "levels": {
+    "not_discussed": "Fewer than 3 elements",
+    "touched_on": "3–6 elements, or a compelling date asserted without a reason it binds",
+    "answered": "All 8 elements plus the industry element, attributed",
+    "confirmed": "Answered plus the compelling date corroborated by a second persona and prior-attempt outcomes in the buyer's words"
+   },
+   "levels_apply_to_area": "Commercial & governance",
+   "test": "Is this date theirs, and can they say what happens if it slips?",
+   "counts": [
+    "\"Board safety review is in November and I present at it.\"",
+    "\"Sign by mid-April or we don't go live for June, and June is when the line changes over.\"",
+    "\"Insurance renewal is 1 January and the broker wants something new to show.\""
+   ],
+   "does_not_count": [
+    "\"We're aiming to close in Q3.\" (Our date wearing their clothes.)",
+    "\"There's budget for this.\" (Whose? “Commercial & governance” element 2 asks who controls it, not whether it exists.)"
+   ],
+   "confused_with": "“Buying process”. This is when and who. “Buying process” is the steps and how long each one takes.",
+   "traps": "",
+   "listen_for": "A date someone else set: board target, contract renewal, insurer, regulator. Most triggers are incidents.",
+   "red_flag": "A date we proposed. 'Why now' blank is a Win-Loss red flag.",
+   "details": [
+    {
+     "value": "the_date_and_what_happens_on_it",
+     "label": "The date, and what happens on it"
+    },
+    {
+     "value": "who_set_it_board_client_regulator_insurer_audit",
+     "label": "Who set it (board, client, regulator, insurer, audit)"
+    },
+    {
+     "value": "open_regulator_notices_or_a_recent_serious_incident",
+     "label": "Open regulator notices or a recent serious incident"
+    },
+    {
+     "value": "governance_calendar_board_safety_review_audit_insurance_renewal",
+     "label": "Governance calendar: board safety review, audit, insurance renewal"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     1,
+     2,
+     2,
+     2,
+     2
+    ],
+    "M": [
+     1,
+     1,
+     2,
+     2,
+     2
+    ],
+    "R": [
+     1,
+     1,
+     2,
+     2,
+     2
+    ]
+   },
+   "recheck": "3 months",
+   "hubspot": {
+    "status": "da_now_status",
+    "notes": "da_now_notes",
+    "source": "da_now_source",
+    "details": "da_now_details"
+   }
+  },
+  {
+   "id": "good",
+   "topic": "The future they want",
+   "question": "What does good look like, and by when?",
+   "why": "Turns 'improve safety' into a condition with a number and a date that a pilot can be judged against.",
+   "industry": "All",
+   "verbatim_required": true,
+   "key": true,
+   "ask": [
+    "sponsor",
+    "operator"
+   ],
+   "must_come_from": [
+    "sponsor",
+    "operator",
+    "ops"
+   ],
+   "levels": {
+    "not_discussed": "Nothing, or unfalsifiable statements only",
+    "touched_on": "Targets undated, unnumbered, unpaired to a baseline, or stated as our deployment",
+    "answered": "All 10 universal and both industry elements, each with a unit and a date, each paired to its baseline",
+    "confirmed": "Answered plus confirmation this is the target set they are actually held to, and one target that could not be another account's"
+   },
+   "levels_apply_to_area": "Desired future state",
+   "test": "Could this statement be false in twelve months? If nothing could disprove it, it is not a future state.",
+   "counts": [
+    "\"Every forklift-pedestrian interaction in the north aisle seen within the shift it happens, by March.\"",
+    "\"20% fewer unsafe behaviours on the pilot line within six months, measured the same way we measure them now.\"",
+    "\"Detection accuracy at 90% inside four weeks of go-live.\""
+   ],
+   "does_not_count": [
+    "\"Better visibility.\" (Unfalsifiable, so it cannot be the far end of a gap.)",
+    "\"A proactive safety culture.\" (Same.)",
+    "\"Analytics running on 40 zones across three sites.\" (Our deployment described as their future. It has no unit they are measured on.)"
+   ],
+   "confused_with": "“Desired outcome” and “Future business impact”. Future state is the condition. Desired outcome is the capability it gives them. Future business impact is the benefit that follows.",
+   "traps": "\"Better visibility.\" \"A proactive safety culture.\" \"Getting ahead of incidents.\" If nothing could disprove it in twelve months, it is not a future state.",
+   "listen_for": "'Not only data in, but data out, meaning proof the reduction also' (Munters).",
+   "red_flag": "No number or no date: nothing to judge the pilot against.",
+   "details": [
+    {
+     "value": "the_target_with_a_unit_and_a_date_against_today_s_figure",
+     "label": "The target, with a unit and a date, against today's figure"
+    },
+    {
+     "value": "how_much_of_the_floor_they_want_visible_and_by_when",
+     "label": "How much of the floor they want visible, and by when"
+    },
+    {
+     "value": "what_they_ll_be_able_to_do_that_they_can_t_today",
+     "label": "What they'll be able to do that they can't today"
+    },
+    {
+     "value": "who_will_use_it_by_role",
+     "label": "Who will use it, by role"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ],
+    "M": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ],
+    "R": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ]
+   },
+   "recheck": "3 months",
+   "hubspot": {
+    "status": "da_good_status",
+    "notes": "da_good_notes",
+    "source": "da_good_source",
+    "details": "da_good_details"
+   }
+  },
+  {
+   "id": "proof",
+   "topic": "The future they want",
+   "question": "How will they know it worked, and who says so?",
+   "why": "Deals without written success criteria give the customer an easy way out at renewal.",
+   "industry": "All",
+   "verbatim_required": true,
+   "key": true,
+   "ask": [
+    "sponsor",
+    "exec"
+   ],
+   "must_come_from": [
+    "sponsor",
+    "operator",
+    "ops",
+    "it"
+   ],
+   "levels": {
+    "not_discussed": "Unknown, or a pilot assumed rather than established",
+    "touched_on": "Validation expected but pass conditions undefined, or “Success criteria” not matching “Desired future state”",
+    "answered": "All eight elements, pass conditions written as conditions, judge named",
+    "confirmed": "Answered plus “What specifically happens if it passes” committed in writing by the judge, and the cost acknowledged by the Ops leader whose people carry it"
+   },
+   "levels_apply_to_area": null,
+   "test": "Is the pass condition written as a condition, and does it match the definition of success in “Desired future state”?",
+   "counts": [
+    "\"10 cameras on one line for six months. 20% behaviour reduction and 90% accuracy, judged by Tim and Jacob. Pass means 25 cameras site-wide.\""
+   ],
+   "does_not_count": [
+    "\"They want a pilot.\" (Scope, criteria, judge and duration all missing.)"
+   ],
+   "confused_with": "“Pilot & expansion scope”. Validation is how it gets proven. Pilot scope is which sites and cameras, and what happens next.",
+   "traps": "",
+   "listen_for": "Cencora: ergonomic events down 25% in 90 days from 100; injuries down 10% in 180 days from 14. Sonoco: '95%+ detection accuracy'.",
+   "red_flag": "No success criteria by Vendor Selection. One AE had a success plan on 1 of 13 accounts.",
+   "details": [
+    {
+     "value": "two_or_three_measures_for_90_days_and_12_months_with_baselines",
+     "label": "Two or three measures for 90 days and 12 months, with baselines"
+    },
+    {
+     "value": "who_declares_success",
+     "label": "Who declares success"
+    },
+    {
+     "value": "what_happens_if_the_pilot_passes",
+     "label": "What happens if the pilot passes"
+    },
+    {
+     "value": "pass_or_fail_conditions_accuracy_relevance_sites_dates",
+     "label": "Pass or fail conditions: accuracy, relevance, sites, dates"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     null,
+     1,
+     1,
+     2,
+     3
+    ],
+    "M": [
+     null,
+     1,
+     2,
+     2,
+     3
+    ],
+    "R": [
+     null,
+     1,
+     2,
+     2,
+     3
+    ]
+   },
+   "recheck": "6 weeks",
+   "hubspot": {
+    "status": "da_proof_status",
+    "notes": "da_proof_notes",
+    "source": "da_proof_source",
+    "details": "da_proof_details"
+   }
+  },
+  {
+   "id": "load",
+   "topic": "The future they want",
+   "question": "How much can their team actually act on?",
+   "why": "Volume, not detection, is what stalls live accounts. Set the bar before go-live, not after.",
+   "industry": "All",
+   "verbatim_required": false,
+   "key": true,
+   "ask": [
+    "operator",
+    "sponsor"
+   ],
+   "must_come_from": [
+    "sponsor",
+    "operator",
+    "ops"
+   ],
+   "levels": {
+    "not_discussed": "Nothing, or unfalsifiable statements only",
+    "touched_on": "Targets undated, unnumbered, unpaired to a baseline, or stated as our deployment",
+    "answered": "All 10 universal and both industry elements, each with a unit and a date, each paired to its baseline",
+    "confirmed": "Answered plus confirmation this is the target set they are actually held to, and one target that could not be another account's"
+   },
+   "levels_apply_to_area": "Desired future state",
+   "test": "Could this statement be false in twelve months? If nothing could disprove it, it is not a future state.",
+   "counts": [
+    "\"Every forklift-pedestrian interaction in the north aisle seen within the shift it happens, by March.\"",
+    "\"20% fewer unsafe behaviours on the pilot line within six months, measured the same way we measure them now.\"",
+    "\"Detection accuracy at 90% inside four weeks of go-live.\""
+   ],
+   "does_not_count": [
+    "\"Better visibility.\" (Unfalsifiable, so it cannot be the far end of a gap.)",
+    "\"A proactive safety culture.\" (Same.)",
+    "\"Analytics running on 40 zones across three sites.\" (Our deployment described as their future. It has no unit they are measured on.)"
+   ],
+   "confused_with": "“Desired outcome” and “Future business impact”. Future state is the condition. Desired outcome is the capability it gives them. Future business impact is the benefit that follows.",
+   "traps": "\"Better visibility.\" \"A proactive safety culture.\" \"Getting ahead of incidents.\" If nothing could disprove it in twelve months, it is not a future state.",
+   "listen_for": "Munters set about 80% relevance. Linde's criteria are 'noise reduction and event relevance'.",
+   "red_flag": "No number: expect inaction after go-live.",
+   "details": [
+    {
+     "value": "events_per_week_the_team_can_review_and_act_on",
+     "label": "Events per week the team can review and act on"
+    },
+    {
+     "value": "share_that_must_be_relevant_for_them_to_keep_using_it",
+     "label": "Share that must be relevant for them to keep using it"
+    },
+    {
+     "value": "who_acts_and_when_in_the_week",
+     "label": "Who acts, and when in the week"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ],
+    "M": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ],
+    "R": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ]
+   },
+   "recheck": "3 months",
+   "hubspot": {
+    "status": "da_load_status",
+    "notes": "da_load_notes",
+    "source": "da_load_source",
+    "details": "da_load_details"
+   }
+  },
+  {
+   "id": "worth",
+   "topic": "The future they want",
+   "question": "Is it worth it on their maths?",
+   "why": "The honest number: today's cost against the target, minus what the change costs them, including their own time.",
+   "industry": "All",
+   "verbatim_required": false,
+   "key": true,
+   "ask": [
+    "finance",
+    "ops"
+   ],
+   "must_come_from": [
+    "finance",
+    "ops"
+   ],
+   "levels": {
+    "not_discussed": "No gap computed, or a benefit claim with no arithmetic",
+    "touched_on": "Delta on one side only, endpoints not matching their source fields, cost of change absent, or ratio uncomputed",
+    "answered": "Primary gap line present, endpoints identical to source, ≥60% buyer-stated, cost of change complete, ratio above 1:1",
+    "confirmed": "Answered plus the ratio tested against the Exec's threshold, the buyer restating the delta, and a per-persona ratio with no negative value"
+   },
+   "levels_apply_to_area": null,
+   "test": "Are both endpoints the same figures already recorded in “Operations (core)”, “Quantified impact”, “Desired future state” and “Future business impact” — unchanged?",
+   "counts": [
+    "\"$644k productivity plus $500k avoided injury cost, against $175k first-year cost including install and our people's time. 6.5:1.\""
+   ],
+   "does_not_count": [
+    "A benefit claim with no cost side. (Half a gap, and the half that flatters us.)",
+    "An ROI built from industry benchmarks. (Our confidence, not their incentive. Treated as below 1:1.)",
+    "A current value that improved since the last call. (Endpoint drift. The most common way a business case is manufactured rather than discovered.)"
+   ],
+   "confused_with": "“Quantified impact”. And note the gap can be negative for one person while positive overall — a works council facing a new liability has an inverted gap, and their yes is not optional.",
+   "traps": "Ratio above 3:1 on rep-modelled inputs is treated as below 1:1. Below 1:1 disqualifies; 1:1 to 3:1 means either under-sized or genuinely small, and anyone can fill a small gap.",
+   "listen_for": "3:1 or better from their numbers.",
+   "red_flag": "Below 1:1: 'That's equivalent to my total annual cost of injuries' (Compleat Food). Or someone whose consent is needed gets a new liability.",
+   "details": [
+    {
+     "value": "annual_value_of_the_change_in_their_currency",
+     "label": "Annual value of the change, in their currency"
+    },
+    {
+     "value": "full_first_year_cost_licence_it_effort_cameras_consultation_training_internal_ti",
+     "label": "Full first-year cost: licence, IT effort, cameras, consultation, training, internal time"
+    },
+    {
+     "value": "ratio_of_value_to_cost_aim_for_3_1",
+     "label": "Ratio of value to cost (aim for 3:1)"
+    },
+    {
+     "value": "anyone_who_takes_on_a_new_risk_or_workload_if_it_goes_in_hr_works_council_securi",
+     "label": "Anyone who takes on a new risk or workload if it goes in (HR, works council, Security, site GM)"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     null,
+     1,
+     2,
+     3,
+     3
+    ],
+    "M": [
+     null,
+     1,
+     2,
+     3,
+     3
+    ],
+    "R": [
+     null,
+     1,
+     2,
+     3,
+     3
+    ]
+   },
+   "recheck": "2 weeks",
+   "hubspot": {
+    "status": "da_worth_status",
+    "notes": "da_worth_notes",
+    "source": "da_worth_source",
+    "details": "da_worth_details"
+   }
+  },
+  {
+   "id": "who",
+   "topic": "People & power",
+   "question": "Who's involved, and how wide is the deal?",
+   "why": "Breadth is the strongest single predictor of a new-business win. Safety alone doesn't close.",
+   "industry": "All",
+   "verbatim_required": false,
+   "key": true,
+   "ask": [
+    "crm",
+    "champion"
+   ],
+   "must_come_from": [
+    "exec",
+    "sponsor"
+   ],
+   "levels": {
+    "not_discussed": "Single contact",
+    "touched_on": "Roster partial, or the three-population comparison not run",
+    "answered": "Eight personas named or ruled out, elements 3–7 per buyer, gap counts computed, contradictions flagged",
+    "confirmed": "Answered plus zero unengaged decision-makers, zero B.I.D. sources not deciding, and the map confirmed by a buyer rather than inferred"
+   },
+   "levels_apply_to_area": "The buyers",
+   "test": "Can you point at the person who signs, and separately at the person whose reality your business case is built on?",
+   "counts": [
+    "\"Tim owns the programme and is measured on TRIR. Per approves capital and has never spoken to us. Jack runs procurement.\"",
+    "\"Josh in IT holds a veto and his condition is the firewall review.\""
+   ],
+   "does_not_count": [
+    "A list of names and job titles. (That is a contact list. The buyer map needs role in the decision, influence, and what each one told us.)",
+    "\"We're multi-threaded.\" (How many, at what level, and did they contribute anything to the record?)"
+   ],
+   "confused_with": "Nothing — but the three-population comparison is the part reps skip, and it is the whole point of the field.",
+   "traps": "",
+   "listen_for": "Wins: Ops on 48% vs 19% of losses, IT 34% vs 6%, VP+ 72% vs 46%.",
+   "red_flag": "Two or fewer people: new-business deals win 4–6% whatever else is true.",
+   "details": [
+    {
+     "value": "an_operations_or_plant_leader_engaged",
+     "label": "An Operations or plant leader engaged"
+    },
+    {
+     "value": "it_or_ot_engaged",
+     "label": "IT or OT engaged"
+    },
+    {
+     "value": "someone_vp_or_above_engaged",
+     "label": "Someone VP or above engaged"
+    },
+    {
+     "value": "finance_or_risk_engaged",
+     "label": "Finance or risk engaged"
+    },
+    {
+     "value": "hr_legal_or_works_council_engaged",
+     "label": "HR, legal or works council engaged"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     1,
+     2,
+     2,
+     3,
+     3
+    ],
+    "M": [
+     1,
+     2,
+     2,
+     3,
+     3
+    ],
+    "R": [
+     1,
+     2,
+     2,
+     3,
+     3
+    ]
+   },
+   "recheck": "6 weeks",
+   "hubspot": {
+    "status": "da_who_status",
+    "notes": "da_who_notes",
+    "source": "da_who_source",
+    "details": "da_who_details"
+   }
+  },
+  {
+   "id": "signer",
+   "topic": "People & power",
+   "question": "Who signs, and have we met them?",
+   "why": "Naming the signer doesn't move the odds. Meeting and aligning with them does.",
+   "industry": "All",
+   "verbatim_required": false,
+   "key": true,
+   "ask": [
+    "exec",
+    "sponsor"
+   ],
+   "must_come_from": [
+    "exec"
+   ],
+   "levels": {
+    "not_discussed": "No anchor named, or no Exec identified",
+    "touched_on": "Anchor and Exec named but relayed second-hand, “The anchor metric's current value and target” or “Capital threshold” missing",
+    "answered": "All six elements, with 1–4 sourced from the Exec directly",
+    "confirmed": "Answered plus the Exec stating the anchor problem in their own words, and their threshold tested against the “The gap” total"
+   },
+   "levels_apply_to_area": "Exec anchor alignment",
+   "test": "Have you heard their threshold from them, in their words?",
+   "counts": [
+    "\"The COO owns downtime, is held to 96% OEE, and needs 12-month payback.\"",
+    "\"She's already got $400k earmarked for extra supervision, which is what we're really competing with.\""
+   ],
+   "does_not_count": [
+    "\"The VP of EHS is our champion.\" (That is “Champion”. A champion sells internally; an Exec owns the number.)",
+    "\"The CFO will approve it.\" (Have you met them? Relayed exec intent caps this field at Touched on.)"
+   ],
+   "confused_with": "“Champion”. The Exec owns the number. The champion sells in our absence. Sometimes the same person; usually not.",
+   "traps": "",
+   "listen_for": "VP or above who owns a multi-site budget. 'A plant manager or site H&S manager cannot sign a multi-site deal.'",
+   "red_flag": "A manager-level 'signer' (that's a champion, not a buyer). Budget locked: 'we've already locked down budgets for 2027'.",
+   "details": [
+    {
+     "value": "name_and_title_of_whoever_signs_above_pilot_scale",
+     "label": "Name and title of whoever signs above pilot scale"
+    },
+    {
+     "value": "whether_they_own_a_multi_site_budget",
+     "label": "Whether they own a multi-site budget"
+    },
+    {
+     "value": "whether_we_have_met_them_on_this_and_what_they_said",
+     "label": "Whether we have met them on this, and what they said"
+    },
+    {
+     "value": "whose_budget_this_comes_from_and_whether_it_exists_this_year",
+     "label": "Whose budget this comes from, and whether it exists this year"
+    },
+    {
+     "value": "budget_cycle_and_approval_thresholds",
+     "label": "Budget cycle and approval thresholds"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     1,
+     1,
+     2,
+     3,
+     3
+    ],
+    "M": [
+     1,
+     1,
+     2,
+     3,
+     3
+    ],
+    "R": [
+     1,
+     1,
+     2,
+     3,
+     3
+    ]
+   },
+   "recheck": "3 months",
+   "hubspot": {
+    "status": "da_signer_status",
+    "notes": "da_signer_notes",
+    "source": "da_signer_source",
+    "details": "da_signer_details"
+   }
+  },
+  {
+   "id": "champion",
+   "topic": "People & power",
+   "question": "Who is selling for us when we're not in the room?",
+   "why": "A champion who hasn't been tested is a coach. Test by what they do, not what they say.",
+   "industry": "All",
+   "verbatim_required": false,
+   "key": true,
+   "ask": [
+    "champion"
+   ],
+   "must_come_from": [
+    "champion"
+   ],
+   "levels": {
+    "not_discussed": "Nobody identified, or a friendly contact labelled a champion",
+    "touched_on": "Named with a personal stake but never tested — classified as coach",
+    "answered": "Tested at least once and delivered, all elements complete",
+    "confirmed": "Answered plus tested twice including an Exec introduction that happened, and they have told us one unwelcome thing"
+   },
+   "levels_apply_to_area": null,
+   "test": "What did you ask them to do, and did they do it?",
+   "counts": [
+    "\"Tim organised the internal sessions, brought his VP in, wrote half the business case himself, and told us our ergonomics support was too weak to include.\""
+   ],
+   "does_not_count": [
+    "\"Our main contact is really keen.\" (A coach at best. Enthusiasm is not authority.)",
+    "\"He's on our side.\" (Untested, so recorded as coach.)"
+   ],
+   "confused_with": "“Exec anchor alignment”. And note: someone who only ever brings good news is either not close to the decision or managing us.",
+   "traps": "",
+   "listen_for": "A safety or EHS champion who has been tested wins 83% of the new-business deals where one is flagged.",
+   "red_flag": "Champion has never done anything that cost them time or capital. A strong signer with a weak champion wins 0%.",
+   "details": [
+    {
+     "value": "name_role_and_who_they_report_to",
+     "label": "Name, role, and who they report to"
+    },
+    {
+     "value": "something_they_ve_got_approved_before",
+     "label": "Something they've got approved before"
+    },
+    {
+     "value": "something_they_did_for_us_between_meetings_an_introduction_internal_data_a_meeti",
+     "label": "Something they did for us between meetings (an introduction, internal data, a meeting set up)"
+    },
+    {
+     "value": "something_they_warned_us_about_that_we_didn_t_want_to_hear",
+     "label": "Something they warned us about that we didn't want to hear"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ],
+    "M": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ],
+    "R": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ]
+   },
+   "recheck": "6 weeks",
+   "hubspot": {
+    "status": "da_champion_status",
+    "notes": "da_champion_notes",
+    "source": "da_champion_source",
+    "details": "da_champion_details"
+   }
+  },
+  {
+   "id": "personal",
+   "topic": "People & power",
+   "question": "What does this mean for them personally?",
+   "why": "People act on personal stakes. It also tells you what they'll defend if this gets hard.",
+   "industry": "All",
+   "verbatim_required": true,
+   "key": false,
+   "ask": [
+    "sponsor",
+    "operator",
+    "exec"
+   ],
+   "must_come_from": [
+    "sponsor",
+    "operator",
+    "exec"
+   ],
+   "levels": {
+    "not_discussed": "None, or the champion's view only, second-hand",
+    "touched_on": "One or two personas, or entries missing “Their stated concern or objection, verbatim”",
+    "answered": "Three personas with all four elements each, from direct conversations",
+    "confirmed": "Five or more including the budget holder and the consent gate, objections verbatim"
+   },
+   "levels_apply_to_area": null,
+   "test": "Does the sentence contain the word I or my?",
+   "counts": [
+    "\"If we have a fatality on my watch, my career is over.\"",
+    "\"I'm tired of chasing paperwork nobody trusts.\"",
+    "\"My honest worry is my people will think this is surveillance.\""
+   ],
+   "does_not_count": [
+    "\"They're frustrated.\" (Whose frustration, and about what specifically?)",
+    "\"They're excited about the technology.\" (Interest, not stake. Interest does not fund anything.)"
+   ],
+   "confused_with": "“Intrinsic motivation”. Emotional state is how they feel about today. Intrinsic motivation is why they want the specific target they named.",
+   "traps": "",
+   "listen_for": "'Worried the program will be judged a failure with personal accountability for him' (ABF Sugar).",
+   "red_flag": "A motivation we suggested and they agreed to. It won't survive a competitor who asks properly.",
+   "details": [
+    {
+     "value": "what_they_personally_risk_if_nothing_changes",
+     "label": "What they personally risk if nothing changes"
+    },
+    {
+     "value": "what_they_gain_if_it_works",
+     "label": "What they gain if it works"
+    },
+    {
+     "value": "their_honest_concern_about_this_in_their_words",
+     "label": "Their honest concern about this, in their words"
+    },
+    {
+     "value": "why_this_target_and_not_a_higher_one_and_who_it_s_committed_to_board_client_regu",
+     "label": "Why this target and not a higher one, and who it's committed to (board, client, regulator)"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     1,
+     2,
+     2,
+     2,
+     2
+    ],
+    "M": [
+     1,
+     2,
+     2,
+     2,
+     2
+    ],
+    "R": [
+     1,
+     2,
+     2,
+     2,
+     2
+    ]
+   },
+   "recheck": "3 months",
+   "hubspot": {
+    "status": "da_personal_status",
+    "notes": "da_personal_notes",
+    "source": "da_personal_source",
+    "details": "da_personal_details"
+   }
+  },
+  {
+   "id": "veto",
+   "topic": "People & power",
+   "question": "Who could say no, and what would change their mind?",
+   "why": "Silent stakeholders with a veto stall deals that look healthy. Find them while there's time.",
+   "industry": "All",
+   "verbatim_required": false,
+   "key": false,
+   "ask": [
+    "sponsor",
+    "champion"
+   ],
+   "must_come_from": [
+    "exec",
+    "sponsor"
+   ],
+   "levels": {
+    "not_discussed": "Single contact",
+    "touched_on": "Roster partial, or the three-population comparison not run",
+    "answered": "Eight personas named or ruled out, elements 3–7 per buyer, gap counts computed, contradictions flagged",
+    "confirmed": "Answered plus zero unengaged decision-makers, zero B.I.D. sources not deciding, and the map confirmed by a buyer rather than inferred"
+   },
+   "levels_apply_to_area": "The buyers",
+   "test": "Can you point at the person who signs, and separately at the person whose reality your business case is built on?",
+   "counts": [
+    "\"Tim owns the programme and is measured on TRIR. Per approves capital and has never spoken to us. Jack runs procurement.\"",
+    "\"Josh in IT holds a veto and his condition is the firewall review.\""
+   ],
+   "does_not_count": [
+    "A list of names and job titles. (That is a contact list. The buyer map needs role in the decision, influence, and what each one told us.)",
+    "\"We're multi-threaded.\" (How many, at what level, and did they contribute anything to the record?)"
+   ],
+   "confused_with": "Nothing — but the three-population comparison is the part reps skip, and it is the whole point of the field.",
+   "traps": "",
+   "listen_for": "IT and AI committees, Security, unions and works councils, HR and legal.",
+   "red_flag": "Two buyers disagree on the target, baseline, signer or date, and it's unresolved.",
+   "details": [
+    {
+     "value": "each_person_who_can_block_it_it_ai_committee_security_union_or_works_council_hr",
+     "label": "Each person who can block it: IT, AI committee, Security, union or works council, HR, legal, procurement"
+    },
+    {
+     "value": "what_each_needs_to_say_yes",
+     "label": "What each needs to say yes"
+    },
+    {
+     "value": "anyone_who_takes_on_a_new_risk_if_this_goes_in",
+     "label": "Anyone who takes on a new risk if this goes in"
+    },
+    {
+     "value": "any_disagreement_between_buyers_on_the_target_the_baseline_the_signer_or_the_dat",
+     "label": "Any disagreement between buyers on the target, the baseline, the signer or the date"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ],
+    "M": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ],
+    "R": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ]
+   },
+   "recheck": "6 weeks",
+   "hubspot": {
+    "status": "da_veto_status",
+    "notes": "da_veto_notes",
+    "source": "da_veto_source",
+    "details": "da_veto_details"
+   }
+  },
+  {
+   "id": "decide",
+   "topic": "How they'll buy",
+   "question": "How will they decide?",
+   "why": "If they're already comparing options against criteria, find out who wrote them while they can still change.",
+   "industry": "All",
+   "verbatim_required": false,
+   "key": false,
+   "ask": [
+    "sponsor",
+    "it",
+    "finance"
+   ],
+   "must_come_from": [
+    "sponsor",
+    "exec",
+    "it",
+    "finance"
+   ],
+   "levels": {
+    "not_discussed": "Unknown, or \"they're evaluating a few options\"",
+    "touched_on": "Register partial, no weighting, quality unassessed, or criteria we asserted and never confirmed",
+    "answered": "Every criterion tagged, weighted, owner named, our position recorded, quality assessed",
+    "confirmed": "Answered plus one criterion we recommended and they adopted, with the buyer able to explain why it matters, and the register stable across two calls"
+   },
+   "levels_apply_to_area": null,
+   "test": "Could you predict how they would score a competitor?",
+   "counts": [
+    "\"90% detection accuracy, a self-service rule builder, open API to our EHS system, and 12-month payback — in that order of weight.\""
+   ],
+   "does_not_count": [
+    "\"They're evaluating a few options.\" (No criteria captured.)",
+    "Criteria we listed for them and they never confirmed. (Us talking to ourselves. Recommended-and-adopted is influence; asserted-and-unconfirmed is not.)"
+   ],
+   "confused_with": "“Buying process”. Criteria are the tests. The buying process is the steps.",
+   "traps": "",
+   "listen_for": "Criteria with weights and owners. Linde's: 'noise reduction and event relevance'.",
+   "red_flag": "Weaker than a rival on a high-weighted criterion: reposition or walk, don't discount.",
+   "details": [
+    {
+     "value": "the_criteria_how_much_each_weighs_and_who_owns_each_one",
+     "label": "The criteria, how much each weighs, and who owns each one"
+    },
+    {
+     "value": "whether_the_criteria_came_from_them_or_from_another_vendor",
+     "label": "Whether the criteria came from them or from another vendor"
+    },
+    {
+     "value": "where_we_win_a_high_weighted_criterion_and_where_we_lose_one",
+     "label": "Where we win a high-weighted criterion, and where we lose one"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ],
+    "M": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ],
+    "R": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ]
+   },
+   "recheck": "6 weeks",
+   "hubspot": {
+    "status": "da_decide_status",
+    "notes": "da_decide_notes",
+    "source": "da_decide_source",
+    "details": "da_decide_details"
+   }
+  },
+  {
+   "id": "steps",
+   "topic": "How they'll buy",
+   "question": "What happens between 'yes' and a signature?",
+   "why": "Most late losses are stalls. Every step with an owner and a duration is a step that can't surprise you.",
+   "industry": "All",
+   "verbatim_required": false,
+   "key": false,
+   "ask": [
+    "sponsor",
+    "finance"
+   ],
+   "must_come_from": [
+    "sponsor",
+    "exec",
+    "people",
+    "finance"
+   ],
+   "levels": {
+    "not_discussed": "Unknown, or \"it'll go to procurement\"",
+    "touched_on": "Steps partially known, any type left unknown, no durations, path uncomputed",
+    "answered": "Every type resolved, owners and durations attached, path computed, preferred vendor and MSA both established",
+    "confirmed": "Answered plus the register confirmed by someone who has run it here before, every can-start-now step actually started, and the path fitting with slack"
+   },
+   "levels_apply_to_area": null,
+   "test": "Can you sum the durations and compare against the compelling date?",
+   "counts": [
+    "\"MSA negotiation two weeks, InfoSec review three, works council six, board sign-off on the 14th. Legal and InfoSec can run in parallel.\""
+   ],
+   "does_not_count": [
+    "\"It'll go to procurement.\" (One word standing in for the whole path.)",
+    "\"Legal is reviewing it.\" (A status, not a returned redline. The canon is explicit on that distinction.)"
+   ],
+   "confused_with": "“Commercial & governance”. “Commercial & governance” holds the dates; this holds the mechanics and the clocks.",
+   "traps": "",
+   "listen_for": "Owners and durations for every step. 'Legal is reviewing' is not a returned redline.",
+   "red_flag": "Any step still 'unknown' after a verbal yes.",
+   "details": [
+    {
+     "value": "every_step_legal_procurement_security_review_ai_committee_works_council_capex_ap",
+     "label": "Every step: legal, procurement, security review, AI committee, works council, capex approval, each with an owner and duration"
+    },
+    {
+     "value": "whether_we_need_to_be_a_preferred_vendor_or_sign_an_msa",
+     "label": "Whether we need to be a preferred vendor or sign an MSA"
+    },
+    {
+     "value": "days_of_steps_vs_days_to_their_deadline",
+     "label": "Days of steps vs days to their deadline"
+    },
+    {
+     "value": "any_step_type_still_unknown",
+     "label": "Any step type still unknown"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     null,
+     null,
+     1,
+     2,
+     3
+    ],
+    "M": [
+     null,
+     null,
+     1,
+     2,
+     3
+    ],
+    "R": [
+     null,
+     null,
+     1,
+     2,
+     3
+    ]
+   },
+   "recheck": "12 months",
+   "hubspot": {
+    "status": "da_steps_status",
+    "notes": "da_steps_notes",
+    "source": "da_steps_source",
+    "details": "da_steps_details"
+   }
+  },
+  {
+   "id": "scope",
+   "topic": "How they'll buy",
+   "question": "Where does it start, and where does it go?",
+   "why": "A pilot at the easiest site lands and then stalls. Choose a site that proves something to whoever signs the rollout.",
+   "industry": "All",
+   "verbatim_required": false,
+   "key": false,
+   "ask": [
+    "sponsor",
+    "ops",
+    "exec"
+   ],
+   "must_come_from": [
+    "sponsor",
+    "exec",
+    "ops"
+   ],
+   "levels": {
+    "not_discussed": "No scope defined, or a pilot assumed rather than agreed",
+    "touched_on": "Pilot site named but scope, success criteria or expansion direction missing",
+    "answered": "All eight elements, success criteria matching “Desired future state” and “Validation”, expansion authority confirmed at the Exec's signing level",
+    "confirmed": "Answered plus the expansion path stated by the person who owns that decision, and the pilot site's representativeness assessed against the estate"
+   },
+   "levels_apply_to_area": null,
+   "test": "Could the Exec sign the expansion, not just the pilot?",
+   "counts": [
+    "\"10 cameras on the highest-risk line because that's where the recordables are, then 25 site-wide, then the two European plants — Per can authorise up to €250k.\""
+   ],
+   "does_not_count": [
+    "\"Start with one site and see how it goes.\" (No success criteria, no expansion trigger, no authority tested.)",
+    "A pilot at the site with the best cameras and the friendliest manager. (The site whose result generalises least, and the usual default.)"
+   ],
+   "confused_with": "“Validation”. Validation is the proving; this is the commercial shape.",
+   "traps": "",
+   "listen_for": "A representative site the signer cares about. A non-union first site can help.",
+   "red_flag": "A signer who can only approve one site.",
+   "details": [
+    {
+     "value": "pilot_site_and_why_it_was_chosen",
+     "label": "Pilot site and why it was chosen"
+    },
+    {
+     "value": "areas_cameras_and_risks_in_and_out_of_scope",
+     "label": "Areas, cameras and risks in and out of scope"
+    },
+    {
+     "value": "what_would_justify_a_rollout_in_their_words",
+     "label": "What would justify a rollout, in their words"
+    },
+    {
+     "value": "rollout_sites_sequence_and_timing",
+     "label": "Rollout sites, sequence and timing"
+    },
+    {
+     "value": "whether_the_signer_can_approve_the_rollout_at_that_scale",
+     "label": "Whether the signer can approve the rollout at that scale"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     null,
+     2,
+     2,
+     2,
+     3
+    ],
+    "M": [
+     null,
+     null,
+     2,
+     2,
+     3
+    ],
+    "R": [
+     null,
+     null,
+     2,
+     2,
+     3
+    ]
+   },
+   "recheck": null,
+   "hubspot": {
+    "status": "da_scope_status",
+    "notes": "da_scope_notes",
+    "source": "da_scope_source",
+    "details": "da_scope_details"
+   }
+  },
+  {
+   "id": "workforce",
+   "topic": "How they'll buy",
+   "question": "How will the workforce, unions and privacy be handled?",
+   "why": "The union or works council question decides whether the floor accepts it. Raise it early; it is usually solvable.",
+   "industry": "All",
+   "verbatim_required": true,
+   "key": true,
+   "ask": [
+    "people",
+    "sponsor"
+   ],
+   "must_come_from": [
+    "sponsor",
+    "finance",
+    "people"
+   ],
+   "levels": {
+    "not_discussed": "Fewer than 3 elements",
+    "touched_on": "3–6 elements, or a compelling date asserted without a reason it binds",
+    "answered": "All 8 elements plus the industry element, attributed",
+    "confirmed": "Answered plus the compelling date corroborated by a second persona and prior-attempt outcomes in the buyer's words"
+   },
+   "levels_apply_to_area": "Commercial & governance",
+   "test": "Is this date theirs, and can they say what happens if it slips?",
+   "counts": [
+    "\"Board safety review is in November and I present at it.\"",
+    "\"Sign by mid-April or we don't go live for June, and June is when the line changes over.\"",
+    "\"Insurance renewal is 1 January and the broker wants something new to show.\""
+   ],
+   "does_not_count": [
+    "\"We're aiming to close in Q3.\" (Our date wearing their clothes.)",
+    "\"There's budget for this.\" (Whose? “Commercial & governance” element 2 asks who controls it, not whether it exists.)"
+   ],
+   "confused_with": "“Buying process”. This is when and who. “Buying process” is the steps and how long each one takes.",
+   "traps": "",
+   "listen_for": "'Are you going to coach him or are you going to discipline him?' (UPS). A written memo 'won legal and union acceptance' (Cummins).",
+   "red_flag": "They want individuals identified: walk away. A union contract bars camera AI and there's no other site to start.",
+   "details": [
+    {
+     "value": "sites_with_a_union_or_works_council_what_consultation_requires_and_how_long",
+     "label": "Sites with a union or works council, what consultation requires, and how long"
+    },
+    {
+     "value": "whether_findings_will_be_used_for_coaching_or_discipline_and_whether_that_s_in_w",
+     "label": "Whether findings will be used for coaching or discipline, and whether that's in writing"
+    },
+    {
+     "value": "whether_anyone_expects_to_identify_individuals",
+     "label": "Whether anyone expects to identify individuals"
+    },
+    {
+     "value": "retention_and_viewing_rules",
+     "label": "Retention and viewing rules"
+    },
+    {
+     "value": "monitoring_technology_introduced_before_and_how_it_landed",
+     "label": "Monitoring technology introduced before, and how it landed"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     1,
+     2,
+     2,
+     2,
+     2
+    ],
+    "M": [
+     1,
+     1,
+     2,
+     2,
+     2
+    ],
+    "R": [
+     1,
+     1,
+     2,
+     2,
+     2
+    ]
+   },
+   "recheck": "3 months",
+   "hubspot": {
+    "status": "da_workforce_status",
+    "notes": "da_workforce_notes",
+    "source": "da_workforce_source",
+    "details": "da_workforce_details"
+   }
+  },
+  {
+   "id": "alternatives",
+   "topic": "Competition & proof",
+   "question": "What else are they considering?",
+   "why": "The real competitor is often doing nothing, hiring, or the EHS platform's own AI.",
+   "industry": "All",
+   "verbatim_required": false,
+   "key": false,
+   "ask": [
+    "champion",
+    "sponsor"
+   ],
+   "must_come_from": [
+    "sponsor",
+    "exec"
+   ],
+   "levels": {
+    "not_discussed": "No alternatives named, or \"no competition\" recorded",
+    "touched_on": "External rivals named but do-nothing and internal build unassessed",
+    "answered": "All elements, with do-nothing and internal build explicitly assessed and rival-to-persona mapping done",
+    "confirmed": "Answered plus our position stated against every criteria dimension, and every landmine countered with something the buyer acknowledged"
+   },
+   "levels_apply_to_area": null,
+   "test": "Have you assessed the status quo as a named competitor?",
+   "counts": [
+    "\"Two CV vendors, plus the option of hiring three more safety officers, plus doing nothing until renewal.\""
+   ],
+   "does_not_count": [
+    "\"No competition.\" (An auto-fail. Doing nothing always exists and wins by not being evaluated.)"
+   ],
+   "confused_with": "“Exec anchor alignment” element 5 — the competing internal spend is usually the real competitor.",
+   "traps": "",
+   "listen_for": "86 accounts named a vision vendor in 2026. Cority, Gensuite and Intelex now ship their own AI.",
+   "red_flag": "A rival has a head start at a site with more internal pull.",
+   "details": [
+    {
+     "value": "other_vendors_being_looked_at_or_piloted_anywhere_in_the_group",
+     "label": "Other vendors being looked at or piloted anywhere in the group"
+    },
+    {
+     "value": "doing_nothing_building_in_house_or_adding_headcount",
+     "label": "Doing nothing, building in-house, or adding headcount"
+    },
+    {
+     "value": "the_ehs_platform_s_own_ai_add_on",
+     "label": "The EHS platform's own AI add-on"
+    },
+    {
+     "value": "anything_a_competitor_has_told_them_about_us",
+     "label": "Anything a competitor has told them about us"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ],
+    "M": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ],
+    "R": [
+     null,
+     1,
+     2,
+     2,
+     2
+    ]
+   },
+   "recheck": "6 weeks",
+   "hubspot": {
+    "status": "da_alternatives_status",
+    "notes": "da_alternatives_notes",
+    "source": "da_alternatives_source",
+    "details": "da_alternatives_details"
+   }
+  },
+  {
+   "id": "sure",
+   "topic": "Competition & proof",
+   "question": "What would make them sure?",
+   "why": "Proof bars set after a failed pilot are specific. Know them before you design the pilot.",
+   "industry": "All",
+   "verbatim_required": false,
+   "key": false,
+   "ask": [
+    "exec",
+    "it",
+    "sponsor"
+   ],
+   "must_come_from": [
+    "exec",
+    "sponsor",
+    "finance",
+    "people"
+   ],
+   "levels": {
+    "not_discussed": "No risks captured, or risk treated as an objection to handle rather than data",
+    "touched_on": "Risks named without the proof that resolves them, or sourced only from the champion",
+    "answered": "All seven elements, each risk paired to a specific proof requirement, from the person who holds the risk",
+    "confirmed": "Answered plus the Exec's own how-sure answer verbatim, and every risk matched to a proof asset that exists rather than one we would create"
+   },
+   "levels_apply_to_area": null,
+   "test": "Does each stated risk have a specific proof paired to it?",
+   "counts": [
+    "\"They bought a rule-based PPE system that flagged everything and got switched off. They need to see contextual filtering working on their own floor.\""
+   ],
+   "does_not_count": [
+    "\"They had some concerns but I handled them.\" (Risk treated as an objection rather than recorded as data. It will come back at signature.)"
+   ],
+   "confused_with": "“Future emotional state” element 4 feeds this — the residual doubt is the input.",
+   "traps": "",
+   "listen_for": "'Weekly weighted accuracy rate reporting' (Pirelli). Earlier trials died at about 60% accuracy.",
+   "red_flag": "The reference they need doesn't exist.",
+   "details": [
+    {
+     "value": "the_risks_they_ve_stated_and_the_proof_each_needs",
+     "label": "The risks they've stated, and the proof each needs"
+    },
+    {
+     "value": "accuracy_and_relevance_bar_and_figures_other_vendors_quoted",
+     "label": "Accuracy and relevance bar, and figures other vendors quoted"
+    },
+    {
+     "value": "reference_they_d_trust_same_industry_scale_union_environment",
+     "label": "Reference they'd trust: same industry, scale, union environment"
+    },
+    {
+     "value": "what_happens_to_them_if_it_fails",
+     "label": "What happens to them if it fails"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     null,
+     null,
+     1,
+     2,
+     2
+    ],
+    "M": [
+     null,
+     null,
+     1,
+     2,
+     2
+    ],
+    "R": [
+     null,
+     1,
+     1,
+     2,
+     2
+    ]
+   },
+   "recheck": "6 months",
+   "hubspot": {
+    "status": "da_sure_status",
+    "notes": "da_sure_notes",
+    "source": "da_sure_source",
+    "details": "da_sure_details"
+   }
+  },
+  {
+   "id": "next",
+   "topic": "Momentum",
+   "question": "What will they do next, and by when?",
+   "why": "A next step on our calendar isn't progress. A next step on theirs, that costs them something, is.",
+   "industry": "All",
+   "verbatim_required": false,
+   "key": true,
+   "ask": [
+    "champion"
+   ],
+   "must_come_from": [
+    "champion"
+   ],
+   "levels": {
+    "not_discussed": "No next yes identified, or rep activity recorded as a next yes",
+    "touched_on": "A next yes named without “Why this buyer values giving it”, or a map covering only people we have already met",
+    "answered": "All eight elements, map covering every consent-holder, at least one yes given in the last review period",
+    "confirmed": "Answered plus a plan for the two yeses after this one, and every refusal diagnosed and acted on"
+   },
+   "levels_apply_to_area": null,
+   "test": "Who does the work — them or us?",
+   "counts": [
+    "\"He's introducing me to the COO on Thursday.\"",
+    "\"She's pulling the claims breakdown by injury type — that's a couple of hours of someone's time.\"",
+    "\"They're submitting us to InfoSec review this week.\"",
+    "\"He's taking me round the site on the 12th.\""
+   ],
+   "does_not_count": [
+    "\"I'll follow up next week.\" (Our activity. The buyer's effort line stays flat while ours climbs.)",
+    "\"We've got a meeting Thursday.\" (Ours, unless they had to do something to make it happen.)",
+    "\"They said send a proposal.\" (Costs them nothing.)"
+   ],
+   "confused_with": "A next step. A next step is on our calendar; a next yes is on theirs. No next yes means stalled by definition.",
+   "traps": "",
+   "listen_for": "Any two commitments that cost them time or capital means they're on the journey with you.",
+   "red_flag": "No next step, or no meeting in three weeks. Meetings and demos alone are the most common false positive.",
+   "details": [
+    {
+     "value": "the_next_thing_they_ll_do_with_a_date",
+     "label": "The next thing they'll do, with a date"
+    },
+    {
+     "value": "commitments_they_ve_already_made_an_introduction_upward_data_they_had_to_fetch_a",
+     "label": "Commitments they've already made: an introduction upward, data they had to fetch, a site walk, a business case co-written, senior time booked"
+    },
+    {
+     "value": "whether_the_last_thing_they_promised_happened",
+     "label": "Whether the last thing they promised happened"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     1,
+     2,
+     2,
+     2,
+     2
+    ],
+    "M": [
+     1,
+     2,
+     2,
+     2,
+     2
+    ],
+    "R": [
+     1,
+     2,
+     2,
+     2,
+     2
+    ]
+   },
+   "recheck": "2 weeks",
+   "hubspot": {
+    "status": "da_next_status",
+    "notes": "da_next_notes",
+    "source": "da_next_source",
+    "details": "da_next_details"
+   }
+  },
+  {
+   "id": "stop",
+   "topic": "Momentum",
+   "question": "Is there anything that should stop us?",
+   "why": "Losses are mostly stalls. These are the patterns that predicted them; each has a known fix or none.",
+   "industry": "All",
+   "verbatim_required": false,
+   "key": true,
+   "ask": [
+    "champion",
+    "crm"
+   ],
+   "must_come_from": [
+    "champion"
+   ],
+   "levels": {
+    "not_discussed": "Not checked",
+    "touched_on": "Checked with one person; something may be there",
+    "answered": "Checked with the champion: nothing found, or each one has a fix",
+    "confirmed": "Checked with the signer, fixes agreed in writing"
+   },
+   "levels_apply_to_area": null,
+   "test": "Would the signer agree none of these applies?",
+   "counts": [],
+   "does_not_count": [
+    "Qualification verdict = fail (does a problem exist we can fix / do they agree / do they want to fix it / will they journey with us)",
+    "Gap ratio below 1:1 — the change costs more than it returns on their own numbers",
+    "Inverted gap: a consent-holding persona faces a new liability that doesn't exist today",
+    "Solvability worse or unknown against any alternative, including do-nothing",
+    "No next yes in flight — stalled by definition",
+    "Unresolved buyer contradiction on the anchor, a baseline, the signatory or the compelling date"
+   ],
+   "confused_with": "",
+   "traps": "",
+   "listen_for": "None, or each one ticked with its fix noted.",
+   "red_flag": "Any ticked with no known fix: doesn't fit yet.",
+   "details": [
+    {
+     "value": "no_route_to_a_vp_level_budget_owner",
+     "label": "No route to a VP-level budget owner"
+    },
+    {
+     "value": "no_cameras_where_the_risk_is",
+     "label": "No cameras where the risk is"
+    },
+    {
+     "value": "a_union_bar_with_no_other_site_to_start",
+     "label": "A union bar with no other site to start"
+    },
+    {
+     "value": "nobody_with_time_to_own_it",
+     "label": "Nobody with time to own it"
+    },
+    {
+     "value": "a_clean_record_and_no_operations_angle",
+     "label": "A clean record and no Operations angle"
+    },
+    {
+     "value": "licence_cost_out_of_scale_with_the_site",
+     "label": "Licence cost out of scale with the site"
+    },
+    {
+     "value": "they_don_t_act_on_what_they_already_know",
+     "label": "They don't act on what they already know"
+    },
+    {
+     "value": "budget_locked_or_frozen",
+     "label": "Budget locked or frozen"
+    },
+    {
+     "value": "ai_freeze_new_ai_committee_or_a_decision_to_build",
+     "label": "AI freeze, new AI committee, or a decision to build"
+    },
+    {
+     "value": "they_want_individuals_identified",
+     "label": "They want individuals identified"
+    },
+    {
+     "value": "outside_our_core_industries_and_site_sizes",
+     "label": "Outside our core industries and site sizes"
+    }
+   ],
+   "due_by_stage": {
+    "L": [
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "M": [
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "R": [
+     1,
+     1,
+     1,
+     1,
+     1
+    ]
+   },
+   "recheck": null,
+   "hubspot": {
+    "status": "da_stop_status",
+    "notes": "da_stop_notes",
+    "source": "da_stop_source",
+    "details": "da_stop_details"
+   }
+  }
+ ]
+}
