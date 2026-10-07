@@ -48,7 +48,8 @@ import {
   type QuestionState,
 } from './discovery/score.ts';
 import type { IndustryCode } from './discovery/types.ts';
-import { SectionTitle } from './lib/components.tsx';
+import { RichText, SectionTitle } from './lib/components.tsx';
+import { daysSince } from './lib/parse.ts';
 import { useRecordProperties, type CrmActions } from './lib/hooks.ts';
 
 /** Lets any question table open a question in the card. */
@@ -134,6 +135,7 @@ export function Discovery({ actions }: { actions: CrmActions }) {
         shortCount={short.length}
         dueCount={due.length}
       />
+      <AiAssessment props={props} />
 
       {!industry && (
         <Alert title="Pick the industry" variant="warning">
@@ -234,6 +236,46 @@ function Summary(p: {
           </StatisticsItem>
           <StatisticsItem label="Short for this stage" number={p.shortCount} />
         </Statistics>
+      </Flex>
+    </Tile>
+  );
+}
+
+const SAVED_BAND_LABELS: Record<string, string> = { high: 'High', medium: 'Medium', low: 'Low', at_risk: 'At risk' };
+
+/** The latest AI call assessment, when one has been written to the deal. */
+function AiAssessment({ props }: { props: Record<string, string> }) {
+  const record = (props.da_ai_assessment ?? '').trim();
+  const meeting = (props.da_ai_last_meeting ?? '').trim();
+  const ran = props.da_ai_last_run;
+  if (!record && !meeting && !ran) return null;
+
+  const days = daysSince(ran ?? '');
+  const when =
+    days === null ? '' : days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
+  const savedHealth = props.da_discovery_health;
+  const savedPoints = props.da_close_points;
+  const savedBand = SAVED_BAND_LABELS[props.da_close_band ?? ''] ?? '';
+  const saved = [
+    savedHealth ? `health ${Math.round(Number(savedHealth))}%` : '',
+    savedPoints ? `${savedPoints} points` : '',
+    savedBand,
+  ].filter(Boolean);
+
+  return (
+    <Tile compact>
+      <Flex direction="column" gap="xs">
+        <Flex direction="row" gap="sm" align="center" justify="between" wrap="wrap">
+          <SectionTitle icon="artificialIntelligence">AI assessment</SectionTitle>
+          {when && <Tag variant={days !== null && days > 30 ? 'warning' : 'default'}>{`Assessed ${when}`}</Tag>}
+        </Flex>
+        {meeting && <Text variant="microcopy">{`Last call assessed: ${meeting}`}</Text>}
+        {saved.length > 0 && <Text variant="microcopy">{`At that assessment: ${saved.join(' · ')}`}</Text>}
+        {record && (
+          <Accordion title="Read the assessment" size="sm">
+            <RichText value={record} />
+          </Accordion>
+        )}
       </Flex>
     </Tile>
   );

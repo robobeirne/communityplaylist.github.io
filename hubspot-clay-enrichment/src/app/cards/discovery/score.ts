@@ -168,6 +168,16 @@ export function closeBand(points: number, stopUnresolved: boolean): Band {
   return 'Low';
 }
 
+/** Written by the AI call assessment, shown on the card when present. */
+export const AI_PROPERTIES = [
+  'da_ai_assessment',
+  'da_ai_last_meeting',
+  'da_ai_last_run',
+  'da_discovery_health',
+  'da_close_points',
+  'da_close_band',
+];
+
 /** Every property the card reads. */
 export const DISCOVERY_PROPERTIES: string[] = Array.from(
   new Set([
@@ -176,6 +186,7 @@ export const DISCOVERY_PROPERTIES: string[] = Array.from(
     'dealstage',
     'da_industry',
     'num_associated_contacts',
+    ...AI_PROPERTIES,
     ...QUESTIONS.flatMap((q) => q.properties),
   ])
 );

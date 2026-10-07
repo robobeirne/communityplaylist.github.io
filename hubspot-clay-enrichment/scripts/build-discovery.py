@@ -42,6 +42,56 @@ EXTRA_PROPERTIES = [{
     'options': [{'label': 'Yes', 'value': 'true'}, {'label': 'No', 'value': 'false'}],
     'description': 'Tick if any blocker above has no known fix. Sets the close band to At risk.',
     'question': 36,
+}, {
+    'groupLabel': 'Discovery — Summary',
+    'label': 'Discovery — AI assessment record',
+    'name': 'da_ai_assessment',
+    'type': 'string',
+    'fieldType': 'textarea',
+    'description': 'The latest AI assessment of the deal against the discovery questions.',
+    'question': None,
+}, {
+    'groupLabel': 'Discovery — Summary',
+    'label': 'Discovery — last call assessed',
+    'name': 'da_ai_last_meeting',
+    'type': 'string',
+    'fieldType': 'text',
+    'description': 'The call the latest AI assessment was based on.',
+    'question': None,
+}, {
+    'groupLabel': 'Discovery — Summary',
+    'label': 'Discovery — last assessed at',
+    'name': 'da_ai_last_run',
+    'type': 'datetime',
+    'fieldType': 'date',
+    'description': 'When the AI assessment last ran.',
+    'question': None,
+}, {
+    'groupLabel': 'Discovery — Summary',
+    'label': 'Discovery health %',
+    'name': 'da_discovery_health',
+    'type': 'number',
+    'fieldType': 'number',
+    'description': 'Weighted share of questions due by this stage that are answered well enough.',
+    'question': None,
+}, {
+    'groupLabel': 'Discovery — Summary',
+    'label': 'Likelihood to close (points)',
+    'name': 'da_close_points',
+    'type': 'number',
+    'fieldType': 'number',
+    'description': 'Points from the Win-Loss signals.',
+    'question': None,
+}, {
+    'groupLabel': 'Discovery — Summary',
+    'label': 'Close band',
+    'name': 'da_close_band',
+    'type': 'enumeration',
+    'fieldType': 'select',
+    'options': [{'label': l, 'value': v} for l, v in
+                [('High', 'high'), ('Medium', 'medium'), ('Low', 'low'), ('At risk', 'at_risk')]],
+    'description': 'At risk if something should stop us with no fix.',
+    'question': None,
 }]
 
 

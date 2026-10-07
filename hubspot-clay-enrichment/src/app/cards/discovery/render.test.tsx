@@ -3,7 +3,7 @@
 import React from 'react';
 import assert from 'node:assert/strict';
 import { createRenderer } from '@hubspot/ui-extensions/testing';
-import { Accordion, Alert, Button, Heading, ScoreCircle, StatusTag, Tab, Text } from '@hubspot/ui-extensions';
+import { Accordion, Alert, Button, Heading, ScoreCircle, StatusTag, Tab, Tag, Text } from '@hubspot/ui-extensions';
 import { CrmPropertyList } from '@hubspot/ui-extensions/crm';
 import { Discovery } from '../Discovery.tsx';
 import { QUESTIONS, STATUS_OPTIONS, WHO_DETAIL_VALUES } from './data.ts';
@@ -74,4 +74,21 @@ console.log('expansion deal shows the one-line note');
 const risk = await renderWith({ ...example, da_stop_unresolved: 'true' });
 assert.ok(risk.findAll(Alert).some((a) => String(a.props.title).startsWith('At risk')));
 console.log('unresolved blocker shows At risk');
+
+const ai = await renderWith({
+  ...example,
+  da_ai_assessment: 'Strong on the operation; the signer is still unmet.',
+  da_ai_last_meeting: 'Deep dive with Group EHS, 6 Oct',
+  da_ai_last_run: String(Date.now() - 2 * 86_400_000),
+  da_discovery_health: '72',
+  da_close_points: '38',
+  da_close_band: 'medium',
+});
+const texts = ai.findAll(Text).map((t) => t.text);
+assert.ok(texts.includes('Last call assessed: Deep dive with Group EHS, 6 Oct'));
+assert.ok(texts.includes('At that assessment: health 72% · 38 points · Medium'));
+assert.ok(ai.findAll(Tag).some((t) => t.text === 'Assessed 2 days ago'));
+assert.ok(ai.findAll(Accordion).some((a) => a.props.title === 'Read the assessment'));
+assert.equal(r.findAll(Accordion).some((a) => a.props.title === 'Read the assessment'), false, 'hidden when no assessment');
+console.log('AI assessment shows when written');
 console.log('ok');

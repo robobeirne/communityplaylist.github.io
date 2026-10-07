@@ -30,13 +30,28 @@ These are the sheet's own formulas, tested against its worked example (85% healt
 
 The sheet's Deal scorer uses "Something should stop us, no fix" as an input, but the HubSpot properties tab doesn't list a property for it. The card adds one checkbox, `da_stop_unresolved`, for that.
 
-The four "Calculation" properties on the sheet (discovery health, close points, close band, value-to-cost ratio) are **not created**. The card calculates them live. If you want them on the deal for reports and lists, that's a follow-up: a small app function or workflow that writes the card's numbers back to the deal.
+### AI assessment and saved scores
+
+Six more deal properties, in the **Discovery — Summary** group, hold the output of an AI assessment of the latest call:
+
+| Label | Internal name | Type |
+| --- | --- | --- |
+| Discovery — AI assessment record | `da_ai_assessment` | Multi-line text |
+| Discovery — last call assessed | `da_ai_last_meeting` | Single-line text |
+| Discovery — last assessed at | `da_ai_last_run` | Date and time |
+| Discovery health % | `da_discovery_health` | Number |
+| Likelihood to close (points) | `da_close_points` | Number |
+| Close band | `da_close_band` | Dropdown: High (`high`), Medium (`medium`), Low (`low`), At risk (`at_risk`) |
+
+Whatever writes the assessment fills these. When `da_ai_assessment`, `da_ai_last_meeting` or `da_ai_last_run` has a value, the card shows an **AI assessment** panel under the summary: when it ran (amber after 30 days), the call it was based on, the scores at that point, and the full record behind **Read the assessment**.
+
+The ring and points at the top of the card are always calculated live from the answers. The saved scores show what they were at the last assessment, so reps can see what has moved since. The value-to-cost ratio is shown on question 23 and isn't stored.
 
 ## Set it up
 
 All commands run from the project folder (`protex-account-intel`).
 
-1. **Create the deal properties (167 of them).**
+1. **Create the deal properties (173 of them).** If you created the first 167 earlier, run the same script again: it skips those and creates only the six AI assessment properties.
    1. In HubSpot, create a private app (the same way as for the company properties) with the scope **`crm.schemas.deals.write`**, and copy its token.
    2. Run:
       ```
