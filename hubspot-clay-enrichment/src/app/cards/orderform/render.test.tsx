@@ -38,26 +38,26 @@ g.serverless = async (name: string, opts: { parameters: Record<string, any> }) =
   if (opts.parameters.action === 'signatories') {
     return { statusCode: 200, body: { ok: true, users: [{ id: '1398950922464', name: 'Jesse Maggs', email: 'jesse@protex.ai', title: '' }] } };
   }
+  if (opts.parameters.action === 'parties') {
+    return {
+      statusCode: 200,
+      body: {
+        ok: true,
+        contacts: [
+          { id: '501', name: 'Alex Kim', email: 'alex@northbridge.example', title: 'COO' },
+          { id: '502', name: 'Pat Fox', email: 'ap@northbridge.example', title: 'Finance Manager' },
+          { id: '503', name: '', email: 'ops@northbridge.example', title: '' },
+        ],
+        company: { id: '9', name: 'Northbridge Logistics Ltd', address: '1 Dock Road', address2: '', city: 'Leeds', state: '', zip: 'LS1 1AA', country: 'United Kingdom' },
+      },
+    };
+  }
   if (opts.parameters.action === 'pricing') return { statusCode: 200, body: { ok: true, lines: dealLines, products: PRODUCTS } };
   const ch = opts.parameters.lines ?? {};
   const created = (ch.create ?? []).map((c: any, i: number) => LINE(String(900 + i), c.productId, c.quantity));
   dealLines = [...dealLines.filter((l) => !(ch.remove ?? []).includes(l.id)), ...created];
   return { statusCode: 200, body: { ok: true, properties: opts.parameters.properties, lines: dealLines } };
 };
-
-const page = (results: unknown[]) => ({
-  results,
-  error: null,
-  isLoading: false,
-  isRefetching: false,
-  refetch: async () => {},
-  pagination: { hasNextPage: false, hasPreviousPage: false, currentPage: 1, pageSize: 50, nextPage: () => {}, previousPage: () => {}, reset: () => {} },
-});
-const CONTACTS = [
-  { toObjectId: 501, associationTypes: [], properties: { firstname: 'Alex', lastname: 'Kim', email: 'alex@northbridge.example', jobtitle: 'COO' } },
-  { toObjectId: 502, associationTypes: [], properties: { firstname: 'Pat', lastname: 'Fox', email: 'ap@northbridge.example', jobtitle: 'Finance Manager' } },
-];
-const COMPANY = [{ toObjectId: 9, associationTypes: [], properties: { name: 'Northbridge Logistics Ltd', address: '1 Dock Road', city: 'Leeds', zip: 'LS1 1AA', country: 'United Kingdom' } }];
 
 async function renderWith(props: Record<string, string>, lines: ReturnType<typeof LINE>[] = []) {
   dealLines = lines;
@@ -66,10 +66,10 @@ async function renderWith(props: Record<string, string>, lines: ReturnType<typeo
   r.mocks.actions.onCrmPropertiesUpdate.willCall(() => {});
   r.mocks.actions.refreshObjectProperties.willCall(() => {});
   r.mocks.actions.addAlert.willCall(() => {});
-  r.mocks.useAssociations.willCall(((config: { toObjectType: string }) => page(config.toObjectType === '0-1' ? CONTACTS : COMPANY)) as never);
   r.render(<OrderForm actions={r.mocks.actions as never} dealId="77" user="rep@protex.ai" />);
   await r.waitFor(() => assert.ok(r.maybeFind(Heading)));
   await r.waitFor(() => assert.ok(!texts(r).join(' ').includes('Line items (loading)')));
+  await r.waitFor(() => assert.ok(button(r, 'Fill from the company')));
   return r;
 }
 type R = Awaited<ReturnType<typeof renderWith>>;
@@ -91,6 +91,12 @@ const gated = [...r.findAll(LoadingButton)].find((b) => b.text.startsWith('Mark 
 assert.ok(gated && gated.props.disabled && / to fill$/.test(gated.text), 'Mark ready shows, disabled, with how much is left');
 assert.ok(r.findAll(Accordion).every((a) => a.props.open), 'every section has gaps, so every section starts open');
 assert.ok(calls.some((c) => c.parameters.action === 'signatories'), 'loads the Protex signatories');
+await r.waitFor(() => assert.ok(select(r, 'pick-Fill from a deal contact')));
+assert.deepEqual(
+  select(r, 'pick-Fill from a deal contact').props.options.map((o: { label: string }) => o.label),
+  ['Alex Kim — COO — alex@northbridge.example', 'Pat Fox — Finance Manager — ap@northbridge.example', 'ops@northbridge.example'],
+  'contacts show names, titles and emails, never a bare ID',
+);
 console.log('new deal: 5 sections open, still-needed alert, Mark ready disabled');
 
 // Fill from the company and a deal contact, then save.

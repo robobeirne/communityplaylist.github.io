@@ -3,6 +3,7 @@
  *
  *   { action: 'save', dealId, properties, lines }   write order form properties to the deal and apply line item changes
  *   { action: 'pricing', dealId }                    the deal's line items and the active product library
+ *   { action: 'parties', dealId }                    the deal's contacts (name, email, job title) and its company with address
  *   { action: 'signatories' }                        HubSpot users who can sign for Protex, with email and job title
  *
  * Only order form properties (of_*) and the existing deal fields the card reuses can be written.
@@ -56,15 +57,44 @@ async function call(method, path, body) {
   return json;
 }
 
-async function lineIds(dealId) {
+async function associatedIds(dealId, toType) {
   const ids = [];
   let after;
   do {
-    const page = await call('GET', `/crm/v4/objects/deals/${dealId}/associations/line_items?limit=500${after ? `&after=${after}` : ''}`);
+    const page = await call('GET', `/crm/v4/objects/deals/${dealId}/associations/${toType}?limit=500${after ? `&after=${after}` : ''}`);
     ids.push(...(page.results || []).map((r) => String(r.toObjectId)));
     after = page.paging?.next?.after;
   } while (after);
   return ids;
+}
+const lineIds = (dealId) => associatedIds(dealId, 'line_items');
+
+async function batchRead(type, ids, properties) {
+  const out = [];
+  for (let i = 0; i < ids.length; i += 100) {
+    const page = await call('POST', `/crm/v3/objects/${type}/batch/read`, { properties, inputs: ids.slice(i, i + 100).map((id) => ({ id })) });
+    out.push(...(page.results || []));
+  }
+  return out;
+}
+
+/** The deal's contacts and company, for the card's "Fill from…" pickers. */
+async function parties({ dealId }) {
+  if (!isId(dealId)) return fail(400, 'No deal id');
+  const [contactIds, companyIds] = await Promise.all([associatedIds(dealId, 'contacts'), associatedIds(dealId, 'companies')]);
+  const [contactRows, companyRows] = await Promise.all([
+    contactIds.length ? batchRead('contacts', contactIds.slice(0, 200), ['firstname', 'lastname', 'email', 'jobtitle']) : [],
+    companyIds.length ? batchRead('companies', companyIds.slice(0, 5), ['name', 'address', 'address2', 'city', 'state', 'zip', 'country']) : [],
+  ]);
+  const contacts = contactRows
+    .map((r) => {
+      const p = r.properties || {};
+      return { id: String(r.id), name: [p.firstname, p.lastname].filter(Boolean).join(' '), email: p.email || '', title: p.jobtitle || '' };
+    })
+    .sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email));
+  const c = companyRows[0];
+  const company = c ? { id: String(c.id), ...Object.fromEntries(Object.entries(c.properties || {}).map(([k, v]) => [k, v ?? ''])) } : null;
+  return { statusCode: 200, body: { ok: true, contacts, company } };
 }
 
 async function readLines(dealId) {
@@ -279,6 +309,7 @@ exports.main = async (context) => {
   try {
     if (params.action === 'save') return await save(params);
     if (params.action === 'pricing') return await pricing(params);
+    if (params.action === 'parties') return await parties(params);
     if (params.action === 'signatories') return await signatories();
     return fail(400, 'Unknown action');
   } catch (e) {

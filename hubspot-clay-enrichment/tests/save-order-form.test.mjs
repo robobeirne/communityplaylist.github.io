@@ -157,3 +157,23 @@ test('save with only line changes skips the deal update', async () => {
   assert.equal(res.body.ok, true);
   assert.ok(!sent.some((s) => s.method === 'PATCH' && /deals\/77$/.test(s.url)));
 });
+
+test('parties returns the deal contacts by name and its company', async () => {
+  stub([
+    ['GET', /v4\/objects\/deals\/77\/associations\/contacts/, { results: [{ toObjectId: 892183404774 }, { toObjectId: 2 }] }],
+    ['GET', /v4\/objects\/deals\/77\/associations\/companies/, { results: [{ toObjectId: 9 }] }],
+    [
+      'POST',
+      /contacts\/batch\/read/,
+      { results: [{ id: '892183404774', properties: { firstname: 'Sam', lastname: 'Lee', email: 'sam@x.example', jobtitle: 'COO' } }, { id: '2', properties: { email: 'ap@x.example' } }] },
+    ],
+    ['POST', /companies\/batch\/read/, { results: [{ id: '9', properties: { name: 'Northbridge Ltd', city: 'Leeds', zip: null } }] }],
+  ]);
+  const res = await main({ parameters: { action: 'parties', dealId: '77' } });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.body.contacts, [
+    { id: '2', name: '', email: 'ap@x.example', title: '' },
+    { id: '892183404774', name: 'Sam Lee', email: 'sam@x.example', title: 'COO' },
+  ]);
+  assert.deepEqual(res.body.company, { id: '9', name: 'Northbridge Ltd', city: 'Leeds', zip: '' });
+});

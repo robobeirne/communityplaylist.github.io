@@ -29,7 +29,6 @@ import {
   Tile,
   hubspot,
 } from '@hubspot/ui-extensions';
-import { useAssociations } from '@hubspot/ui-extensions/crm';
 import { useRecordProperties, type CrmActions } from './lib/hooks.ts';
 import ORDER_FORM_PROPERTIES from './orderform/properties.json';
 import {
@@ -113,7 +112,16 @@ type Signer = { id: string; name: string; email: string; title: string };
 type Person = { id: string; name: string; email: string; title: string };
 type Setter = (key: string, value: string) => void;
 type Pricing = { lines: RawLine[]; products: Product[] };
-type Body = { ok: boolean; message?: string; properties?: Values; users?: Signer[]; lines?: RawLine[] | null; products?: Product[] };
+type Body = {
+  ok: boolean;
+  message?: string;
+  properties?: Values;
+  users?: Signer[];
+  lines?: RawLine[] | null;
+  products?: Product[];
+  contacts?: Person[];
+  company?: Record<string, string> | null;
+};
 
 const label = (name: string, fallback = name) => DEFS[name]?.label ?? fallback;
 const optionLabel = (name: string, value: string | null | undefined) => options(name).find((o) => o.value === value)?.label ?? '';
@@ -141,12 +149,6 @@ const isoOf = (v: unknown) => {
 
 export function OrderForm({ actions, dealId, user }: { actions: CrmActions; dealId: string; user: string }) {
   const { props, error, loading } = useRecordProperties(actions, PROPS);
-  const contactsRes = useAssociations({ toObjectType: '0-1', properties: ['firstname', 'lastname', 'email', 'jobtitle'], pageLength: 50 });
-  const companiesRes = useAssociations({
-    toObjectType: '0-2',
-    properties: ['name', 'address', 'address2', 'city', 'state', 'zip', 'country'],
-    pageLength: 5,
-  });
   const [saved, setSaved] = React.useState<Values>({});
   const [edits, setEdits] = React.useState<Values>({});
   const [saving, setSaving] = React.useState(false);
@@ -155,6 +157,9 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
   const [openSections, setOpenSections] = React.useState<Section[] | null>(null);
   const [pricing, setPricing] = React.useState<Pricing | null>(null);
   const [pricingError, setPricingError] = React.useState('');
+  const [contacts, setContacts] = React.useState<Person[] | null>(null);
+  const [company, setCompany] = React.useState<Record<string, string> | null>(null);
+  const [partiesError, setPartiesError] = React.useState('');
   const [lineEdits, setLineEdits] = React.useState<Record<string, LineEdit>>({});
   /** Products added in the card and not saved yet, in the order they were added. */
   const [added, setAdded] = React.useState<{ id: string; productId: string }[]>([]);
@@ -174,6 +179,15 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
     call({ action: 'pricing', dealId })
       .then((b) => setPricing({ lines: b.lines ?? [], products: b.products ?? [] }))
       .catch((e: Error) => setPricingError(e.message));
+    call({ action: 'parties', dealId })
+      .then((b) => {
+        setContacts(b.contacts ?? []);
+        setCompany(b.company ?? null);
+      })
+      .catch((e: Error) => {
+        setContacts([]);
+        setPartiesError(e.message);
+      });
   }, [call, dealId]);
 
   if (loading) return <LoadingSpinner label="Loading the order form" layout="centered" />;
@@ -217,13 +231,7 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
     .filter((x) => x.fix);
   const dirty = Object.keys(edits).length > 0 || added.length > 0 || Object.keys(lineEdits).length > 0;
 
-  const contacts: Person[] = (contactsRes.results ?? []).map((a) => ({
-    id: String(a.toObjectId),
-    name: [a.properties.firstname, a.properties.lastname].filter(Boolean).join(' '),
-    email: a.properties.email ?? '',
-    title: a.properties.jobtitle ?? '',
-  }));
-  const company = companiesRes.results?.[0]?.properties;
+  const people = { contacts: contacts ?? [], loading: contacts === null, error: partiesError };
 
   const editLine = (id: string, change: LineEdit) => {
     if (id.startsWith(NEW_PREFIX) && change.remove) {
@@ -395,7 +403,7 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
             size="sm"
           >
             <Flex direction="column" gap="sm">
-              {s.key === 'client' && <ClientSection {...shared} contacts={contacts} company={company} />}
+              {s.key === 'client' && <ClientSection {...shared} people={people} company={company} />}
               {s.key === 'order' && <OrderSection {...shared} />}
               {s.key === 'pricing' && (
                 <ProductsSection
@@ -414,7 +422,7 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
                 />
               )}
               {s.key === 'sites' && <SitesSection {...shared} />}
-              {s.key === 'legal' && <LegalSection {...shared} contacts={contacts} signers={signers} signersError={signersError} />}
+              {s.key === 'legal' && <LegalSection {...shared} people={people} signers={signers} signersError={signersError} />}
               <Missing gaps={missingIn(s.key)} />
             </Flex>
           </Accordion>
@@ -493,17 +501,24 @@ function DateField({ v, set, name, label: l, required }: { v: Values; set: Sette
   );
 }
 
+type People = { contacts: Person[]; loading: boolean; error: string };
+
 /** Fill name/email/title fields from one of the deal's contacts. */
-function ContactPicker({ contacts, label: l, onPick }: { contacts: Person[]; label: string; onPick: (p: Person) => void }) {
-  if (!contacts.length) return <Text variant="microcopy">No contacts on this deal yet. Associate one to fill these details from it.</Text>;
+function ContactPicker({ people, label: l, onPick }: { people: People; label: string; onPick: (p: Person) => void }) {
+  if (people.loading) return <LoadingSpinner label="Loading the deal's contacts" size="sm" />;
+  if (people.error) return <Text variant="microcopy">{`Couldn't load the deal's contacts (${people.error}). Type the details below.`}</Text>;
+  if (!people.contacts.length) return <Text variant="microcopy">No contacts on this deal yet. Associate one to fill these details from it.</Text>;
   return (
     <Select
       name={`pick-${l}`}
       label={l}
       placeholder="Choose a contact on this deal"
-      options={contacts.map((p) => ({ label: [p.name, p.title].filter(Boolean).join(' — ') || p.email, value: p.id }))}
+      options={people.contacts.map((p) => ({
+        label: [p.name || p.email || 'Unnamed contact', p.title, p.name && p.email ? p.email : ''].filter(Boolean).join(' — '),
+        value: p.id,
+      }))}
       onChange={(id) => {
-        const p = contacts.find((x) => x.id === String(id));
+        const p = people.contacts.find((x) => x.id === String(id));
         if (p) onPick(p);
       }}
     />
@@ -512,7 +527,7 @@ function ContactPicker({ contacts, label: l, onPick }: { contacts: Person[]; lab
 
 /* ---------------- sections ---------------- */
 
-function ClientSection({ v, set, contacts, company }: Shared & { contacts: Person[]; company?: Record<string, string | null> }) {
+function ClientSection({ v, set, people, company }: Shared & { people: People; company: Record<string, string> | null }) {
   const companyAddress = company
     ? [company.address, company.address2, company.city, company.state, company.zip, company.country].filter(Boolean).join(', ')
     : '';
@@ -542,7 +557,7 @@ function ClientSection({ v, set, contacts, company }: Shared & { contacts: Perso
       <Divider />
       <Text format={{ fontWeight: 'demibold' }}>Client contact</Text>
       <ContactPicker
-        contacts={contacts}
+        people={people}
         label="Fill from a deal contact"
         onPick={(p) => {
           set('of_client_contact_name', p.name);
@@ -558,7 +573,7 @@ function ClientSection({ v, set, contacts, company }: Shared & { contacts: Perso
       <Divider />
       <Text format={{ fontWeight: 'demibold' }}>Billing</Text>
       <ContactPicker
-        contacts={contacts}
+        people={people}
         label="Fill billing from a deal contact"
         onPick={(p) => {
           set('of_billing_contact_name', p.name);
@@ -936,7 +951,7 @@ function TotalRow({ label: l, value, strong }: { label: string; value: string; s
   );
 }
 
-function LegalSection({ v, set, contacts, signers, signersError }: Shared & { contacts: Person[]; signers: Signer[] | null; signersError: string }) {
+function LegalSection({ v, set, people, signers, signersError }: Shared & { people: People; signers: Signer[] | null; signersError: string }) {
   return (
     <Flex direction="column" gap="sm">
       <SelectField v={v} set={set} name="of_existing_msa" required />
@@ -951,7 +966,7 @@ function LegalSection({ v, set, contacts, signers, signersError }: Shared & { co
       <Divider />
       <Text format={{ fontWeight: 'demibold' }}>{`Counterparty signer${v.of_client_legal_name ? ` for ${v.of_client_legal_name}` : ''}`}</Text>
       <ContactPicker
-        contacts={contacts}
+        people={people}
         label="Fill from a deal contact"
         onPick={(p) => {
           set('of_counterparty_signer_name', p.name);
