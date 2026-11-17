@@ -3,7 +3,6 @@ import {
   Accordion,
   Alert,
   Button,
-  CurrencyInput,
   DateInput,
   Divider,
   ErrorState,
@@ -28,7 +27,6 @@ import {
   Text,
   TextArea,
   Tile,
-  ToggleGroup,
   hubspot,
 } from '@hubspot/ui-extensions';
 import { useAssociations } from '@hubspot/ui-extensions/crm';
@@ -36,26 +34,47 @@ import { useRecordProperties, type CrmActions } from './lib/hooks.ts';
 import ORDER_FORM_PROPERTIES from './orderform/properties.json';
 import {
   CONTEXT,
-  MAX_SITES,
+  NUMBERED_SITES,
   REUSED,
   SECTIONS,
-  compute,
   computedProperties,
   isoDate,
-  num,
   orderTypeFromPipeline,
   parseDate,
+  parseSiteList,
   readiness,
-  yes,
+  summarise,
+  termMonths,
   type Gap,
   type Section,
+  type Site,
+  type Summary,
   type Values,
 } from './orderform/calc.ts';
+import {
+  DISCOUNT_APPROVAL_PCT,
+  NEW_PREFIX,
+  defaultQuantity,
+  lineIssues,
+  lineUpdate,
+  newRawLine,
+  quantityRule,
+  resetToList,
+  termUpdate,
+  toLine,
+  type Line,
+  type LineEdit,
+  type LineIssue,
+  type Product,
+  type RawLine,
+} from './orderform/lines.ts';
 
 /*
  * Order form: everything the order form and MSA need, captured on the deal so Juro can pull it
- * through its HubSpot integration. Totals, the contract end date and the site schedule are calculated
- * here and saved with the rest. "Mark ready for Juro" only unlocks when nothing required is missing.
+ * through its HubSpot integration. Pricing is the deal's line items, drawn from the product library
+ * at list price with a discount per line. Totals, the contract end date, the pricing table and the
+ * site schedule are calculated here and saved with the rest. "Mark ready for Juro" only unlocks
+ * when nothing required is missing.
  */
 
 hubspot.extend<'crm.record.tab'>(({ actions, context }) => (
@@ -79,6 +98,10 @@ const PRO_RATA = [
   { label: 'Yes', value: 'Yes' },
   { label: 'No', value: 'No' },
 ];
+const DISCOUNT_MODES = [
+  { label: '% off', value: 'percent' },
+  { label: 'Off per unit', value: 'amount' },
+];
 const STATUS_VARIANT: Record<string, 'default' | 'info' | 'warning' | 'success'> = {
   draft: 'default',
   ready_for_juro: 'info',
@@ -89,6 +112,8 @@ const STATUS_VARIANT: Record<string, 'default' | 'info' | 'warning' | 'success'>
 type Signer = { id: string; name: string; email: string; title: string };
 type Person = { id: string; name: string; email: string; title: string };
 type Setter = (key: string, value: string) => void;
+type Pricing = { lines: RawLine[]; products: Product[] };
+type Body = { ok: boolean; message?: string; properties?: Values; users?: Signer[]; lines?: RawLine[] | null; products?: Product[] };
 
 const label = (name: string, fallback = name) => DEFS[name]?.label ?? fallback;
 const optionLabel = (name: string, value: string | null | undefined) => options(name).find((o) => o.value === value)?.label ?? '';
@@ -109,6 +134,10 @@ const toBase = (v: unknown) => {
 };
 const fromBase = (b: { year: number; month: number; date: number } | null | undefined) =>
   b && b.year ? isoDate(new Date(Date.UTC(b.year, b.month, b.date))) : '';
+const isoOf = (v: unknown) => {
+  const d = parseDate(v);
+  return d ? isoDate(d) : '';
+};
 
 export function OrderForm({ actions, dealId, user }: { actions: CrmActions; dealId: string; user: string }) {
   const { props, error, loading } = useRecordProperties(actions, PROPS);
@@ -124,19 +153,28 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
   const [signers, setSigners] = React.useState<Signer[] | null>(null);
   const [signersError, setSignersError] = React.useState('');
   const [openSections, setOpenSections] = React.useState<Section[] | null>(null);
+  const [pricing, setPricing] = React.useState<Pricing | null>(null);
+  const [pricingError, setPricingError] = React.useState('');
+  const [lineEdits, setLineEdits] = React.useState<Record<string, LineEdit>>({});
+  /** Products added in the card and not saved yet, in the order they were added. */
+  const [added, setAdded] = React.useState<{ id: string; productId: string }[]>([]);
+  const nextId = React.useRef(1);
 
   const call = React.useCallback(async (parameters: Record<string, unknown>) => {
     const res = await hubspot.serverless(FN, { parameters: parameters as never });
-    const body = (res as { body?: unknown })?.body ?? res;
-    if (!(body as { ok?: boolean })?.ok) throw new Error((body as { message?: string })?.message ?? 'Request failed');
-    return body as { ok: true; properties?: Values; users?: Signer[] };
+    const body = ((res as { body?: unknown })?.body ?? res) as Body;
+    if (!body?.ok && !body?.lines) throw new Error(body?.message ?? 'Request failed');
+    return body;
   }, []);
 
   React.useEffect(() => {
     call({ action: 'signatories' })
       .then((b) => setSigners(b.users ?? []))
       .catch((e: Error) => setSignersError(e.message));
-  }, [call]);
+    call({ action: 'pricing', dealId })
+      .then((b) => setPricing({ lines: b.lines ?? [], products: b.products ?? [] }))
+      .catch((e: Error) => setPricingError(e.message));
+  }, [call, dealId]);
 
   if (loading) return <LoadingSpinner label="Loading the order form" layout="centered" />;
   if (error || !props) {
@@ -150,11 +188,34 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
   const v: Values = { ...props, ...saved, ...edits };
   if (!v.of_order_type) v.of_order_type = orderTypeFromPipeline(v.pipeline);
   const set: Setter = (key, value) => setEdits((e) => ({ ...e, [key]: value }));
-  const dirty = Object.keys(edits).length > 0;
-  const c = compute(v);
-  const r = readiness(v);
-  const status = String(v.of_status || 'draft');
   const currency = String(v.deal_currency_code || '');
+  const products = pricing?.products ?? [];
+
+  const raws: RawLine[] = [
+    ...(pricing?.lines ?? []),
+    ...added.flatMap((a) => {
+      const p = products.find((x) => x.id === a.productId);
+      return p ? [newRawLine(a.id, p, currency)] : [];
+    }),
+  ];
+  const lines: Line[] = raws.map((raw) => toLine(raw, lineEdits[raw.id], products, currency));
+  const sum = summarise(v, lines);
+  const r = readiness(v, lines);
+  if (!pricing) {
+    r.required++;
+    r.missing.push({ section: 'pricing', label: pricingError ? "Line items (couldn't load them)" : 'Line items (loading)' });
+  }
+  const status = String(v.of_status || 'draft');
+
+  // Recurring lines bill for the contract term from the billing start, so HubSpot's own ARR and TCV
+  // on the line items agree with the order form. Saving brings them into line.
+  const months = termMonths(v.term_year_length);
+  const billingStart = isoOf(v.subscription_start_date) || isoOf(v.contract_start_date);
+  const termFixes = (pricing?.lines ?? [])
+    .filter((raw) => !lineEdits[raw.id]?.remove)
+    .map((raw) => ({ raw, fix: termUpdate(raw, months, billingStart) }))
+    .filter((x) => x.fix);
+  const dirty = Object.keys(edits).length > 0 || added.length > 0 || Object.keys(lineEdits).length > 0;
 
   const contacts: Person[] = (contactsRes.results ?? []).map((a) => ({
     id: String(a.toObjectId),
@@ -164,17 +225,56 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
   }));
   const company = companiesRes.results?.[0]?.properties;
 
+  const editLine = (id: string, change: LineEdit) => {
+    if (id.startsWith(NEW_PREFIX) && change.remove) {
+      setAdded((a) => a.filter((x) => x.id !== id));
+      setLineEdits(({ [id]: _, ...rest }) => rest);
+      return;
+    }
+    setLineEdits((e) => ({ ...e, [id]: { ...e[id], ...change } }));
+  };
+  const undoLine = (id: string) => setLineEdits(({ [id]: _, ...rest }) => rest);
+  const addProduct = (productId: string) => {
+    const p = products.find((x) => x.id === productId);
+    if (!p) return;
+    const id = `${NEW_PREFIX}${nextId.current++}`;
+    setAdded((a) => [...a, { id, productId }]);
+    setLineEdits((e) => ({ ...e, [id]: { quantity: defaultQuantity(p, sum.siteCount, sum.siteCameras) } }));
+  };
+
+  const lineChanges = () => {
+    const create = lines
+      .filter((l) => l.id.startsWith(NEW_PREFIX))
+      .map((l) => ({ productId: l.productId, quantity: l.quantity, discountMode: l.discountMode, discountValue: l.discountValue, months, start: billingStart }));
+    const update: { id: string; productId: string; properties: Record<string, string>; resetPrice?: boolean }[] = [];
+    const remove: string[] = [];
+    for (const raw of pricing?.lines ?? []) {
+      const e = lineEdits[raw.id];
+      if (e?.remove) {
+        remove.push(raw.id);
+        continue;
+      }
+      const l = lines.find((x) => x.id === raw.id)!;
+      const properties = { ...(e ? lineUpdate(l) : {}), ...(termUpdate(raw, months, billingStart) ?? {}) };
+      if (Object.keys(properties).length || e?.resetPrice) update.push({ id: raw.id, productId: l.productId, properties, ...(e?.resetPrice ? { resetPrice: true } : {}) });
+    }
+    return { create, update, remove };
+  };
+
   const save = async (extra: Values = {}) => {
     setSaving(true);
     const sent = { ...edits };
+    const sentLines = { ...lineEdits };
+    const sentAdded = added.map((a) => a.id);
     try {
-      const payload: Values = { ...sent, ...computedProperties(v), ...extra };
+      const payload: Values = { ...sent, ...computedProperties(v, lines), ...extra };
       if (!props.of_order_type) payload.of_order_type = v.of_order_type;
       if (!extra.of_status && dirty && (status === 'ready_for_juro' || status === 'sent_to_juro')) {
         payload.of_status = 'draft';
         actions.addAlert({ type: 'warning', message: 'The order form changed after it was marked ready, so it is back to Draft. Mark it ready again.' });
       }
-      const b = await call({ action: 'save', dealId, properties: payload });
+      const changes = pricing ? lineChanges() : { create: [], update: [], remove: [] };
+      const b = await call({ action: 'save', dealId, properties: payload, lines: changes });
       setSaved((s) => ({ ...s, ...(b.properties ?? {}) }));
       // Clear only what was sent: anything typed while the save was in flight stays as an unsaved edit.
       setEdits((cur) => {
@@ -182,6 +282,19 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
         for (const [k, val] of Object.entries(sent)) if (next[k] === val) delete next[k];
         return next;
       });
+      if (b.lines) {
+        setPricing((p) => ({ products: p?.products ?? [], lines: b.lines! }));
+        setLineEdits((cur) => {
+          const next = { ...cur };
+          for (const [k, val] of Object.entries(sentLines)) if (next[k] === val) delete next[k];
+          return next;
+        });
+        setAdded((cur) => cur.filter((a) => !sentAdded.includes(a.id)));
+      }
+      if (!b.ok) {
+        actions.addAlert({ type: 'warning', message: b.message ?? 'Some line item changes were not saved.' });
+        return false;
+      }
       actions.refreshObjectProperties();
       return true;
     } catch (e) {
@@ -200,7 +313,8 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
   const done = r.required - r.missing.length;
   const canMarkReady = !r.missing.length && !dirty;
   const isReady = status === 'ready_for_juro' || status === 'sent_to_juro' || status === 'signed';
-  const shared = { v, set, currency, c };
+  const shared = { v, set, currency, sum };
+  const t = sum.totals;
 
   return (
     <Flex direction="column" gap="md">
@@ -217,9 +331,10 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
             )}
           </Flex>
           <Statistics>
-            <StatisticsItem label="Annual subscription" number={money(c.annual, currency)} />
-            <StatisticsItem label="Total contract value" number={money(c.tcv, currency)} />
-            <StatisticsItem label="Term" number={c.months ? `${c.months} months` : '—'} />
+            <StatisticsItem label="Annual subscription" number={money(t.annual, currency)} />
+            <StatisticsItem label="Total contract value" number={money(t.tcv, currency)} />
+            <StatisticsItem label="Discount" number={t.discountPct ? `${t.discountPct}%` : 'None'} />
+            <StatisticsItem label="Sites" number={String(sum.siteCount)} />
           </Statistics>
           <ProgressBar
             title="Ready for Juro"
@@ -282,7 +397,22 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
             <Flex direction="column" gap="sm">
               {s.key === 'client' && <ClientSection {...shared} contacts={contacts} company={company} />}
               {s.key === 'order' && <OrderSection {...shared} />}
-              {s.key === 'pricing' && <PricingSection {...shared} />}
+              {s.key === 'pricing' && (
+                <ProductsSection
+                  {...shared}
+                  lines={lines}
+                  products={products}
+                  loaded={!!pricing}
+                  loadError={pricingError}
+                  edits={lineEdits}
+                  onEdit={editLine}
+                  onUndo={undoLine}
+                  onAdd={addProduct}
+                  termFixes={termFixes.length}
+                  canSyncTerm={!dirty && !saving}
+                  onSyncTerm={() => save()}
+                />
+              )}
               {s.key === 'sites' && <SitesSection {...shared} />}
               {s.key === 'legal' && <LegalSection {...shared} contacts={contacts} signers={signers} signersError={signersError} />}
               <Missing gaps={missingIn(s.key)} />
@@ -328,7 +458,7 @@ function Missing({ gaps }: { gaps: Gap[] }) {
   return <Text variant="microcopy">{`Still needed: ${gaps.map((g) => g.label).join('; ')}`}</Text>;
 }
 
-type Shared = { v: Values; set: Setter; currency: string; c: ReturnType<typeof compute> };
+type Shared = { v: Values; set: Setter; currency: string; sum: Summary };
 
 /* ---------------- field helpers ---------------- */
 
@@ -359,34 +489,6 @@ function DateField({ v, set, name, label: l, required }: { v: Values; set: Sette
       format="ll"
       value={toBase(v[name])}
       onChange={(d) => set(name, fromBase(d))}
-    />
-  );
-}
-
-function NumberField({ v, set, name, label: l, max }: { v: Values; set: Setter; name: string; label?: string; max?: number }) {
-  const val = v[name];
-  return (
-    <NumberInput
-      name={name}
-      label={l ?? label(name)}
-      min={0}
-      max={max}
-      value={val === undefined || val === null || val === '' ? undefined : num(val)}
-      onChange={(n) => set(name, Number.isFinite(n) ? String(n) : '')}
-    />
-  );
-}
-
-function MoneyField({ v, set, name, label: l, currency }: { v: Values; set: Setter; name: string; label?: string; currency: string }) {
-  const val = v[name];
-  return (
-    <CurrencyInput
-      name={name}
-      label={l ?? label(name)}
-      currency={currency || 'GBP'}
-      min={0}
-      value={val === undefined || val === null || val === '' ? undefined : num(val)}
-      onChange={(n) => set(name, Number.isFinite(n) ? String(n) : '')}
     />
   );
 }
@@ -476,7 +578,7 @@ function ClientSection({ v, set, contacts, company }: Shared & { contacts: Perso
   );
 }
 
-function OrderSection({ v, set, c }: Shared) {
+function OrderSection({ v, set, sum }: Shared) {
   const renewal = v.of_order_type === 'renewal';
   return (
     <Flex direction="column" gap="sm">
@@ -495,7 +597,7 @@ function OrderSection({ v, set, c }: Shared) {
         <SelectField v={v} set={set} name="term_year_length" label="Contract term" opts={TERMS} required />
         <Flex direction="column" gap="flush">
           <Text variant="microcopy">Contract end date</Text>
-          <Text format={{ fontWeight: 'demibold' }}>{shortDate(c.end)}</Text>
+          <Text format={{ fontWeight: 'demibold' }}>{shortDate(sum.end)}</Text>
         </Flex>
       </Flex>
       <DateField v={v} set={set} name="subscription_start_date" label="Billing starts on (if different from the contract start)" />
@@ -519,128 +621,304 @@ function OrderSection({ v, set, c }: Shared) {
   );
 }
 
-function PriceLine({ v, set, k, title, currency, total, fromSites }: {
-  v: Values;
-  set: Setter;
-  k: string;
-  title: string;
-  currency: string;
-  total: number;
-  /** For site licences and camera integrations: units come from Sites and rollout unless typed. */
-  fromSites?: { units: number; following: boolean; matchLabel: string };
+
+/* ---------------- products and pricing ---------------- */
+
+const FREQUENCY: Record<string, string> = {
+  annually: 'Per year',
+  monthly: 'Monthly',
+  quarterly: 'Quarterly',
+  per_six_months: 'Every 6 months',
+  per_two_years: 'Every 2 years',
+  per_three_years: 'Every 3 years',
+};
+
+function ProductsSection(p: Shared & {
+  lines: Line[];
+  products: Product[];
+  loaded: boolean;
+  loadError: string;
+  edits: Record<string, LineEdit>;
+  onEdit: (id: string, change: LineEdit) => void;
+  onUndo: (id: string) => void;
+  onAdd: (productId: string) => void;
+  termFixes: number;
+  canSyncTerm: boolean;
+  onSyncTerm: () => void;
 }) {
+  const { v, set, currency, sum, lines, products } = p;
+  const t = sum.totals;
+  if (p.loadError) {
+    return (
+      <Alert title="Couldn't load the line items" variant="danger">
+        <Text>{`${p.loadError}. If this is the first time the card has run since an update, reinstall the app so it has the e-commerce scope.`}</Text>
+      </Alert>
+    );
+  }
+  if (!p.loaded) return <LoadingSpinner label="Loading line items and products" size="sm" />;
+
+  const issues = lineIssues(lines, currency, sum.siteCount, sum.siteCameras);
+  const priced = products.filter((x) => x.prices[currency as 'GBP'] !== undefined);
+  const unpriced = products.filter((x) => x.prices[currency as 'GBP'] === undefined);
+  const months = sum.months;
+
   return (
-    <Flex direction="column" gap="xs">
-      <Text format={{ fontWeight: 'demibold' }}>{title}</Text>
-      <Flex direction="row" gap="sm" wrap="wrap" align="end">
-        {fromSites ? (
-          <NumberInput
-            name={`of_${k}_units`}
-            label="Units"
-            min={0}
-            value={fromSites.units}
-            onChange={(n) => {
-              set(`of_${k}_units`, Number.isFinite(n) ? String(n) : '');
-              set(`of_${k}_units_manual`, 'true');
-            }}
-          />
-        ) : (
-          <NumberField v={v} set={set} name={`of_${k}_units`} label="Units" />
-        )}
-        <MoneyField v={v} set={set} name={`of_${k}_unit_fee`} label="Fee per unit" currency={currency} />
-        <Flex direction="column" gap="flush">
-          <Text variant="microcopy">Total</Text>
-          <Text format={{ fontWeight: 'demibold' }}>{money(total, currency)}</Text>
-        </Flex>
-      </Flex>
-      {fromSites &&
-        (fromSites.following ? (
-          <Text variant="microcopy">From Sites and rollout. Type a number to change it.</Text>
-        ) : (
+    <Flex direction="column" gap="sm">
+      {!currency && <Text variant="microcopy">Set the currency in Order and term first: products are priced from the product library in the deal's currency.</Text>}
+      {lines.length === 0 && <Text variant="microcopy">No products on this deal yet. Add the platform licence first; its quantity defaults to the number of sites.</Text>}
+      {lines.map((l) => (
+        <LineRow
+          key={l.id}
+          l={l}
+          currency={currency}
+          sum={sum}
+          edited={!!p.edits[l.id] && !l.id.startsWith(NEW_PREFIX)}
+          issues={issues.filter((i) => i.lineId === l.id)}
+          onEdit={p.onEdit}
+          onUndo={p.onUndo}
+        />
+      ))}
+      {currency && (
+        <Select
+          name="add-product"
+          label="Add a product"
+          placeholder="Choose from the product library"
+          value=""
+          options={priced.map((x) => ({
+            label: `${x.name}${x.sku ? ` (${x.sku})` : ''} — ${money(x.prices[currency as 'GBP']!, currency)}${x.frequency ? ` ${(FREQUENCY[x.frequency] ?? x.frequency).toLowerCase()}` : ' one-off'}`,
+            value: x.id,
+          }))}
+          onChange={(id) => id && p.onAdd(String(id))}
+        />
+      )}
+      {currency && unpriced.length > 0 && (
+        <Text variant="microcopy">{`Not listed because they have no ${currency} price in the product library: ${unpriced.map((x) => x.name).join(', ')}.`}</Text>
+      )}
+
+      <Table bordered={false} flush>
+        <TableBody>
+          <TotalRow label="Annual subscription at list" value={money(t.annualList, currency)} />
+          {t.annualDiscount > 0 && <TotalRow label="Discounts per year" value={`− ${money(t.annualDiscount, currency)}`} />}
+          <TotalRow label="Total annual subscription fee" value={money(t.annual, currency)} strong />
+          <TotalRow label={`One-off fees${t.oneOffDiscount > 0 ? ` (after ${money(t.oneOffDiscount, currency)} discount)` : ''}`} value={money(t.oneOff, currency)} />
+          <TotalRow label={`Total contract value${months ? ` (${months} months)` : ''}`} value={money(t.tcv, currency)} strong />
+          {t.discounted && <TotalRow label="Overall discount" value={`${t.discountPct}% off list`} />}
+        </TableBody>
+      </Table>
+      {months === null && <Text variant="microcopy">Set the contract term to see the total contract value.</Text>}
+      {t.discounted && <TextField v={v} set={set} name="of_discount_reason" area required />}
+      {p.termFixes > 0 && (
+        <Flex direction="row" gap="sm" align="center" wrap="wrap">
           <Text variant="microcopy">
-            {'Typed by hand. '}
-            <Link href="#" preventDefault onClick={() => set(`of_${k}_units_manual`, 'false')}>
-              {fromSites.matchLabel}
-            </Link>
+            {`${p.termFixes} line item${p.termFixes === 1 ? " doesn't" : "s don't"} bill for the ${months}-month term from the billing start yet. Saving updates ${p.termFixes === 1 ? 'it' : 'them'} so HubSpot's ARR and TCV match the order form.`}
           </Text>
-        ))}
+          {p.canSyncTerm && (
+            <Button size="sm" variant="secondary" onClick={p.onSyncTerm}>
+              Update them now
+            </Button>
+          )}
+        </Flex>
+      )}
+      <Text variant="microcopy">
+        {`Unit prices come from the product library. Discount on the line, as a % or an amount off each unit, rather than changing the price, so every discount is visible. A line discounted ${DISCOUNT_APPROVAL_PCT}% or more is flagged for approval.`}
+      </Text>
     </Flex>
   );
 }
 
-function PricingSection({ v, set, currency, c }: Shared) {
-  const extras = ['of_ops_included', 'of_intel_included', 'of_hardware_included'];
+function LineRow({ l, currency, sum, edited, issues, onEdit, onUndo }: {
+  l: Line;
+  currency: string;
+  sum: Summary;
+  edited: boolean;
+  issues: LineIssue[];
+  onEdit: (id: string, change: LineEdit) => void;
+  onUndo: (id: string) => void;
+}) {
+  const isNew = l.id.startsWith(NEW_PREFIX);
+  if (l.removed) {
+    return (
+      <Flex direction="row" gap="sm" align="center" wrap="wrap">
+        <Text format={{ lineDecoration: 'strikethrough' }}>{l.name}</Text>
+        <Tag variant="error">Removed when you save</Tag>
+        <Link href="#" preventDefault onClick={() => onUndo(l.id)}>
+          Undo
+        </Link>
+      </Flex>
+    );
+  }
+  const rule = quantityRule(l);
+  const target = rule === 'sites' ? sum.siteCount : rule === 'cameras' ? sum.siteCameras : 0;
+  const unitNet = l.discountMode === 'percent' ? l.price * (1 - Math.min(l.discountValue, 100) / 100) : l.price - Math.min(l.discountValue, l.price);
+  const offList = l.listPrice !== null && Math.abs(l.price - l.listPrice) > 0.005;
+  const wrongCurrency = !!currency && !!l.currency && l.currency !== currency;
+  const needsApproval = l.discountPct >= DISCOUNT_APPROVAL_PCT;
   return (
-    <Flex direction="column" gap="sm">
-      {!currency && <Text variant="microcopy">Set the currency in Order and term so the fees show in it.</Text>}
-      <PriceLine
-        v={v}
-        set={set}
-        k="safety"
-        title="Protex AI Platform Site Licenses (Safety Pack), per year"
-        currency={currency}
-        total={c.lines.safety}
-        fromSites={{ units: c.units.safety, following: c.fromSites.safety, matchLabel: `Match the sites (${c.siteCount})` }}
-      />
-      <PriceLine
-        v={v}
-        set={set}
-        k="cameras"
-        title="Camera integrations, per year"
-        currency={currency}
-        total={c.lines.cameras}
-        fromSites={{ units: c.units.cameras, following: c.fromSites.cameras, matchLabel: `Match the sites (${c.siteCameras})` }}
-      />
-      <ToggleGroup
-        name="extras"
-        label="Also on this order"
-        toggleType="checkboxList"
-        inline
-        value={extras.filter((k) => yes(v[k]))}
-        options={[
-          { label: 'Operations License', value: 'of_ops_included' },
-          { label: 'Protex Intelligence', value: 'of_intel_included' },
-          { label: 'Hardware / edge devices', value: 'of_hardware_included' },
-        ]}
-        onChange={(picked) => {
-          const on = new Set((picked as string[] | undefined) ?? []);
-          for (const k of extras) if (yes(v[k]) !== on.has(k)) set(k, on.has(k) ? 'true' : 'false');
-        }}
-      />
-      {yes(v.of_ops_included) && <PriceLine v={v} set={set} k="ops" title="Operations License, per year" currency={currency} total={c.lines.ops} />}
-      {yes(v.of_intel_included) && <PriceLine v={v} set={set} k="intel" title="Protex Intelligence, per year" currency={currency} total={c.lines.intel} />}
-      {yes(v.of_hardware_included) && (
-        <>
-          <PriceLine v={v} set={set} k="hardware" title="Hardware / edge devices" currency={currency} total={c.lines.hardware} />
-          <SelectField v={v} set={set} name="of_hardware_billing" label="Hardware is billed" required />
-        </>
-      )}
-      <MoneyField v={v} set={set} name="of_implementation_fee" currency={currency} />
-      <Divider />
-      <SelectField v={v} set={set} name="of_discount_applied" opts={YES_NO} />
-      {yes(v.of_discount_applied) && (
-        <>
-          <Flex direction="row" gap="sm" wrap="wrap" align="end">
-            <SelectField v={v} set={set} name="of_discount_type" required />
-            {v.of_discount_type === 'percentage' ? (
-              <NumberField v={v} set={set} name="of_discount_value" label="Discount (%)" max={100} />
-            ) : (
-              <MoneyField v={v} set={set} name="of_discount_value" label="Discount per year" currency={currency} />
+    <Tile compact>
+      <Flex direction="column" gap="xs">
+        <Flex direction="row" justify="between" align="center" wrap="wrap" gap="sm">
+          <Flex direction="row" gap="xs" align="center" wrap="wrap">
+            <Text format={{ fontWeight: 'demibold' }}>{l.name}</Text>
+            {l.sku && <Tag variant="default">{`SKU ${l.sku}`}</Tag>}
+            <Tag variant={l.recurring ? 'info' : 'default'}>{l.recurring ? FREQUENCY[l.frequency] ?? l.frequency : 'One-off'}</Tag>
+            {isNew && <Tag variant="success">New</Tag>}
+            {needsApproval && <Tag variant="warning">Needs approval</Tag>}
+          </Flex>
+          <Text format={{ fontWeight: 'demibold' }}>{l.recurring ? `${money(l.annualNet, currency)} / year` : money(l.net, currency)}</Text>
+        </Flex>
+        <Flex direction="row" gap="sm" wrap="wrap" align="end">
+          <NumberInput
+            name={`qty-${l.id}`}
+            label="Quantity"
+            min={0}
+            value={l.quantity}
+            onChange={(n) => onEdit(l.id, { quantity: Number.isFinite(n) ? n : 0 })}
+          />
+          <Flex direction="column" gap="flush">
+            <Text variant="microcopy">Unit price</Text>
+            <Text>{money(l.price, l.currency || currency)}</Text>
+          </Flex>
+          <Select
+            name={`dmode-${l.id}`}
+            label="Discount"
+            value={l.discountMode}
+            options={DISCOUNT_MODES}
+            onChange={(x) => onEdit(l.id, { discountMode: x === 'amount' ? 'amount' : 'percent', discountValue: 0 })}
+          />
+          <NumberInput
+            name={`dval-${l.id}`}
+            label={l.discountMode === 'percent' ? 'Percent off' : `Off each unit (${currency || l.currency})`}
+            min={0}
+            max={l.discountMode === 'percent' ? 100 : l.price}
+            value={l.discountValue || undefined}
+            onChange={(n) => onEdit(l.id, { discountMode: l.discountMode, discountValue: Number.isFinite(n) ? n : 0 })}
+          />
+          <Flex direction="column" gap="flush">
+            <Text variant="microcopy">Net per unit</Text>
+            <Text>{money(Math.round(unitNet * 100) / 100, l.currency || currency)}</Text>
+          </Flex>
+          <Button size="sm" variant="transparent" onClick={() => onEdit(l.id, { remove: true })}>
+            Remove
+          </Button>
+        </Flex>
+        {(issues.length > 0 || edited) && (
+          <Flex direction="row" gap="sm" wrap="wrap" align="center">
+            {rule && target > 0 && l.quantity !== target && (
+              <Link href="#" preventDefault onClick={() => onEdit(l.id, { quantity: target })}>
+                {`Match the ${rule === 'sites' ? 'sites' : 'cameras'} (${target})`}
+              </Link>
+            )}
+            {offList && !wrongCurrency && (
+              <Link href="#" preventDefault onClick={() => onEdit(l.id, resetToList(l))}>
+                {`Reset to list (${money(l.listPrice!, currency)})${l.discount === 0 && l.price < l.listPrice! ? ' and show the difference as a discount' : ''}`}
+              </Link>
+            )}
+            {wrongCurrency && l.listPrice !== null && (
+              <Link href="#" preventDefault onClick={() => onEdit(l.id, { resetPrice: true })}>
+                {`Reprice at the ${currency} list price`}
+              </Link>
+            )}
+            {edited && (
+              <Link href="#" preventDefault onClick={() => onUndo(l.id)}>
+                Undo changes
+              </Link>
             )}
           </Flex>
-          <TextField v={v} set={set} name="of_discount_reason" area required />
-        </>
+        )}
+      </Flex>
+    </Tile>
+  );
+}
+
+/* ---------------- sites ---------------- */
+
+function SitesSection({ v, set, sum }: Shared) {
+  const [paste, setPaste] = React.useState<string | null>(null);
+  const staged = v.of_rollout === 'staged_rollout';
+  const sites = sum.sites;
+  const write = (list: Site[]) => set('of_sites', JSON.stringify(list));
+  const change = (i: number, patch: Partial<Site>) => write(sites.map((s, j) => (j === i ? { ...s, ...patch } : s)));
+  const parsed = paste ? parseSiteList(paste) : [];
+  return (
+    <Flex direction="column" gap="sm">
+      <SelectField v={v} set={set} name="of_rollout" required />
+      {sites.length === 0 && <Text variant="microcopy">No sites yet. Add them one at a time, or paste a list.</Text>}
+      {sites.map((s, i) => (
+        <Flex key={i} direction="row" gap="sm" wrap="wrap" align="end">
+          <Input name={`site-${i}-name`} label={`Site ${i + 1}`} required value={s.name} onChange={(x) => change(i, { name: x })} />
+          <NumberInput
+            name={`site-${i}-cameras`}
+            label="Camera integrations"
+            min={0}
+            value={s.cameras}
+            onChange={(n) => change(i, { cameras: Number.isFinite(n) ? n : 0 })}
+          />
+          {staged && (
+            <DateInput
+              name={`site-${i}-go-live`}
+              label="Go-live date"
+              required
+              format="ll"
+              value={toBase(s.goLive)}
+              onChange={(d) => change(i, { goLive: fromBase(d) })}
+            />
+          )}
+          <Button size="sm" variant="transparent" onClick={() => write(sites.filter((_, j) => j !== i))}>
+            Remove
+          </Button>
+        </Flex>
+      ))}
+      <Flex direction="row" gap="sm" wrap="wrap">
+        <Button size="sm" variant="secondary" onClick={() => write([...sites, { name: '', cameras: 0, goLive: '' }])}>
+          Add a site
+        </Button>
+        <Button size="sm" variant="secondary" onClick={() => setPaste(paste === null ? '' : null)}>
+          {paste === null ? 'Paste a list of sites' : 'Close the paste box'}
+        </Button>
+      </Flex>
+      {paste !== null && (
+        <Flex direction="column" gap="xs">
+          <TextArea
+            name="site-paste"
+            label="Paste sites, one per line"
+            description="Name, cameras, go-live date (YYYY-MM-DD). Cameras and the date are optional. Columns copied from a spreadsheet work too."
+            rows={6}
+            value={paste}
+            onChange={(x) => setPaste(x)}
+          />
+          <Flex direction="row" gap="sm" wrap="wrap">
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={!parsed.length}
+              onClick={() => {
+                write([...sites, ...parsed]);
+                setPaste(null);
+              }}
+            >
+              {`Add ${parsed.length} site${parsed.length === 1 ? '' : 's'}`}
+            </Button>
+            {sites.length > 0 && (
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!parsed.length}
+                onClick={() => {
+                  write(parsed);
+                  setPaste(null);
+                }}
+              >
+                Replace the list
+              </Button>
+            )}
+          </Flex>
+        </Flex>
       )}
-      <Table bordered={false} flush>
-        <TableBody>
-          <TotalRow label="Annual subscription before discount" value={money(c.annualList, currency)} />
-          {c.discount > 0 && <TotalRow label="Discount per year" value={`− ${money(c.discount, currency)}`} />}
-          <TotalRow label="Total annual subscription fee" value={money(c.annual, currency)} strong />
-          <TotalRow label="One-off fees" value={money(c.oneOff, currency)} />
-          <TotalRow label={`Total contract value${c.months ? ` (${c.months} months)` : ''}`} value={money(c.tcv, currency)} strong />
-        </TableBody>
-      </Table>
-      {c.months === null && <Text variant="microcopy">Set the contract term to see the total contract value.</Text>}
+      {sum.siteCount > 0 && (
+        <Text variant="microcopy">
+          {`${sum.siteCount} site${sum.siteCount === 1 ? '' : 's'} and ${sum.siteCameras} camera integrations. Licence and camera quantities on the line items are checked against these.${staged ? '' : ' All sites go live on the contract start date.'}${sum.siteCount > NUMBERED_SITES ? ` Every site goes to Juro in the site schedule; Sites 1–${NUMBERED_SITES} also fill the numbered site fields.` : ''}`}
+        </Text>
+      )}
     </Flex>
   );
 }
@@ -655,30 +933,6 @@ function TotalRow({ label: l, value, strong }: { label: string; value: string; s
         <Text format={strong ? { fontWeight: 'demibold' } : undefined}>{value}</Text>
       </TableCell>
     </TableRow>
-  );
-}
-
-function SitesSection({ v, set, c }: Shared) {
-  const staged = v.of_rollout === 'staged_rollout';
-  return (
-    <Flex direction="column" gap="sm">
-      <Flex direction="row" gap="sm" wrap="wrap" align="end">
-        <NumberField v={v} set={set} name="number_of_sites_to_start" label={`How many sites (up to ${MAX_SITES})`} max={MAX_SITES} />
-        <SelectField v={v} set={set} name="of_rollout" required />
-      </Flex>
-      {c.sites.map((s) => (
-        <Flex key={s.i} direction="row" gap="sm" wrap="wrap" align="end">
-          <TextField v={v} set={set} name={`of_site_${s.i}_name`} label={`Site ${s.i} name`} required />
-          <NumberField v={v} set={set} name={`of_site_${s.i}_cameras`} label="Camera integrations" />
-          {staged && <DateField v={v} set={set} name={`of_site_${s.i}_go_live`} label="Go-live date" required />}
-        </Flex>
-      ))}
-      {c.siteCount > 0 && (
-        <Text variant="microcopy">
-          {`${c.siteCount} site${c.siteCount === 1 ? '' : 's'} and ${c.siteCameras} camera integrations. Pricing uses these unless you type other units there.${staged ? '' : ' All sites go live on the contract start date.'}`}
-        </Text>
-      )}
-    </Flex>
   );
 }
 

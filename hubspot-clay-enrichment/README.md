@@ -10,7 +10,7 @@ The project has six cards:
 
 - **Account Intel** and **Pre-call brief** on companies (Clay enrichment), described below.
 - **Profile summary** and **Before you reach out** on contacts (Clay person research). See [CONTACTS.md](CONTACTS.md).
-- **Order form** on deals: order form and MSA details for Juro, with live totals and a ready-for-Juro check. See [ORDER-FORM.md](ORDER-FORM.md).
+- **Order form** on deals: order form and MSA details for Juro. Pricing is the deal's line items, from the product library at list price with a discount per line; sites are an open-ended list. Live totals and a ready-for-Juro check. See [ORDER-FORM.md](ORDER-FORM.md).
 - **Discovery assessment** on deals: the 36-question discovery assessment, filled by AI from Avoma calls, with live discovery health and likelihood to close. See [DISCOVERY.md](DISCOVERY.md).
 
 **Account Intel** (record tab, middle column)
@@ -93,9 +93,14 @@ src/app/cards/
   discovery/data.ts               questions and guidance (generated from the sheet)
   discovery/score.ts              discovery health and close points (unit tested)
   discovery/guide.ts              level descriptions and what counts, per question
+  order-form-hsmeta.json          deal record tab card definition
+  OrderForm.tsx                   order form card
+  orderform/calc.ts               sites, totals, Juro fields and readiness (unit tested)
+  orderform/lines.ts              line item pricing, discounts and checks (unit tested)
+  orderform/properties.json       order form deal properties (generated)
 src/app/functions/
   save-discovery.js               saves industry and level corrections from the Discovery card
-  save-order-form.js              saves the order form and lists Protex signatories
+  save-order-form.js              saves the order form and line items, lists products and Protex signatories
 assessor/                         Avoma → Claude → HubSpot runner that fills the Discovery card
 tests/                            tests for the save functions
   ContactProfile.tsx, ContactPrep.tsx  contact cards
@@ -105,6 +110,7 @@ scripts/create-contact-properties.mjs creates the contact properties
 scripts/build-discovery.py        regenerates discovery data from the sheet
 scripts/deal-properties.json      deal property definitions (generated)
 scripts/create-deal-properties.mjs creates the deal properties
+scripts/build-order-form-properties.py regenerates the order form properties
 ```
 
 ## Notes

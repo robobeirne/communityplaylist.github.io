@@ -37,38 +37,23 @@ add(G, 'of_client_contact_title', 'Client contact job title', 'text')
 add(G, 'of_billing_contact_name', 'Billing contact name', 'text')
 add(G, 'of_billing_address', 'Billing address (if different)', 'textarea')
 
-# Pricing
+# Pricing. Products, quantities, prices and per-line discounts live on the deal's line items;
+# these are the roll-ups the card writes so Juro and reports get them as plain deal fields.
 G = 'Pricing'
-lines = [('safety', 'Protex AI Platform Site License (Safety Pack)'), ('cameras', 'Camera integrations'),
-         ('ops', 'Operations License'), ('intel', 'Protex Intelligence')]
-add(G, 'of_ops_included', 'Includes an Operations License', 'bool')
-add(G, 'of_intel_included', 'Includes Protex Intelligence', 'bool')
-add(G, 'of_safety_units_manual', 'Site license units typed by hand', 'bool', 'No: the units follow the number of sites. Yes: a rep typed them.')
-add(G, 'of_cameras_units_manual', 'Camera integration units typed by hand', 'bool', 'No: the units follow the cameras per site. Yes: a rep typed them.')
-for key, label in lines:
-    add(G, f'of_{key}_units', f'{label} — units', 'number')
-    add(G, f'of_{key}_unit_fee', f'{label} — annual fee per unit', 'number')
-    add(G, f'of_{key}_total', f'{label} — annual total', 'number', 'Units × fee per unit. Calculated by the order form card.')
-add(G, 'of_hardware_included', 'Includes hardware / edge devices', 'bool')
-add(G, 'of_hardware_units', 'Hardware / edge devices — units', 'number')
-add(G, 'of_hardware_unit_fee', 'Hardware / edge devices — fee per unit', 'number')
-add(G, 'of_hardware_billing', 'Hardware / edge devices — billed', 'select', '', ['One-off', 'Annually'])
-add(G, 'of_hardware_total', 'Hardware / edge devices — total', 'number', 'Units × fee per unit. Calculated by the order form card.')
-add(G, 'of_implementation_fee', 'Implementation / onboarding fee (one-off)', 'number', 'In the order currency.')
-add(G, 'of_discount_applied', 'Is a discount being applied?', 'bool')
-add(G, 'of_discount_type', 'Discount type', 'select', '', ['Percentage', 'Fixed amount per year'])
-add(G, 'of_discount_value', 'Discount', 'number', 'A percentage, or an amount per year in the order currency.')
-add(G, 'of_discount_reason', 'Reason for the discount', 'textarea')
-add(G, 'of_discount_amount', 'Discount per year', 'number', 'Calculated by the order form card.')
-add(G, 'of_annual_list_fee', 'Annual subscription before discount', 'number', 'Calculated by the order form card.')
-add(G, 'of_annual_subscription_fee', 'Total annual subscription fee', 'number', 'After discount. Calculated by the order form card.')
-add(G, 'of_one_off_fees', 'One-off fees', 'number', 'Implementation plus one-off hardware. Calculated by the order form card.')
+add(G, 'of_pricing_table', 'Pricing table', 'textarea', 'One line per product: name, quantity × unit price, discount, net. Written by the order form card from the line items, for Juro.')
+add(G, 'of_discount_reason', 'Reason for the discounts', 'textarea', 'Required when any line item is discounted.')
+add(G, 'of_annual_list_fee', 'Annual subscription before discount', 'number', 'Recurring line items at list, per year. Calculated by the order form card.')
+add(G, 'of_discount_amount', 'Discount per year', 'number', 'Across the recurring line items. Calculated by the order form card.')
+add(G, 'of_discount_pct', 'Overall discount %', 'number', 'All discounts as a share of list. Calculated by the order form card.')
+add(G, 'of_annual_subscription_fee', 'Total annual subscription fee', 'number', 'Recurring line items after discount, per year. Calculated by the order form card.')
+add(G, 'of_one_off_fees', 'One-off fees', 'number', 'One-time line items after discount. Calculated by the order form card.')
 add(G, 'of_total_contract_value', 'Total contract value', 'number', 'Annual subscription × term in years, plus one-off fees. Calculated by the order form card.')
 
 # Sites
 G = 'Sites'
 add(G, 'of_rollout', 'Rollout', 'select', 'All sites going live together, or a staged rollout with a go-live date per site.', ['All sites together', 'Staged rollout'])
-add(G, 'of_site_schedule', 'Site schedule', 'textarea', 'One line per site: name, cameras, go-live. Written by the order form card for Juro.')
+add(G, 'of_site_schedule', 'Site schedule', 'textarea', 'Every site, one line each: name, cameras, go-live. Written by the order form card for Juro.')
+add(G, 'of_sites', 'Site list (card data)', 'textarea', 'The full site list the order form card edits, as JSON. No limit on the number of sites; Sites 1–20 are also copied to the numbered fields.')
 for i in range(1, 21):
     add(G, f'of_site_{i}_name', f'Site {i} — name', 'text')
     add(G, f'of_site_{i}_cameras', f'Site {i} — camera integrations', 'number')
