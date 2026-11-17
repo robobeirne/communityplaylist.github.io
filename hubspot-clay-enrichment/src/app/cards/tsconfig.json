@@ -8,8 +8,21 @@
     "noEmit": true,
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "resolveJsonModule": true
   },
-  "include": ["*.tsx", "lib/**/*.ts", "lib/**/*.tsx", "discovery/**/*.ts", "contact/**/*.ts"],
-  "exclude": ["lib/**/*.test.ts", "discovery/**/*.test.ts", "contact/**/*.test.ts"]
+  "include": [
+    "*.tsx",
+    "lib/**/*.ts",
+    "lib/**/*.tsx",
+    "discovery/**/*.ts",
+    "contact/**/*.ts",
+    "orderform/**/*.ts"
+  ],
+  "exclude": [
+    "lib/**/*.test.ts",
+    "discovery/**/*.test.ts",
+    "contact/**/*.test.ts",
+    "orderform/**/*.test.ts"
+  ]
 }

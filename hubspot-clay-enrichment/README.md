@@ -6,10 +6,11 @@ company records.
 
 **Step-by-step setup: see [SETUP.md](SETUP.md).** The deal card has its own guide: [DISCOVERY.md](DISCOVERY.md).
 
-The project has five cards:
+The project has six cards:
 
 - **Account Intel** and **Pre-call brief** on companies (Clay enrichment), described below.
 - **Profile summary** and **Before you reach out** on contacts (Clay person research). See [CONTACTS.md](CONTACTS.md).
+- **Order form** on deals: order form and MSA details for Juro, with live totals and a ready-for-Juro check. See [ORDER-FORM.md](ORDER-FORM.md).
 - **Discovery assessment** on deals: the 36-question discovery assessment, filled by AI from Avoma calls, with live discovery health and likelihood to close. See [DISCOVERY.md](DISCOVERY.md).
 
 **Account Intel** (record tab, middle column)
@@ -94,8 +95,9 @@ src/app/cards/
   discovery/guide.ts              level descriptions and what counts, per question
 src/app/functions/
   save-discovery.js               saves industry and level corrections from the Discovery card
+  save-order-form.js              saves the order form and lists Protex signatories
 assessor/                         Avoma → Claude → HubSpot runner that fills the Discovery card
-tests/save-discovery.test.mjs     tests for the save function
+tests/                            tests for the save functions
   ContactProfile.tsx, ContactPrep.tsx  contact cards
   contact/config.ts               contact property mapping
 scripts/create-properties.mjs     creates the company properties

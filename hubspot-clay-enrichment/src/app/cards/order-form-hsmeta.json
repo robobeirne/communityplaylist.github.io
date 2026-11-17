@@ -1,0 +1,11 @@
+{
+  "uid": "protex_order_form",
+  "type": "card",
+  "config": {
+    "name": "Order form",
+    "description": "Order form and MSA details for Juro, with live totals and a ready-for-Juro check.",
+    "location": "crm.record.tab",
+    "entrypoint": "/app/cards/OrderForm.tsx",
+    "objectTypes": ["DEAL"]
+  }
+}

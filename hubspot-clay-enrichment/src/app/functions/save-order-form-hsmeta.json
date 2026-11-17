@@ -1,0 +1,8 @@
+{
+  "uid": "save_order_form",
+  "type": "app-function",
+  "config": {
+    "entrypoint": "/app/functions/save-order-form.js",
+    "secretKeys": []
+  }
+}

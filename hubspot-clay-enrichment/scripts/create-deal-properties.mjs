@@ -21,7 +21,12 @@ if (!TOKEN) {
 }
 
 const API = 'https://api.hubapi.com/crm/v3/properties/deals';
-const PROPERTIES = JSON.parse(readFileSync(new URL('./deal-properties.json', import.meta.url), 'utf8'));
+// Defaults to the discovery properties. Pass another definitions file to create those instead:
+//   node scripts/create-deal-properties.mjs src/app/cards/orderform/properties.json
+const fileArg = process.argv.slice(2).find((a, i, all) => !a.startsWith('--') && !(all[i - 1] ?? '').startsWith('--fix'));
+const PROPERTIES = JSON.parse(
+  readFileSync(fileArg ? new URL(fileArg, `file://${process.cwd()}/`) : new URL('./deal-properties.json', import.meta.url), 'utf8')
+);
 
 const groupName = (label) =>
   label
