@@ -70,6 +70,10 @@ export interface Site {
 
 export interface Computed {
   lines: { safety: number; cameras: number; ops: number; intel: number; hardware: number };
+  /** Units used for site licences and camera integrations. */
+  units: { safety: number; cameras: number };
+  /** True where those units come from the sites because no number was typed. */
+  fromSites: { safety: boolean; cameras: boolean };
   hardwareAnnual: boolean;
   annualList: number;
   discount: number;
@@ -84,12 +88,30 @@ export interface Computed {
 }
 
 export function compute(v: Values): Computed {
-  const line = (k: string) => round2(num(v[`of_${k}_units`]) * num(v[`of_${k}_unit_fee`]));
+  const siteCount = Math.max(0, Math.min(MAX_SITES, Math.round(num(v.number_of_sites_to_start))));
+  const sites: Site[] = [];
+  for (let i = 1; i <= siteCount; i++) {
+    sites.push({
+      i,
+      name: String(v[`of_site_${i}_name`] ?? '').trim(),
+      cameras: num(v[`of_site_${i}_cameras`]),
+      goLive: parseDate(v[`of_site_${i}_go_live`]),
+    });
+  }
+  const siteCameras = sites.reduce((s, x) => s + x.cameras, 0);
+
+  // Site licences and camera integrations follow the sites unless a rep types a number.
+  const fromSites = { safety: !yes(v.of_safety_units_manual), cameras: !yes(v.of_cameras_units_manual) };
+  const units = {
+    safety: fromSites.safety ? siteCount : num(v.of_safety_units),
+    cameras: fromSites.cameras ? siteCameras : num(v.of_cameras_units),
+  };
+  const line = (k: string, u = num(v[`of_${k}_units`])) => round2(u * num(v[`of_${k}_unit_fee`]));
   const hardwareOn = yes(v.of_hardware_included);
   const hardwareAnnual = hardwareOn && v.of_hardware_billing === 'annually';
   const lines = {
-    safety: line('safety'),
-    cameras: line('cameras'),
+    safety: line('safety', units.safety),
+    cameras: line('cameras', units.cameras),
     ops: yes(v.of_ops_included) ? line('ops') : 0,
     intel: yes(v.of_intel_included) ? line('intel') : 0,
     hardware: hardwareOn ? line('hardware') : 0,
@@ -107,19 +129,7 @@ export function compute(v: Values): Computed {
   const tcv = months ? round2((annual * months) / 12 + oneOff) : null;
   const start = parseDate(v.contract_start_date);
   const end = start && months ? termEnd(start, months) : null;
-
-  const siteCount = Math.max(0, Math.min(MAX_SITES, Math.round(num(v.number_of_sites_to_start))));
-  const sites: Site[] = [];
-  for (let i = 1; i <= siteCount; i++) {
-    sites.push({
-      i,
-      name: String(v[`of_site_${i}_name`] ?? '').trim(),
-      cameras: num(v[`of_site_${i}_cameras`]),
-      goLive: parseDate(v[`of_site_${i}_go_live`]),
-    });
-  }
-  const siteCameras = sites.reduce((s, x) => s + x.cameras, 0);
-  return { lines, hardwareAnnual, annualList, discount, annual, oneOff, months, tcv, end, siteCount, sites, siteCameras };
+  return { lines, units, fromSites, hardwareAnnual, annualList, discount, annual, oneOff, months, tcv, end, siteCount, sites, siteCameras };
 }
 
 const longDate = (d: Date) =>
@@ -143,6 +153,8 @@ export function computedProperties(v: Values): Record<string, string> {
   const c = compute(v);
   const money = (n: number) => String(n);
   const out: Record<string, string> = {
+    of_safety_units: String(c.units.safety),
+    of_cameras_units: String(c.units.cameras),
     of_safety_total: money(c.lines.safety),
     of_cameras_total: money(c.lines.cameras),
     of_ops_total: money(c.lines.ops),
@@ -161,10 +173,10 @@ export function computedProperties(v: Values): Record<string, string> {
 
 export type Section = 'client' | 'order' | 'pricing' | 'sites' | 'legal';
 export const SECTIONS: { key: Section; title: string }[] = [
-  { key: 'client', title: 'Client and contacts' },
   { key: 'order', title: 'Order and term' },
-  { key: 'pricing', title: 'Pricing' },
+  { key: 'client', title: 'Client and contacts' },
   { key: 'sites', title: 'Sites and rollout' },
+  { key: 'pricing', title: 'Pricing' },
   { key: 'legal', title: 'Legal, MSA and signatures' },
 ];
 
@@ -217,12 +229,12 @@ export function readiness(v: Values): { missing: Gap[]; warnings: Gap[]; require
   if (target && expiry && target > expiry) warnings.push({ section: 'order', label: 'The target signature date is after the offer expires' });
 
   // Pricing
-  const priced = (k: string, label: string) => {
-    need('pricing', num(v[`of_${k}_units`]) > 0, `${label}: units`);
+  const priced = (k: string, label: string, units = num(v[`of_${k}_units`])) => {
+    need('pricing', units > 0, `${label}: units`);
     need('pricing', num(v[`of_${k}_unit_fee`]) > 0, `${label}: fee per unit`);
   };
-  priced('safety', 'Site licenses (Safety Pack)');
-  priced('cameras', 'Camera integrations');
+  priced('safety', 'Site licenses (Safety Pack)', c.units.safety);
+  priced('cameras', 'Camera integrations', c.units.cameras);
   if (yes(v.of_ops_included)) priced('ops', 'Operations License');
   if (yes(v.of_intel_included)) priced('intel', 'Protex Intelligence');
   if (yes(v.of_hardware_included)) {
@@ -251,9 +263,10 @@ export function readiness(v: Values): { missing: Gap[]; warnings: Gap[]; require
       if (s.goLive && start && s.goLive < start) warnings.push({ section: 'sites', label: `Site ${s.i} goes live before the contract starts` });
     }
   }
-  const cameraUnits = num(v.of_cameras_units);
-  if (c.siteCameras > 0 && cameraUnits > 0 && c.siteCameras !== cameraUnits)
-    warnings.push({ section: 'sites', label: `Cameras per site add up to ${c.siteCameras}, but ${cameraUnits} camera integrations are priced` });
+  if (!c.fromSites.cameras && c.siteCameras > 0 && c.units.cameras !== c.siteCameras)
+    warnings.push({ section: 'pricing', label: `Cameras per site add up to ${c.siteCameras}, but ${c.units.cameras} camera integrations are priced` });
+  if (!c.fromSites.safety && c.siteCount > 0 && c.units.safety !== c.siteCount)
+    warnings.push({ section: 'pricing', label: `${c.units.safety} site licenses are priced for ${c.siteCount} sites` });
 
   // Legal, MSA and signatures
   need('legal', has('of_existing_msa'), 'Is there an existing MSA?');

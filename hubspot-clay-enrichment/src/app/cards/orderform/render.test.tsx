@@ -3,7 +3,7 @@
 import React from 'react';
 import assert from 'node:assert/strict';
 import { createRenderer } from '@hubspot/ui-extensions/testing';
-import { Accordion, Alert, Button, Heading, Input, LoadingButton, Select, StatisticsItem, Tag, Text, TextArea, ToggleGroup } from '@hubspot/ui-extensions';
+import { Accordion, Alert, Button, Heading, Input, Link, LoadingButton, NumberInput, Select, StatisticsItem, Tag, Text, TextArea, ToggleGroup } from '@hubspot/ui-extensions';
 import { OrderForm } from '../OrderForm.tsx';
 
 const calls: { name: string; parameters: Record<string, any> }[] = [];
@@ -55,9 +55,11 @@ assert.equal(r.find(Heading).text, 'Order form');
 assert.ok(r.findAll(Tag).some((t) => t.text === 'New business'), 'order type comes from the pipeline');
 assert.equal(r.findAll(Accordion).length, 5);
 assert.ok(r.findAll(Alert).some((a) => String(a.props.title).startsWith('Still needed before Juro')));
-assert.equal(button(r, 'Mark ready for Juro'), undefined, 'cannot mark ready while things are missing');
+const gated = [...r.findAll(LoadingButton)].find((b) => b.text.startsWith('Mark ready for Juro'));
+assert.ok(gated && gated.props.disabled && / to fill$/.test(gated.text), 'Mark ready shows, disabled, with how much is left');
+assert.ok(r.findAll(Accordion).every((a) => a.props.open), 'every section has gaps, so every section starts open');
 assert.ok(calls.some((c) => c.parameters.action === 'signatories'), 'loads the Protex signatories');
-console.log('new deal: 5 sections, still-needed alert, no Mark ready');
+console.log('new deal: 5 sections open, still-needed alert, Mark ready disabled');
 
 // Fill from the company and a deal contact, then save.
 button(r, 'Fill from the company')!.trigger('onClick');
@@ -98,16 +100,16 @@ const complete: Record<string, string> = {
   term_year_length: '24 months',
   of_billing_frequency: 'annually_in_advance',
   of_payment_terms: 'net_30',
-  of_safety_units: '3',
   of_safety_unit_fee: '12000',
-  of_cameras_units: '30',
   of_cameras_unit_fee: '500',
-  number_of_sites_to_start: '2',
+  number_of_sites_to_start: '3',
   of_rollout: 'all_sites_together',
   of_site_1_name: 'Leeds DC',
-  of_site_1_cameras: '18',
+  of_site_1_cameras: '12',
   of_site_2_name: 'Wakefield',
-  of_site_2_cameras: '12',
+  of_site_2_cameras: '10',
+  of_site_3_name: 'Doncaster',
+  of_site_3_cameras: '8',
   of_existing_msa: 'no',
   of_counterparty_signer_name: 'Alex Kim',
   of_counterparty_signer_email: 'alex@northbridge.example',
@@ -128,6 +130,8 @@ assert.deepEqual(
   ],
 );
 assert.ok(r.findAll(Accordion).every((a) => String(a.props.title).endsWith('complete')));
+assert.ok(r.findAll(Accordion).every((a) => !a.props.open), 'complete sections start closed');
+assert.ok(texts(r).includes('From Sites and rollout. Type a number to change it.'), 'units follow the sites');
 const ready = button(r, 'Mark ready for Juro');
 assert.ok(ready, 'Mark ready shows when nothing is missing');
 ready!.trigger('onClick');
@@ -135,7 +139,12 @@ await r.waitFor(() => assert.equal(lastSave().of_status, 'ready_for_juro'));
 saved = lastSave();
 assert.equal(saved.of_ready_by, 'rep@protex.ai');
 assert.equal(saved.of_total_contract_value, '102000');
-assert.equal(saved.of_site_schedule, '1. Leeds DC — 18 camera integrations — go-live 1 Jan 2027\n2. Wakefield — 12 camera integrations — go-live 1 Jan 2027');
+assert.equal(saved.of_safety_units, '3', 'saves the licence units taken from the sites');
+assert.equal(saved.of_cameras_units, '30', 'and the camera units');
+assert.equal(
+  saved.of_site_schedule,
+  '1. Leeds DC — 12 camera integrations — go-live 1 Jan 2027\n2. Wakefield — 10 camera integrations — go-live 1 Jan 2027\n3. Doncaster — 8 camera integrations — go-live 1 Jan 2027',
+);
 console.log('complete deal: £51,000 a year, £102,000 TCV, and Mark ready for Juro saves the status');
 
 // Editing after it's marked ready puts it back to Draft.
@@ -147,6 +156,28 @@ button(r, 'Save changes')!.trigger('onClick');
 await r.waitFor(() => assert.equal(lastSave().of_legal_notes, 'Client wants 60-day payment terms'));
 assert.equal(lastSave().of_status, 'draft');
 console.log('a change after Mark ready sends it back to Draft');
+
+// The still-needed list links to its section: clicking opens it.
+r = await renderWith({ ...complete, of_counterparty_signer_title: '' });
+const legal = () => r.findAll(Accordion).find((a) => String(a.props.title).startsWith('5.'))!;
+assert.equal(legal().props.open, true, 'the section with a gap starts open');
+legal().trigger('onClick');
+await r.waitFor(() => assert.equal(legal().props.open, false));
+const link = r.findAll(Link).find((l) => l.text === 'Legal, MSA and signatures');
+assert.ok(link, 'the missing item names its section as a link');
+link!.trigger('onClick');
+await r.waitFor(() => assert.equal(legal().props.open, true));
+console.log('the still-needed list opens the section it names');
+
+// Typing licence units by hand stops them following the sites, and Match the sites switches back.
+r = await renderWith({ ...complete });
+const units = () => r.findAll(NumberInput).find((n) => n.props.name === 'of_safety_units')!;
+units().trigger('onChange', 4 as never);
+await r.waitFor(() => assert.ok(r.findAll(Alert).some((a) => a.props.title === 'Check these')));
+assert.ok(texts(r).includes('4 site licenses are priced for 3 sites'));
+r.findAll(Link).find((l) => l.text === 'Match the sites (3)')!.trigger('onClick');
+await r.waitFor(() => assert.equal(units().props.value, 3));
+console.log('hand-typed units warn on a mismatch, and Match the sites switches back');
 
 // Optional price lines appear when ticked; a discount needs a reason.
 r = await renderWith({ ...complete });

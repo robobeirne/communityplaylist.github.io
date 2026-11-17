@@ -10,6 +10,7 @@ import {
   Flex,
   Heading,
   Input,
+  Link,
   List,
   LoadingButton,
   LoadingSpinner,
@@ -122,6 +123,7 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
   const [saving, setSaving] = React.useState(false);
   const [signers, setSigners] = React.useState<Signer[] | null>(null);
   const [signersError, setSignersError] = React.useState('');
+  const [openSections, setOpenSections] = React.useState<Section[] | null>(null);
 
   const call = React.useCallback(async (parameters: Record<string, unknown>) => {
     const res = await hubspot.serverless(FN, { parameters: parameters as never });
@@ -191,8 +193,13 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
   };
 
   const missingIn = (s: Section) => r.missing.filter((g) => g.section === s);
-  const firstIncomplete = SECTIONS.find((s) => missingIn(s.key).length)?.key;
+  // Sections with something to fill start open; complete ones start closed.
+  const open = openSections ?? SECTIONS.filter((s) => missingIn(s.key).length).map((s) => s.key);
+  const toggle = (k: Section) => setOpenSections(open.includes(k) ? open.filter((x) => x !== k) : [...open, k]);
+  const reveal = (k: Section) => setOpenSections(open.includes(k) ? open : [...open, k]);
   const done = r.required - r.missing.length;
+  const canMarkReady = !r.missing.length && !dirty;
+  const isReady = status === 'ready_for_juro' || status === 'sent_to_juro' || status === 'signed';
   const shared = { v, set, currency, c };
 
   return (
@@ -226,15 +233,20 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
 
       {r.missing.length > 0 ? (
         <Alert title={`Still needed before Juro (${r.missing.length})`} variant="warning">
-          <Text>
-            {SECTIONS.filter((s) => missingIn(s.key).length)
-              .map((s) => `${s.title}: ${missingIn(s.key).length}`)
-              .join(' · ')}
-          </Text>
+          <Flex direction="column" gap="xs">
+            {SECTIONS.filter((s) => missingIn(s.key).length).map((s) => (
+              <Text key={s.key}>
+                <Link href="#" preventDefault onClick={() => reveal(s.key)}>
+                  {s.title}
+                </Link>
+                {`: ${missingIn(s.key).map((g) => g.label).join('; ')}`}
+              </Text>
+            ))}
+          </Flex>
         </Alert>
       ) : (
         <Alert title="Everything Juro needs is here" variant="success">
-          <Text>Check the totals, then mark it ready for Juro.</Text>
+          <Text>{isReady ? 'This order form is ready for Juro.' : 'Check the totals, then mark it ready for Juro.'}</Text>
         </Alert>
       )}
       {r.warnings.length > 0 && (
@@ -250,7 +262,9 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
       <Actions
         dirty={dirty}
         saving={saving}
-        canMarkReady={!r.missing.length && status !== 'ready_for_juro' && status !== 'signed'}
+        isReady={isReady}
+        canMarkReady={canMarkReady}
+        missing={r.missing.length}
         onSave={() => save()}
         onReady={() => save({ of_status: 'ready_for_juro', of_ready_at: new Date().toISOString(), of_ready_by: user })}
       />
@@ -258,7 +272,13 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
       {SECTIONS.map((s, i) => {
         const left = missingIn(s.key).length;
         return (
-          <Accordion key={s.key} title={`${i + 1}. ${s.title} · ${left ? `${left} to fill` : 'complete'}`} defaultOpen={s.key === firstIncomplete} size="sm">
+          <Accordion
+            key={s.key}
+            title={`${i + 1}. ${s.title} · ${left ? `${left} to fill` : 'complete'}`}
+            open={open.includes(s.key)}
+            onClick={() => toggle(s.key)}
+            size="sm"
+          >
             <Flex direction="column" gap="sm">
               {s.key === 'client' && <ClientSection {...shared} contacts={contacts} company={company} />}
               {s.key === 'order' && <OrderSection {...shared} />}
@@ -272,21 +292,30 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
       })}
 
       {dirty && (
-        <Actions dirty={dirty} saving={saving} canMarkReady={false} onSave={() => save()} onReady={() => undefined} />
+        <Actions dirty={dirty} saving={saving} isReady={isReady} canMarkReady={false} missing={r.missing.length} onSave={() => save()} />
       )}
     </Flex>
   );
 }
 
-function Actions(p: { dirty: boolean; saving: boolean; canMarkReady: boolean; onSave: () => void; onReady: () => void }) {
+function Actions(p: {
+  dirty: boolean;
+  saving: boolean;
+  isReady: boolean;
+  canMarkReady: boolean;
+  missing: number;
+  onSave: () => void;
+  onReady?: () => void;
+}) {
+  const readyLabel = p.missing ? `Mark ready for Juro · ${p.missing} to fill` : p.dirty ? 'Save, then mark ready for Juro' : 'Mark ready for Juro';
   return (
     <Flex direction="row" gap="sm" align="center" wrap="wrap">
       <LoadingButton variant="primary" loading={p.saving} disabled={!p.dirty} onClick={p.onSave}>
         {p.dirty ? 'Save changes' : 'Saved'}
       </LoadingButton>
-      {p.canMarkReady && (
-        <LoadingButton variant="secondary" loading={p.saving} disabled={p.dirty} onClick={p.onReady}>
-          Mark ready for Juro
+      {p.onReady && !p.isReady && (
+        <LoadingButton variant="secondary" loading={p.saving} disabled={!p.canMarkReady} onClick={p.onReady}>
+          {readyLabel}
         </LoadingButton>
       )}
       {p.dirty && <Text variant="microcopy">Unsaved changes</Text>}
@@ -490,18 +519,51 @@ function OrderSection({ v, set, c }: Shared) {
   );
 }
 
-function PriceLine({ v, set, k, title, currency, total }: { v: Values; set: Setter; k: string; title: string; currency: string; total: number }) {
+function PriceLine({ v, set, k, title, currency, total, fromSites }: {
+  v: Values;
+  set: Setter;
+  k: string;
+  title: string;
+  currency: string;
+  total: number;
+  /** For site licences and camera integrations: units come from Sites and rollout unless typed. */
+  fromSites?: { units: number; following: boolean; matchLabel: string };
+}) {
   return (
     <Flex direction="column" gap="xs">
       <Text format={{ fontWeight: 'demibold' }}>{title}</Text>
       <Flex direction="row" gap="sm" wrap="wrap" align="end">
-        <NumberField v={v} set={set} name={`of_${k}_units`} label="Units" />
+        {fromSites ? (
+          <NumberInput
+            name={`of_${k}_units`}
+            label="Units"
+            min={0}
+            value={fromSites.units}
+            onChange={(n) => {
+              set(`of_${k}_units`, Number.isFinite(n) ? String(n) : '');
+              set(`of_${k}_units_manual`, 'true');
+            }}
+          />
+        ) : (
+          <NumberField v={v} set={set} name={`of_${k}_units`} label="Units" />
+        )}
         <MoneyField v={v} set={set} name={`of_${k}_unit_fee`} label="Fee per unit" currency={currency} />
         <Flex direction="column" gap="flush">
           <Text variant="microcopy">Total</Text>
           <Text format={{ fontWeight: 'demibold' }}>{money(total, currency)}</Text>
         </Flex>
       </Flex>
+      {fromSites &&
+        (fromSites.following ? (
+          <Text variant="microcopy">From Sites and rollout. Type a number to change it.</Text>
+        ) : (
+          <Text variant="microcopy">
+            {'Typed by hand. '}
+            <Link href="#" preventDefault onClick={() => set(`of_${k}_units_manual`, 'false')}>
+              {fromSites.matchLabel}
+            </Link>
+          </Text>
+        ))}
     </Flex>
   );
 }
@@ -511,8 +573,24 @@ function PricingSection({ v, set, currency, c }: Shared) {
   return (
     <Flex direction="column" gap="sm">
       {!currency && <Text variant="microcopy">Set the currency in Order and term so the fees show in it.</Text>}
-      <PriceLine v={v} set={set} k="safety" title="Protex AI Platform Site Licenses (Safety Pack), per year" currency={currency} total={c.lines.safety} />
-      <PriceLine v={v} set={set} k="cameras" title="Camera integrations, per year" currency={currency} total={c.lines.cameras} />
+      <PriceLine
+        v={v}
+        set={set}
+        k="safety"
+        title="Protex AI Platform Site Licenses (Safety Pack), per year"
+        currency={currency}
+        total={c.lines.safety}
+        fromSites={{ units: c.units.safety, following: c.fromSites.safety, matchLabel: `Match the sites (${c.siteCount})` }}
+      />
+      <PriceLine
+        v={v}
+        set={set}
+        k="cameras"
+        title="Camera integrations, per year"
+        currency={currency}
+        total={c.lines.cameras}
+        fromSites={{ units: c.units.cameras, following: c.fromSites.cameras, matchLabel: `Match the sites (${c.siteCameras})` }}
+      />
       <ToggleGroup
         name="extras"
         label="Also on this order"
@@ -582,7 +660,6 @@ function TotalRow({ label: l, value, strong }: { label: string; value: string; s
 
 function SitesSection({ v, set, c }: Shared) {
   const staged = v.of_rollout === 'staged_rollout';
-  const cameraUnits = num(v.of_cameras_units);
   return (
     <Flex direction="column" gap="sm">
       <Flex direction="row" gap="sm" wrap="wrap" align="end">
@@ -598,7 +675,7 @@ function SitesSection({ v, set, c }: Shared) {
       ))}
       {c.siteCount > 0 && (
         <Text variant="microcopy">
-          {`Cameras across sites: ${c.siteCameras}${cameraUnits ? ` of ${cameraUnits} camera integrations priced` : ''}.${staged ? '' : ' All sites go live on the contract start date.'}`}
+          {`${c.siteCount} site${c.siteCount === 1 ? '' : 's'} and ${c.siteCameras} camera integrations. Pricing uses these unless you type other units there.${staged ? '' : ' All sites go live on the contract start date.'}`}
         </Text>
       )}
     </Flex>

@@ -5,36 +5,36 @@ One card on the deal captures everything the order form and MSA need, for new bu
 ## What reps see
 
 - **Summary:** order type, status (Draft, Ready for Juro, Sent to Juro or Signed), annual subscription, total contract value, term, and a "Ready for Juro" bar counting the required details.
-- **Still needed before Juro:** what's missing, counted by section. **Check these** flags anything that looks wrong:
+- **Still needed before Juro:** every missing item, listed under its section. Each section name is a link that opens that section. **Check these** flags anything that looks wrong:
   - the offer expires before the quote date;
   - the target signature date is after the offer expires;
   - an email address isn't valid;
-  - cameras per site don't add up to the camera integrations priced;
+  - hand-typed licence or camera units don't match the sites;
   - a site goes live before the contract starts.
-- **Five sections**, each showing what's left to fill:
-  1. **Client and contacts.**
-     - Legal entity name and address, with **Fill from the company**.
-     - Registration number and VAT ID.
-     - Client contact and billing contact, each filled from a deal contact.
-     - Billing email, billing address and PO.
-  2. **Order and term.**
+- **Five sections**, each showing what's left to fill. Sections with gaps start open and complete ones start closed:
+  1. **Order and term.**
      - Order type, currency, quote date, offer expiry and target signature date.
      - Contract start (live) date and term, with the end date calculated.
      - Billing frequency, payment terms and auto-renewal.
      - For renewals: pro-rata and co-term.
-  3. **Pricing.**
-     - Site licences (Safety Pack) and camera integrations as units × fee.
+  2. **Client and contacts.**
+     - Legal entity name and address, with **Fill from the company**.
+     - Registration number and VAT ID.
+     - Client contact and billing contact, each filled from a deal contact.
+     - Billing email, billing address and PO.
+  3. **Sites and rollout.** Number of sites, then each site's name and cameras. For a staged rollout, each site also gets a go-live date.
+  4. **Pricing.**
+     - Site licences (Safety Pack) and camera integrations as units × fee. Their units come from the sites: one licence per site, and the cameras added up across sites. A rep can type other units; **Match the sites** switches back.
      - Tick to add an Operations License, Protex Intelligence or hardware.
      - Implementation fee.
      - Discount (percentage or a fixed amount a year) with a reason.
      - A totals table.
-  4. **Sites and rollout.** Number of sites, then each site's name and cameras. For a staged rollout, each site also gets a go-live date.
   5. **Legal, MSA and signatures.**
      - Existing MSA (details or link and date if yes) and notes for legal.
      - The counterparty signer, picked from a deal contact.
      - The Protex signatory, picked from HubSpot users.
 - **Save changes** saves what was typed, plus the calculated fields: line totals, annual subscription, discount, one-off fees, total contract value, contract end date and site schedule.
-- **Mark ready for Juro** appears only when nothing required is missing. It records who marked it and when. If anything changes afterwards, the status goes back to Draft.
+- **Mark ready for Juro** is always visible. It stays disabled, showing how many details are left, until nothing required is missing and everything is saved. It records who marked it and when. If anything changes afterwards, the status goes back to Draft.
 
 ## How the totals work
 
@@ -63,7 +63,7 @@ The calculated fields are written when the card saves. If someone edits pricing 
 | Currency of this order | Existing **Currency** (`deal_currency_code`) |
 | Unit Number / Unit Fee for Platform Site License; Safety Pack Total Fee | `of_safety_units`, `of_safety_unit_fee`, `of_safety_total` (calculated) |
 | Camera Integrations Unit Number / Unit Fee / Total Fee | `of_cameras_units`, `of_cameras_unit_fee`, `of_cameras_total` (calculated) |
-| Camera Integrations per site | `of_site_N_cameras`, checked against the priced total |
+| Camera Integrations per site | `of_site_N_cameras`. Their total becomes the camera integration units unless a rep types other units |
 | How many sites | Existing **# of Sites for this Deal** (`number_of_sites_to_start`) |
 | Site names 1, 2, 3… | `of_site_N_name`, for N = 1–20 |
 | Does this renewal involve an Operations License | `of_ops_included`, plus its own price line. It applies to any order type, not just renewals |
@@ -131,6 +131,8 @@ In Juro, map each template smartfield to the HubSpot deal property below. For a 
 
 | HubSpot property | Label | Type |
 | --- | --- | --- |
+| `of_safety_units_manual` | Site license units typed by hand | bool |
+| `of_cameras_units_manual` | Camera integration units typed by hand | bool |
 | `of_ops_included` | Includes an Operations License | bool |
 | `of_intel_included` | Includes Protex Intelligence | bool |
 | `of_safety_units` | Protex AI Platform Site License (Safety Pack) — units | number |
@@ -203,7 +205,7 @@ The dropdowns store values like `annually_in_advance` and show labels like "Annu
 
 From the `protex-account-intel` folder:
 
-1. **Create the 124 order form properties.** This needs a private app token with `crm.schemas.deals.write`:
+1. **Create the 126 order form properties.** If you already created the first 124, run the same command: it skips those and creates the two new "typed by hand" flags. This needs a private app token with `crm.schemas.deals.write`:
    ```
    read -s HUBSPOT_TOKEN
    export HUBSPOT_TOKEN

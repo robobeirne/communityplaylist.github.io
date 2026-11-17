@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { compute, computedProperties, orderTypeFromPipeline, parseDate, readiness, termEnd, termMonths, isoDate } from './calc.ts';
 
 const base = {
+  of_safety_units_manual: 'true',
+  of_cameras_units_manual: 'true',
   of_safety_units: '3',
   of_safety_unit_fee: '12000',
   of_cameras_units: '30',
@@ -105,6 +107,7 @@ test('readiness lists what is missing, by section', () => {
     deal_currency_code: 'GBP',
     of_billing_frequency: 'annually_in_advance',
     of_payment_terms: 'net_30',
+    of_safety_units: '1',
     number_of_sites_to_start: '1',
     of_rollout: 'all_sites_together',
     of_site_1_name: 'Leeds DC',
@@ -127,6 +130,31 @@ test('readiness lists what is missing, by section', () => {
   assert.deepEqual(msa.missing.map((g) => g.label), ['MSA details or link']);
   const staged = readiness({ ...full, of_rollout: 'staged_rollout' });
   assert.deepEqual(staged.missing.map((g) => g.label), ['Site 1: go-live date']);
+});
+
+test('licences and camera units follow the sites unless typed', () => {
+  const v = {
+    of_safety_unit_fee: '12000',
+    of_cameras_unit_fee: '500',
+    number_of_sites_to_start: '2',
+    of_site_1_cameras: '18',
+    of_site_2_cameras: '12',
+  };
+  const c = compute(v);
+  assert.deepEqual(c.units, { safety: 2, cameras: 30 });
+  assert.deepEqual(c.fromSites, { safety: true, cameras: true });
+  assert.equal(c.annualList, 24000 + 15000);
+  const p = computedProperties(v);
+  assert.equal(p.of_safety_units, '2', 'saves the units used so Juro gets them');
+  assert.equal(p.of_cameras_units, '30');
+  assert.deepEqual(readiness(v).warnings, [], 'no mismatch when units follow the sites');
+  assert.deepEqual(compute({ ...v, ...p }).units, { safety: 2, cameras: 30 }, 'still follows the sites after saving');
+  assert.equal(compute({ ...v, ...p, number_of_sites_to_start: '3' }).units.safety, 3, 'and keeps following when sites change');
+  const typed = compute({ ...v, of_cameras_units: '25', of_cameras_units_manual: 'true' });
+  assert.equal(typed.units.cameras, 25);
+  assert.equal(typed.fromSites.cameras, false);
+  assert.ok(readiness({ ...v, of_cameras_units: '25', of_cameras_units_manual: 'true' }).warnings.some((w) => w.label === 'Cameras per site add up to 30, but 25 camera integrations are priced'));
+  assert.ok(readiness({ ...v, of_safety_units: '3', of_safety_units_manual: 'true' }).warnings.some((w) => w.label === '3 site licenses are priced for 2 sites'));
 });
 
 test('warnings catch things that look wrong', () => {

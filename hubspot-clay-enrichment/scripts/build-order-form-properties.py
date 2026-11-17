@@ -43,6 +43,8 @@ lines = [('safety', 'Protex AI Platform Site License (Safety Pack)'), ('cameras'
          ('ops', 'Operations License'), ('intel', 'Protex Intelligence')]
 add(G, 'of_ops_included', 'Includes an Operations License', 'bool')
 add(G, 'of_intel_included', 'Includes Protex Intelligence', 'bool')
+add(G, 'of_safety_units_manual', 'Site license units typed by hand', 'bool', 'No: the units follow the number of sites. Yes: a rep typed them.')
+add(G, 'of_cameras_units_manual', 'Camera integration units typed by hand', 'bool', 'No: the units follow the cameras per site. Yes: a rep typed them.')
 for key, label in lines:
     add(G, f'of_{key}_units', f'{label} — units', 'number')
     add(G, f'of_{key}_unit_fee', f'{label} — annual fee per unit', 'number')
