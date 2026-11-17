@@ -47,7 +47,7 @@ add(G, 'of_discount_amount', 'Discount per year', 'number', 'Across the recurrin
 add(G, 'of_discount_pct', 'Overall discount %', 'number', 'All discounts as a share of list. Calculated by the order form card.')
 add(G, 'of_annual_subscription_fee', 'Total annual subscription fee', 'number', 'Recurring line items after discount, per year. Calculated by the order form card.')
 add(G, 'of_one_off_fees', 'One-off fees', 'number', 'One-time line items after discount. Calculated by the order form card.')
-add(G, 'of_total_contract_value', 'Total contract value', 'number', 'Annual subscription × term in years, plus one-off fees. Calculated by the order form card.')
+add(G, 'of_total_contract_value', 'Total contract value (order form)', 'number', 'Annual subscription × term in years, plus one-off fees. Calculated by the order form card.')
 
 # Sites
 G = 'Sites'

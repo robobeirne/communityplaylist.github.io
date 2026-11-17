@@ -163,7 +163,7 @@ In Juro, map each template smartfield to the HubSpot deal property below. For th
 | `of_discount_pct` | Overall discount % | number |
 | `of_annual_subscription_fee` | Total annual subscription fee | number |
 | `of_one_off_fees` | One-off fees | number |
-| `of_total_contract_value` | Total contract value | number |
+| `of_total_contract_value` | Total contract value (order form) | number |
 | Line items (HubSpot) | Product, SKU, quantity, unit price, discount, net price, billing frequency and term | line items |
 
 **Sites**

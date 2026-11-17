@@ -104,7 +104,17 @@ for (const [i, p] of PROPERTIES.entries()) {
     ...(p.options ? { options: p.options.map((o, j) => ({ ...o, displayOrder: j })) } : {}),
   };
   try {
-    console.log(`${p.name}: ${await post(API, body)}`);
+    let result;
+    try {
+      result = await post(API, body);
+    } catch (e) {
+      // HubSpot needs unique labels, and it adds its own properties over time (e.g. "Total contract
+      // value" on deals). On a clash, retry once with the group as a suffix: "… (order form)".
+      if (!String(e.message).includes('NON_UNIQUE_PROPERTY_LABEL')) throw e;
+      body.label = `${p.label} (${p.groupLabel.split(' — ')[0].toLowerCase()})`;
+      result = `${await post(API, body)} as "${body.label}" (the label was taken)`;
+    }
+    console.log(`${p.name}: ${result}`);
   } catch (e) {
     failed++;
     console.error(`${p.name}: FAILED ${e.message}`);

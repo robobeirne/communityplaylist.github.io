@@ -276,7 +276,7 @@
   {
     "groupLabel": "Order form — Pricing",
     "name": "of_total_contract_value",
-    "label": "Total contract value",
+    "label": "Total contract value (order form)",
     "type": "number",
     "fieldType": "number",
     "description": "Annual subscription × term in years, plus one-off fees. Calculated by the order form card."
