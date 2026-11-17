@@ -20,6 +20,7 @@ export const REUSED = [
   'coterm_site_renewals',
   'pro_rata_renewal',
   'number_of_sites_to_start',
+  'amount',
 ] as const;
 
 /** Read-only context the card shows but never writes. */
@@ -159,6 +160,18 @@ export function summarise(v: Values, lines: Line[]): Summary {
   };
 }
 
+/**
+ * The deal's Amount, following Protex's convention: the annual value (ARR), not the TCV. It's the
+ * annual subscription after discounts; a deal with only one-off lines uses their total. Null when
+ * the deal has no line items, so a rep's own Amount is left alone.
+ */
+export function dealAmount(lines: Line[]): number | null {
+  const live = lines.filter((l) => !l.removed);
+  if (!live.length) return null;
+  const t = totals(live, null);
+  return live.some((l) => l.recurring) ? t.annual : t.oneOff;
+}
+
 /** The calculated deal properties the card writes alongside what the rep typed, for Juro and reporting. */
 export function computedProperties(v: Values, lines: Line[]): Record<string, string> {
   const s = summarise(v, lines);
@@ -177,6 +190,8 @@ export function computedProperties(v: Values, lines: Line[]): Record<string, str
     of_total_contract_value: t.tcv === null ? '' : String(t.tcv),
     of_contract_end_date: s.end ? isoDate(s.end) : '',
   };
+  const amount = dealAmount(lines);
+  if (amount !== null) out.amount = String(amount);
   for (let i = 1; i <= NUMBERED_SITES; i++) {
     const site = s.sites[i - 1];
     out[`of_site_${i}_name`] = site?.name ?? '';

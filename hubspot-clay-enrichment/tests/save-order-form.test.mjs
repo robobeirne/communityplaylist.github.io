@@ -26,18 +26,18 @@ test('save writes order form fields and the reused deal fields, nothing else', a
     parameters: {
       action: 'save',
       dealId: '77',
-      properties: { of_client_legal_name: 'Northbridge Ltd', deal_currency_code: 'GBP', amount: '5', dealstage: 'x', da_industry: 'retail', of_legal_notes: null },
+      properties: { of_client_legal_name: 'Northbridge Ltd', deal_currency_code: 'GBP', amount: '5', closedate: '1', dealstage: 'x', da_industry: 'retail', of_legal_notes: null },
     },
   });
   assert.equal(res.statusCode, 200);
   assert.equal(sent[0].auth, 'Bearer test-token');
-  assert.deepEqual(sent[0].body, { properties: { of_client_legal_name: 'Northbridge Ltd', deal_currency_code: 'GBP', of_legal_notes: '' } });
+  assert.deepEqual(sent[0].body, { properties: { of_client_legal_name: 'Northbridge Ltd', deal_currency_code: 'GBP', amount: '5', of_legal_notes: '' } }, 'Amount is allowed (set from the line items); stage and close date are not');
 });
 
 test('save rejects a bad deal id or nothing to save', async () => {
   stub([]);
   assert.equal((await main({ parameters: { action: 'save', dealId: 'x', properties: { of_status: 'draft' } } })).statusCode, 400);
-  assert.equal((await main({ parameters: { action: 'save', dealId: '77', properties: { amount: '1' } } })).statusCode, 400);
+  assert.equal((await main({ parameters: { action: 'save', dealId: '77', properties: { dealstage: '1' } } })).statusCode, 400);
   assert.equal((await main({ parameters: { action: 'nope' } })).statusCode, 400);
 });
 

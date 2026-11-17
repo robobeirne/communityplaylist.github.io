@@ -47,6 +47,7 @@ The line items on the deal are the pricing. The card doesn't keep a second copy,
 - New lines come from the product library, at the product's list price in the deal's currency. A product with no price in that currency can't be added.
 - Reps can't type a unit price. An existing line's price can only be reset to list. Every discount sits on the line, as a % or an amount off each unit, so it's visible and reportable.
 - Only line items on this deal can be changed or removed.
+- **The deal's Amount follows the line items.** On save, Amount is set to the annual subscription after discounts, matching how existing Protex deals record Amount (the annual value, not the TCV). A deal with only one-off lines uses their total. A deal with no line items keeps whatever Amount the rep typed. The card shows the Amount it will set, and **Update the deal now** syncs it without other changes.
 - Recurring lines are set to bill for the contract term from the billing start date (**Billing starts on**, or the contract start). That's what HubSpot uses for the line items' TCV, so the card updates any line that's out of step when it saves. If lines are out of step, the card says so and offers **Update them now**.
 
 **Governance:**
@@ -164,6 +165,7 @@ In Juro, map each template smartfield to the HubSpot deal property below. For th
 | `of_annual_subscription_fee` | Total annual subscription fee | number |
 | `of_one_off_fees` | One-off fees | number |
 | `of_total_contract_value` | Total contract value (order form) | number |
+| `amount` (existing) | Amount: the annual subscription after discounts | existing |
 | Line items (HubSpot) | Product, SKU, quantity, unit price, discount, net price, billing frequency and term | line items |
 
 **Sites**

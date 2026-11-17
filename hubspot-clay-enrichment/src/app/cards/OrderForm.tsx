@@ -37,6 +37,7 @@ import {
   REUSED,
   SECTIONS,
   computedProperties,
+  dealAmount,
   isoDate,
   orderTypeFromPipeline,
   parseDate,
@@ -225,6 +226,10 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
   // on the line items agree with the order form. Saving brings them into line.
   const months = termMonths(v.term_year_length);
   const billingStart = isoOf(v.subscription_start_date) || isoOf(v.contract_start_date);
+  // The deal's Amount follows the line items (annual subscription after discounts).
+  const newAmount = pricing ? dealAmount(lines) : null;
+  const currentAmount = parseFloat(String(v.amount ?? ''));
+  const amountStale = newAmount !== null && !(Math.abs((Number.isFinite(currentAmount) ? currentAmount : NaN) - newAmount) < 0.005);
   const termFixes = (pricing?.lines ?? [])
     .filter((raw) => !lineEdits[raw.id]?.remove)
     .map((raw) => ({ raw, fix: termUpdate(raw, months, billingStart) }))
@@ -417,8 +422,9 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
                   onUndo={undoLine}
                   onAdd={addProduct}
                   termFixes={termFixes.length}
-                  canSyncTerm={!dirty && !saving}
-                  onSyncTerm={() => save()}
+                  amount={{ next: newAmount, current: Number.isFinite(currentAmount) ? currentAmount : null, stale: amountStale }}
+                  canSync={!dirty && !saving}
+                  onSync={() => save()}
                 />
               )}
               {s.key === 'sites' && <SitesSection {...shared} />}
@@ -658,8 +664,9 @@ function ProductsSection(p: Shared & {
   onUndo: (id: string) => void;
   onAdd: (productId: string) => void;
   termFixes: number;
-  canSyncTerm: boolean;
-  onSyncTerm: () => void;
+  amount: { next: number | null; current: number | null; stale: boolean };
+  canSync: boolean;
+  onSync: () => void;
 }) {
   const { v, set, currency, sum, lines, products } = p;
   const t = sum.totals;
@@ -722,16 +729,23 @@ function ProductsSection(p: Shared & {
       </Table>
       {months === null && <Text variant="microcopy">Set the contract term to see the total contract value.</Text>}
       {t.discounted && <TextField v={v} set={set} name="of_discount_reason" area required />}
+      {p.amount.next !== null && (
+        <Text variant="microcopy">
+          {p.amount.stale
+            ? `The deal's Amount is ${p.amount.current === null ? 'empty' : money(p.amount.current, currency)}. Saving sets it to ${money(p.amount.next, currency)}, the annual subscription after discounts.`
+            : `The deal's Amount is ${money(p.amount.next, currency)}, the annual subscription after discounts. It updates whenever the line items change.`}
+        </Text>
+      )}
       {p.termFixes > 0 && (
-        <Flex direction="row" gap="sm" align="center" wrap="wrap">
-          <Text variant="microcopy">
-            {`${p.termFixes} line item${p.termFixes === 1 ? " doesn't" : "s don't"} bill for the ${months}-month term from the billing start yet. Saving updates ${p.termFixes === 1 ? 'it' : 'them'} so HubSpot's ARR and TCV match the order form.`}
-          </Text>
-          {p.canSyncTerm && (
-            <Button size="sm" variant="secondary" onClick={p.onSyncTerm}>
-              Update them now
-            </Button>
-          )}
+        <Text variant="microcopy">
+          {`${p.termFixes} line item${p.termFixes === 1 ? " doesn't" : "s don't"} bill for the ${months}-month term from the billing start yet. Saving updates ${p.termFixes === 1 ? 'it' : 'them'} so HubSpot's ARR and TCV match the order form.`}
+        </Text>
+      )}
+      {(p.termFixes > 0 || p.amount.stale) && p.canSync && (
+        <Flex direction="row">
+          <Button size="sm" variant="secondary" onClick={p.onSync}>
+            Update the deal now
+          </Button>
         </Flex>
       )}
       <Text variant="microcopy">

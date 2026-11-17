@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   NUMBERED_SITES,
   computedProperties,
+  dealAmount,
   isoDate,
   orderTypeFromPipeline,
   parseDate,
@@ -180,4 +181,12 @@ test('warnings catch dates and emails that look wrong', () => {
   assert.ok(w.includes("Client contact email doesn't look like an email address"));
   const staged = readiness({ ...FULL, of_rollout: 'staged_rollout', of_sites: JSON.stringify([{ name: 'A', cameras: 30, goLive: '2026-12-01' }]) }, linesFor([raw('a', '1', 1), raw('b', '2', 30)]));
   assert.ok(staged.warnings.some((g) => g.label === 'Site 1 goes live before the contract starts'));
+});
+
+test('the deal Amount is the annual value from the line items, like existing deals', () => {
+  assert.equal(dealAmount(LINES), 122400, 'recurring lines after discount; one-off fees excluded');
+  assert.equal(dealAmount(linesFor([raw('c', '3', 2)])), 7500, 'one-off only: their total');
+  assert.equal(dealAmount([]), null, 'no line items: leave the Amount alone');
+  assert.equal(computedProperties({}, []).amount, undefined);
+  assert.equal(computedProperties({}, LINES).amount, '122400');
 });

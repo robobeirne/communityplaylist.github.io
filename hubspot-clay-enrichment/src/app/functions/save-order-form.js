@@ -6,7 +6,8 @@
  *   { action: 'parties', dealId }                    the deal's contacts (name, email, job title) and its company with address
  *   { action: 'signatories' }                        HubSpot users who can sign for Protex, with email and job title
  *
- * Only order form properties (of_*) and the existing deal fields the card reuses can be written.
+ * Only order form properties (of_*) and the existing deal fields the card reuses can be written,
+ * including Amount, which the card sets from the line items.
  *
  * Line item rules (rev ops guard rails, enforced here rather than trusted to the card):
  *   - new lines must come from the product library, priced at its list price in the deal's currency;
@@ -26,6 +27,7 @@ const REUSED = new Set([
   'coterm_site_renewals',
   'pro_rata_renewal',
   'number_of_sites_to_start',
+  'amount',
 ]);
 const LINE_PROPERTIES = [
   'name',

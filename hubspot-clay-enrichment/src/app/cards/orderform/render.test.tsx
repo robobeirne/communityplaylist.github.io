@@ -111,6 +111,7 @@ let saved = lastSave();
 assert.equal(saved.of_client_legal_name, 'Northbridge Logistics Ltd');
 assert.equal(saved.of_client_contact_email, 'alex@northbridge.example');
 assert.equal(saved.of_order_type, 'new_business', 'saves the default order type the first time');
+assert.equal(saved.amount, undefined, "no line items: the rep's own Amount is left alone");
 assert.equal(saved.of_annual_subscription_fee, '0', 'saves the calculated totals with it');
 assert.deepEqual(lastCall().lines, { create: [], update: [], remove: [] }, 'no line item changes');
 console.log('fills from the company and a contact, and saves with the calculated fields');
@@ -176,6 +177,7 @@ saved = lastSave();
 assert.equal(saved.of_ready_by, 'rep@protex.ai');
 assert.equal(saved.of_total_contract_value, '256050');
 assert.equal(saved.number_of_sites_to_start, '3');
+assert.equal(saved.amount, '122400', 'the deal Amount is the annual subscription from the line items');
 assert.equal(saved.of_pricing_table.split('\n')[0], 'Protex AI Platform Site License - Safety (1) — 3 × £33,300.00 — £99,900.00 per year');
 assert.equal(
   saved.of_site_schedule,
@@ -195,6 +197,7 @@ button(r, 'Save changes')!.trigger('onClick');
 await r.waitFor(() => assert.equal(lastSave().of_discount_reason, 'Three-year multi-site commitment'));
 assert.deepEqual(lastCall().lines.update, [{ id: '501', productId: '2281317872', properties: { quantity: '3', hs_discount_percentage: '25', discount: '' } }]);
 assert.equal(lastSave().of_discount_amount, String(99900 * 0.25));
+assert.equal(lastSave().amount, String(99900 * 0.75 + 22500), 'the Amount drops with the discount');
 console.log('a 25% line discount is flagged for approval, needs a reason, and saves to the line item');
 
 // Adding a product defaults its quantity from the sites; removing a line removes it on save.
@@ -229,7 +232,8 @@ console.log('licence quantity mismatch warns, and Match the sites fixes it');
 // Line items that don't run for the contract term are synced on save.
 r = await renderWith({ ...complete, term_year_length: '36 months' }, COMPLETE_LINES);
 assert.ok(texts(r).some((t) => t.startsWith("2 line items don't bill for the 36-month term")));
-button(r, 'Update them now')!.trigger('onClick');
+assert.ok(texts(r).some((t) => t.startsWith("The deal's Amount is empty. Saving sets it to £122,400.00")));
+button(r, 'Update the deal now')!.trigger('onClick');
 await r.waitFor(() => assert.equal(lastCall().lines.update.length, 2));
 assert.deepEqual(lastCall().lines.update[0].properties, { hs_recurring_billing_period: 'P36M' });
 console.log('recurring line items are brought onto the contract term');
