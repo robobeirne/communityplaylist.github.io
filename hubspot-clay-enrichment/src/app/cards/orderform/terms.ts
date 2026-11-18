@@ -6,7 +6,7 @@
 // parts that vary by deal are filled in: billing frequency, payment terms, and the auto-renewal
 // clause (left out if auto-renewal is switched off).
 
-import { parseDate, readSites, termEnd, termMonths, type Site, type Values } from './calc.ts';
+import { isNewSite, parseDate, readSites, termEnd, termMonths, type Site, type Values } from './calc.ts';
 import { PROTEX_ENTITY, STANDARD_MSA_URL } from './legal.ts';
 
 export { PROTEX_ENTITY, STANDARD_MSA_URL };
@@ -85,10 +85,24 @@ export function orderComments(v: Values): string {
     po && label('Purchase Order', po),
   ].filter(Boolean) as string[];
   const rows = Array.from({ length: Math.max(client.length, billing.length) }, (_, i) => `<tr><td>${client[i] ?? ''}</td><td>${billing[i] ?? ''}</td></tr>`);
-  const siteHead = ['Site', 'Delivery Address', 'Camera Integrations', ...(staged ? ['Expected Go-live'] : [])];
-  const siteRows = (sites.length ? sites : [{ name: '', address: '', cameras: 0, goLive: '' }]).map((s, i) =>
-    `<tr>${[`Site ${i + 1}: ${esc(s.name)}`, esc(s.address), s.cameras ? String(s.cameras) : '', ...(staged ? [longDate(s.goLive)] : [])].map((c) => `<td>${c}</td>`).join('')}</tr>`,
-  );
+  // Delivery addresses only matter for new sites (devices ship there). A renewal of existing sites
+  // drops the column; a renewal that adds sites shows which are new and their addresses.
+  const type = v.of_order_type;
+  const listed: Site[] = sites.length ? sites : [{ name: '', address: '', cameras: 0, goLive: '' }];
+  const newFlags = listed.map((s) => isNewSite(s, type));
+  const anyNew = newFlags.some(Boolean);
+  const mixed = (type === 'renewal' || type === 'expansion') && anyNew && newFlags.some((x) => !x);
+  const siteHead = ['Site', ...(mixed ? ['New / Existing'] : []), ...(anyNew ? ['Delivery Address'] : []), 'Camera Integrations', ...(staged ? ['Expected Go-live'] : [])];
+  const siteRows = listed.map((s, i) => {
+    const cells = [
+      `Site ${i + 1}: ${esc(s.name)}`,
+      ...(mixed ? [newFlags[i] ? 'New' : 'Existing'] : []),
+      ...(anyNew ? [newFlags[i] ? esc(s.address) : ''] : []),
+      s.cameras ? String(s.cameras) : '',
+      ...(staged ? [longDate(s.goLive)] : []),
+    ];
+    return `<tr>${cells.map((c) => `<td>${c}</td>`).join('')}</tr>`;
+  });
   return [
     `<table><thead><tr><th>Client Details</th><th>Billing Details</th></tr></thead><tbody>${rows.join('')}</tbody></table>`,
     term && `<h3>Subscription Term</h3><p>${esc(term)}</p>`,

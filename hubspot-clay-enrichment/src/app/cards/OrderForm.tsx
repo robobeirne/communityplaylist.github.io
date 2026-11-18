@@ -47,6 +47,7 @@ import {
   parseSiteList,
   readiness,
   readSites,
+  isNewSite,
   msaStatus,
   normaliseStatus,
   summarise,
@@ -1199,6 +1200,9 @@ function SitesSection({ v, set, sum }: Shared) {
   const write = (list: Site[]) => set('of_sites', JSON.stringify(list));
   const change = (i: number, patch: Partial<Site>) => write(sites.map((s, j) => (j === i ? { ...s, ...patch } : s)));
   const parsed = paste ? parseSiteList(paste) : [];
+  // Renewals and expansions can mix sites the client already has with ones added on this order.
+  const askNew = v.of_order_type === 'renewal' || v.of_order_type === 'expansion';
+  const newCount = sites.filter((x) => isNewSite(x, v.of_order_type)).length;
   return (
     <Flex direction="column" gap="sm">
       <SelectField v={v} set={set} name="of_rollout" required />
@@ -1206,7 +1210,21 @@ function SitesSection({ v, set, sum }: Shared) {
       {sites.map((s, i) => (
         <Flex key={i} direction="row" gap="sm" wrap="wrap" align="end">
           <Input name={`site-${i}-name`} label={`Site ${i + 1} name`} required value={s.name} onChange={(x) => change(i, { name: x })} />
-          <Input name={`site-${i}-address`} label="Delivery address" value={s.address} onChange={(x) => change(i, { address: x })} />
+          {askNew && (
+            <Select
+              name={`site-${i}-new`}
+              label="New or existing site"
+              value={isNewSite(s, v.of_order_type) ? 'new' : 'existing'}
+              options={[
+                { label: 'Existing site', value: 'existing' },
+                { label: 'New site', value: 'new' },
+              ]}
+              onChange={(x) => change(i, { isNew: x === 'new' })}
+            />
+          )}
+          {isNewSite(s, v.of_order_type) && (
+            <Input name={`site-${i}-address`} label="Delivery address" value={s.address} onChange={(x) => change(i, { address: x })} />
+          )}
           <NumberInput name={`site-${i}-cameras`} label="Cameras" min={0} value={s.cameras} onChange={(n) => change(i, { cameras: Number.isFinite(n) ? n : 0 })} />
           {staged && (
             <DateInput name={`site-${i}-go-live`} label="Go-live date" required format="ll" value={toBase(s.goLive)} onChange={(d) => change(i, { goLive: fromBase(d) })} />
@@ -1264,7 +1282,7 @@ function SitesSection({ v, set, sum }: Shared) {
       )}
       {sum.siteCount > 0 && (
         <Text variant="microcopy">
-          {`${sum.siteCount} site${sum.siteCount === 1 ? '' : 's'} and ${sum.siteCameras} camera integrations. Licence and camera quantities on the line items are checked against these.${staged ? '' : ' All sites go live on the contract start date.'}${sum.siteCount > NUMBERED_SITES ? ` Every site is on the order form in the site schedule; Sites 1–${NUMBERED_SITES} also fill the numbered site fields.` : ''}`}
+          {`${sum.siteCount} site${sum.siteCount === 1 ? '' : 's'}${askNew ? ` (${newCount} new, ${sum.siteCount - newCount} existing)` : ''} and ${sum.siteCameras} camera integrations.${askNew ? ' Delivery addresses are only needed for new sites, and only new sites show an address on the order form.' : ''} Licence and camera quantities on the line items are checked against these.${staged ? '' : ' All sites go live on the contract start date.'}${sum.siteCount > NUMBERED_SITES ? ` Every site is on the order form in the site schedule; Sites 1–${NUMBERED_SITES} also fill the numbered site fields.` : ''}`}
         </Text>
       )}
     </Flex>

@@ -4,6 +4,7 @@ import {
   NUMBERED_SITES,
   computedProperties,
   dealAmount,
+  isNewSite,
   normaliseStatus,
   isoDate,
   orderTypeFromPipeline,
@@ -74,7 +75,7 @@ test('a pasted spreadsheet can carry delivery addresses', () => {
     { name: 'Plant 2', address: '', cameras: 15, goLive: '' },
   ]);
   const w = readiness({ ...FULL, of_sites: JSON.stringify([{ name: 'A', address: '', cameras: 30, goLive: '' }]) }, LINES).warnings.map((x) => x.label);
-  assert.ok(w.includes('Site 1: no delivery address (devices ship there)'));
+  assert.ok(w.includes("Site 1: no delivery address (it's a new site, so its device ships there)"));
 });
 
 test('a pasted site list: commas, tabs, optional cameras and date', () => {
@@ -221,4 +222,21 @@ test('statuses: the old Juro values read as the new ones', () => {
   assert.equal(normaliseStatus('sent_to_juro'), 'sent');
   assert.equal(normaliseStatus('signed'), 'signed');
   assert.equal(normaliseStatus(''), 'draft');
+});
+
+test('new or existing sites: defaults by order type, and only new sites need an address', () => {
+  const site = { name: 'A', address: '', cameras: 30, goLive: '' };
+  assert.equal(isNewSite(site, 'new_business'), true);
+  assert.equal(isNewSite({ ...site, isNew: false }, 'new_business'), true, 'new business is always new');
+  assert.equal(isNewSite(site, 'renewal'), false);
+  assert.equal(isNewSite({ ...site, isNew: true }, 'renewal'), true);
+  assert.equal(isNewSite(site, 'expansion'), true);
+  const renewal = { ...FULL, of_order_type: 'renewal', pro_rata_renewal: 'No', of_sites: JSON.stringify([site, { ...site, name: 'B', isNew: true }]) };
+  const w = readiness(renewal, LINES).warnings.map((x) => x.label);
+  assert.ok(!w.some((x) => x.startsWith('Site 1: no delivery address')), 'an existing site needs no address');
+  assert.ok(w.includes("Site 2: no delivery address (it's a new site, so its device ships there)"));
+  assert.deepEqual(readSites({ of_sites: JSON.stringify([{ name: 'B', isNew: true }]) })[0].isNew, true, 'stored in of_sites');
+  const p = computedProperties(renewal, LINES);
+  assert.ok(p.of_site_schedule.startsWith('1. A — existing site — 30 camera integrations'));
+  assert.ok(p.of_site_schedule.includes('2. B — new site — 30 camera integrations'));
 });

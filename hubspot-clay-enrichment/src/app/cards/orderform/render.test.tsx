@@ -397,5 +397,9 @@ r = await renderWith({ ...complete, pipeline: '497851373', of_order_type: '', re
 assert.ok(r.findAll(Tag).some((t) => t.text === 'Renewal'));
 assert.ok(select(r, 'pro_rata_renewal'), 'renewal fields show');
 assert.ok(texts(r).includes('Current renewal date: 31 Mar 2027'));
+assert.equal(select(r, 'site-0-new').props.value, 'existing', 'renewal sites start as existing');
+assert.equal(field(r, 'site-0-address'), undefined, 'no address box for an existing site');
+select(r, 'site-0-new').trigger('onChange', 'new' as never);
+await r.waitFor(() => assert.ok(field(r, 'site-0-address')));
 console.log('renewal deals show the renewal fields');
 console.log('ok');

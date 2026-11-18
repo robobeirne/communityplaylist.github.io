@@ -89,8 +89,13 @@ export function msaStatus(v: Values): string {
 
 export interface Site {
   name: string;
-  /** Delivery address: devices ship here (DAP). */
+  /** Delivery address: devices ship here (DAP). Only needed for new sites. */
   address: string;
+  /**
+   * A site being added with this order, as opposed to one the client already has. Unset means the
+   * default for the order type: new for new business and expansions, existing for renewals.
+   */
+  isNew?: boolean;
   cameras: number;
   /** ISO date, or "" */
   goLive: string;
@@ -106,7 +111,13 @@ export function readSites(v: Values): Site[] {
     try {
       const list = JSON.parse(raw);
       if (Array.isArray(list))
-        return list.map((s) => ({ name: String(s?.name ?? ''), address: String(s?.address ?? ''), cameras: num(s?.cameras), goLive: String(s?.goLive ?? '') }));
+        return list.map((s) => ({
+          name: String(s?.name ?? ''),
+          address: String(s?.address ?? ''),
+          cameras: num(s?.cameras),
+          goLive: String(s?.goLive ?? ''),
+          ...(typeof s?.isNew === 'boolean' ? { isNew: s.isNew } : {}),
+        }));
     } catch {
       /* fall through to the numbered fields */
     }
@@ -149,10 +160,12 @@ const longDate = (d: Date) =>
   `${d.getUTCDate()} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 
 /** One line per site, for the order form: "1. Amesbury — 12 camera integrations — go-live 1 Feb 2027". */
-export function siteSchedule(sites: Site[], staged: boolean, start: Date | null): string {
+export function siteSchedule(sites: Site[], staged: boolean, start: Date | null, orderType?: unknown): string {
+  const marked = orderType === 'renewal' || orderType === 'expansion';
   return sites
     .map((s, idx) => {
       const parts = [`${idx + 1}. ${s.name || `Site ${idx + 1}`}`];
+      if (marked) parts.push(isNewSite(s, orderType) ? 'new site' : 'existing site');
       if (s.address) parts.push(s.address);
       if (s.cameras) parts.push(`${s.cameras} camera integration${s.cameras === 1 ? '' : 's'}`);
       const live = staged ? parseDate(s.goLive) : start;
@@ -160,6 +173,12 @@ export function siteSchedule(sites: Site[], staged: boolean, start: Date | null)
       return parts.join(' — ');
     })
     .join('\n');
+}
+
+/** Whether a site is new with this order. New business: always. Renewals default to existing, expansions to new. */
+export function isNewSite(site: Site, orderType: unknown): boolean {
+  if (orderType !== 'renewal' && orderType !== 'expansion') return true;
+  return site.isNew ?? orderType === 'expansion';
 }
 
 /* ---------------- summary ---------------- */
@@ -207,7 +226,7 @@ export function computedProperties(v: Values, lines: Line[]): Record<string, str
   const out: Record<string, string> = {
     of_sites: JSON.stringify(s.sites),
     number_of_sites_to_start: String(s.siteCount),
-    of_site_schedule: siteSchedule(s.sites, v.of_rollout === 'staged_rollout', parseDate(v.contract_start_date)),
+    of_site_schedule: siteSchedule(s.sites, v.of_rollout === 'staged_rollout', parseDate(v.contract_start_date), v.of_order_type),
     of_pricing_table: pricingTable(lines, currency),
     of_annual_list_fee: String(t.annualList),
     of_discount_amount: String(t.annualDiscount),
@@ -295,8 +314,8 @@ export function readiness(v: Values, lines: Line[]): { missing: Gap[]; warnings:
   const start = parseDate(v.contract_start_date);
   s.sites.forEach((site, idx) => {
     need('sites', !!site.name, `Site ${idx + 1}: name`);
-    if (v.of_order_type !== 'renewal' && !site.address.trim())
-      warnings.push({ section: 'sites', label: `Site ${idx + 1}: no delivery address (devices ship there)` });
+    if (isNewSite(site, v.of_order_type) && !site.address.trim())
+      warnings.push({ section: 'sites', label: `Site ${idx + 1}: no delivery address (it's a new site, so its device ships there)` });
     if (staged) {
       need('sites', !!site.goLive, `Site ${idx + 1}: go-live date`);
       const live = parseDate(site.goLive);

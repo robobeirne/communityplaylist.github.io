@@ -79,3 +79,21 @@ test('subscription term and camera apportionment', () => {
   assert.equal(cameraApportionment([{ name: 'A', address: '', cameras: 10, goLive: '' }, { name: 'B', address: '', cameras: 5, goLive: '' }]), 'A: 10; B: 5');
   assert.equal(cameraApportionment([]), '');
 });
+
+test('renewals: no delivery address column unless sites are being added', () => {
+  const renewal = { ...LENNOX, of_order_type: 'renewal', contract_start_date: '2027-03-01' };
+  const existingOnly = orderComments(renewal);
+  assert.ok(existingOnly.includes('<thead><tr><th>Site</th><th>Camera Integrations</th></tr></thead>'), 'existing sites only: no address column');
+  assert.ok(existingOnly.includes('<tr><td>Site 1: Plant 1</td><td>15</td></tr>'), 'the stored address is not shown');
+
+  const sites = JSON.parse(LENNOX.of_sites);
+  sites[3] = { ...sites[3], isNew: true, address: '9 New Rd, Tulsa, OK' };
+  const mixed = orderComments({ ...renewal, of_sites: JSON.stringify(sites) });
+  assert.ok(mixed.includes('<thead><tr><th>Site</th><th>New / Existing</th><th>Delivery Address</th><th>Camera Integrations</th></tr></thead>'));
+  assert.ok(mixed.includes('<tr><td>Site 1: Plant 1</td><td>Existing</td><td></td><td>15</td></tr>'), "an existing site's address is left out");
+  assert.ok(mixed.includes('<tr><td>Site 4: Plant 4</td><td>New</td><td>9 New Rd, Tulsa, OK</td><td>15</td></tr>'));
+
+  const expansion = orderComments({ ...LENNOX, of_order_type: 'expansion' });
+  assert.ok(expansion.includes('<th>Delivery Address</th>') && !expansion.includes('New / Existing'), 'expansions default to new sites');
+  assert.ok(orderComments(LENNOX).includes('<th>Delivery Address</th>') && !orderComments(LENNOX).includes('New / Existing'), 'new business: every site is new');
+});
