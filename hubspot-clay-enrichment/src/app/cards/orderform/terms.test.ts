@@ -80,20 +80,27 @@ test('subscription term and camera apportionment', () => {
   assert.equal(cameraApportionment([]), '');
 });
 
-test('renewals: no delivery address column unless sites are being added', () => {
+test('renewals: no sites or delivery unless sites are being added, and then only the new ones', () => {
   const renewal = { ...LENNOX, of_order_type: 'renewal', contract_start_date: '2027-03-01' };
-  const existingOnly = orderComments(renewal);
-  assert.ok(existingOnly.includes('<thead><tr><th>Site</th><th>Camera Integrations</th></tr></thead>'), 'existing sites only: no address column');
-  assert.ok(existingOnly.includes('<tr><td>Site 1: Plant 1</td><td>15</td></tr>'), 'the stored address is not shown');
+  const c = orderComments(renewal);
+  assert.ok(!c.includes('Site Information') && !c.includes('New Sites') && !c.includes('Plant 1'), 'existing sites only: no site section');
+  assert.ok(!c.includes('apportioned'), 'no cameras-per-site note');
+  assert.ok(c.includes('lease of one (1) Edge Device') && c.includes('Protex AI does not provide cameras.'), 'the general notes stay');
+  const t = orderTerms(renewal);
+  assert.ok(!t.includes('delivered DAP'), 'no device delivery clause');
+  assert.ok(t.includes('<p><strong>D.</strong> Payment terms Net 30'), 'the rest of section 3 is unchanged');
 
   const sites = JSON.parse(LENNOX.of_sites);
-  sites[3] = { ...sites[3], isNew: true, address: '9 New Rd, Tulsa, OK' };
-  const mixed = orderComments({ ...renewal, of_sites: JSON.stringify(sites) });
-  assert.ok(mixed.includes('<thead><tr><th>Site</th><th>New / Existing</th><th>Delivery Address</th><th>Camera Integrations</th></tr></thead>'));
-  assert.ok(mixed.includes('<tr><td>Site 1: Plant 1</td><td>Existing</td><td></td><td>15</td></tr>'), "an existing site's address is left out");
-  assert.ok(mixed.includes('<tr><td>Site 4: Plant 4</td><td>New</td><td>9 New Rd, Tulsa, OK</td><td>15</td></tr>'));
+  sites[3] = { ...sites[3], isNew: true, address: '9 New Rd, Tulsa, OK', cameras: 8 };
+  const adding = { ...renewal, of_sites: JSON.stringify(sites) };
+  const ac = orderComments(adding);
+  assert.ok(ac.includes('<h3>New Sites</h3><table><thead><tr><th>Site</th><th>Delivery Address</th><th>Camera Integrations</th></tr></thead>'));
+  assert.ok(ac.includes('<tr><td>Site 1: Plant 4</td><td>9 New Rd, Tulsa, OK</td><td>8</td></tr>'), 'only the new site, numbered from 1');
+  assert.ok(!ac.includes('Plant 1'), 'existing sites left out');
+  assert.ok(ac.includes('apportioned between the number of ordered Sites: 8 Camera Integrations per Site.'));
+  assert.ok(orderTerms(adding).includes('delivered DAP'), 'new sites get the delivery clause');
 
-  const expansion = orderComments({ ...LENNOX, of_order_type: 'expansion' });
-  assert.ok(expansion.includes('<th>Delivery Address</th>') && !expansion.includes('New / Existing'), 'expansions default to new sites');
-  assert.ok(orderComments(LENNOX).includes('<th>Delivery Address</th>') && !orderComments(LENNOX).includes('New / Existing'), 'new business: every site is new');
+  const nb = orderComments(LENNOX);
+  assert.ok(nb.includes('<h3>Site Information</h3>') && nb.includes('Plant 1') && orderTerms(LENNOX).includes('delivered DAP'), 'new business unchanged');
+  assert.ok(orderComments({ ...LENNOX, of_order_type: 'expansion' }).includes('<h3>New Sites</h3>'), 'expansion sites default to new');
 });

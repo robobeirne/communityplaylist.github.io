@@ -56,6 +56,11 @@ export function cameraApportionment(sites: Site[]): string {
   return sites.map((s, i) => `${s.name || `Site ${i + 1}`}: ${s.cameras}`).join('; ');
 }
 
+/** The sites this order adds: every site for new business, only the new ones on a renewal or expansion. */
+export function sitesOnOrder(v: Values): Site[] {
+  return readSites(v).filter((s) => isNewSite(s, v.of_order_type));
+}
+
 /**
  * "Comments to buyer": client and billing details, subscription term, notes and site information.
  *
@@ -64,9 +69,11 @@ export function cameraApportionment(sites: Site[]): string {
  * inside its Comments and Terms wrappers. The template should not rebuild these sections itself.
  */
 export function orderComments(v: Values): string {
-  const sites = readSites(v);
   const staged = v.of_rollout === 'staged_rollout';
   const term = subscriptionTerm(v);
+  // Sites and delivery only cover the sites this order adds: all of them for new business, only
+  // the new ones on a renewal or expansion. A renewal of existing sites has no site section.
+  const sites = sitesOnOrder(v);
   const apportion = cameraApportionment(sites);
   const po = has(v.purchase_order) ? esc(v.purchase_order) : v.of_po_required === 'true' ? 'Required (to be sent to accounts@protex.ai)' : '';
   const label = (l: string, value: string) => `<strong>${l}:</strong> ${value}`;
@@ -85,22 +92,11 @@ export function orderComments(v: Values): string {
     po && label('Purchase Order', po),
   ].filter(Boolean) as string[];
   const rows = Array.from({ length: Math.max(client.length, billing.length) }, (_, i) => `<tr><td>${client[i] ?? ''}</td><td>${billing[i] ?? ''}</td></tr>`);
-  // Delivery addresses only matter for new sites (devices ship there). A renewal of existing sites
-  // drops the column; a renewal that adds sites shows which are new and their addresses.
-  const type = v.of_order_type;
-  const listed: Site[] = sites.length ? sites : [{ name: '', address: '', cameras: 0, goLive: '' }];
-  const newFlags = listed.map((s) => isNewSite(s, type));
-  const anyNew = newFlags.some(Boolean);
-  const mixed = (type === 'renewal' || type === 'expansion') && anyNew && newFlags.some((x) => !x);
-  const siteHead = ['Site', ...(mixed ? ['New / Existing'] : []), ...(anyNew ? ['Delivery Address'] : []), 'Camera Integrations', ...(staged ? ['Expected Go-live'] : [])];
+  const newBusiness = v.of_order_type !== 'renewal' && v.of_order_type !== 'expansion';
+  const listed: Site[] = sites.length ? sites : newBusiness ? [{ name: '', address: '', cameras: 0, goLive: '' }] : [];
+  const siteHead = ['Site', 'Delivery Address', 'Camera Integrations', ...(staged ? ['Expected Go-live'] : [])];
   const siteRows = listed.map((s, i) => {
-    const cells = [
-      `Site ${i + 1}: ${esc(s.name)}`,
-      ...(mixed ? [newFlags[i] ? 'New' : 'Existing'] : []),
-      ...(anyNew ? [newFlags[i] ? esc(s.address) : ''] : []),
-      s.cameras ? String(s.cameras) : '',
-      ...(staged ? [longDate(s.goLive)] : []),
-    ];
+    const cells = [`Site ${i + 1}: ${esc(s.name)}`, esc(s.address), s.cameras ? String(s.cameras) : '', ...(staged ? [longDate(s.goLive)] : [])];
     return `<tr>${cells.map((c) => `<td>${c}</td>`).join('')}</tr>`;
   });
   return [
@@ -114,8 +110,8 @@ export function orderComments(v: Values): string {
         'Camera integrations are limited to the number specified above. Each Device can hold up to 40 connected cameras, depending on stream configuration settings as set forth in the applicable Documentation. Additional camera integrations are chargeable. Additional Devices needed to support additional camera connections are chargeable. A reconnection fee may apply if a camera is deactivated and subsequently reconnected. Protex AI does not provide cameras.',
       ].filter(Boolean) as string[],
     ),
-    '<h3>Site Information</h3>',
-    `<table><thead><tr>${siteHead.map((h) => `<th>${h}</th>`).join('')}</tr></thead><tbody>${siteRows.join('')}</tbody></table>`,
+    listed.length && `<h3>${newBusiness ? 'Site Information' : 'New Sites'}</h3>`,
+    listed.length && `<table><thead><tr>${siteHead.map((h) => `<th>${h}</th>`).join('')}</tr></thead><tbody>${siteRows.join('')}</tbody></table>`,
   ]
     .filter(Boolean)
     .join('');
@@ -123,6 +119,9 @@ export function orderComments(v: Values): string {
 
 /** "Terms": the Terms and Conditions. */
 export function orderTerms(v: Values): string {
+  // The delivery clause only applies when this order ships devices: new business, or a renewal or
+  // expansion that adds sites.
+  const shipsDevices = (v.of_order_type !== 'renewal' && v.of_order_type !== 'expansion') || sitesOnOrder(v).length > 0;
   const billing = BILLING[String(v.of_billing_frequency)] ?? 'invoiced annually in advance';
   const net = NET[String(v.of_payment_terms)];
   const payment = net ? `Payment terms Net ${net} days from invoice date. Fees to be paid by bank transfer.` : 'Payment is due on receipt of invoice. Fees to be paid by bank transfer.';
@@ -142,7 +141,11 @@ export function orderTerms(v: Values): string {
       'Unless expressly stated otherwise, Subscription Fees shown above are annual amounts payable for each year of the Subscription Term, subject to any applicable fee adjustments under the Agreement.',
       `Fees are ${billing}, with the first invoice being issued on or around the Order Form Effective Date. The "<strong>Order Form Effective Date</strong>" is the earlier of (i) the date of the last party signature below, and (ii) Protex AI's receipt of a purchase order.`,
       payment,
-      'Devices will be delivered DAP to the agreed Site delivery address (Incoterms® 2020). Client is responsible for import clearance, import duties and taxes, and unloading. Shipping charges and lead times will be confirmed upon order confirmation. Protex AI may invoice Client separately for any pre-approved reasonably incurred travel and accommodation expenses.',
+      ...(shipsDevices
+        ? [
+            'Devices will be delivered DAP to the agreed Site delivery address (Incoterms® 2020). Client is responsible for import clearance, import duties and taxes, and unloading. Shipping charges and lead times will be confirmed upon order confirmation. Protex AI may invoice Client separately for any pre-approved reasonably incurred travel and accommodation expenses.',
+          ]
+        : []),
     ],
   ];
   if (autoRenews(v))

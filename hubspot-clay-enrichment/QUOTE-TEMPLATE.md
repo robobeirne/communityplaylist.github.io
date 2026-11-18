@@ -30,7 +30,7 @@ The card fills these quote fields. The template only has to display them; no per
    - the Edge Device lease;
    - cameras per site, e.g. "15 Camera Integrations per Site";
    - camera limits.
-6. **Site Information:** every site with its cameras. The delivery address appears only for new sites (see below).
+6. **Site Information / New Sites:** the sites this order adds, with delivery address and cameras. Renewals of existing sites have none (see below).
 
 **Terms** contains the Terms and Conditions 1A–7B, word for word from the current order form. Three parts vary by deal:
 - billing frequency (3C);
@@ -59,17 +59,18 @@ The card only uses plain tags, with no classes and no inline styles: `table`, `t
 </table>
 <h3>Subscription Term</h3><p>12 months from each Site's Deployment Date</p>
 <h3>Notes</h3><ul><li>…edge device…</li><li>…15 Camera Integrations per Site…</li><li>…camera limits…</li></ul>
-<h3>Site Information</h3>
+<h3>Site Information</h3>  (or <h3>New Sites</h3>, or nothing on a renewal of existing sites)
 <table>
-  <thead><tr><th>Site</th>(<th>New / Existing</th>)(<th>Delivery Address</th>)<th>Camera Integrations</th>(<th>Expected Go-live</th>)</tr></thead>
+  <thead><tr><th>Site</th><th>Delivery Address</th><th>Camera Integrations</th>(<th>Expected Go-live</th>)</tr></thead>
   <tbody><tr><td>Site 1: …</td>…<td>15</td></tr>…</tbody>
 </table>
 ```
 
-The Site Information columns vary, so style the table generically rather than by column position:
-- **Delivery Address:** only when at least one site is new. New business always has it; a renewal of existing sites doesn't.
-- **New / Existing:** only on a renewal or expansion that mixes new and existing sites. Existing sites leave the address cell blank.
-- **Expected Go-live:** only for staged rollouts.
+The site section depends on the order:
+- **New business:** a "Site Information" heading, then Site · Delivery Address · Camera Integrations for every site.
+- **Renewal or expansion adding sites:** a "New Sites" heading with the same columns, listing only the new sites.
+- **Renewal of existing sites only:** no site section at all. The cameras-per-site note and the device delivery clause (3E) are also left out.
+- **Staged rollouts:** an extra Expected Go-live column.
 
 **Terms:**
 ```html

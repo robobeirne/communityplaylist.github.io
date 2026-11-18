@@ -1282,7 +1282,7 @@ function SitesSection({ v, set, sum }: Shared) {
       )}
       {sum.siteCount > 0 && (
         <Text variant="microcopy">
-          {`${sum.siteCount} site${sum.siteCount === 1 ? '' : 's'}${askNew ? ` (${newCount} new, ${sum.siteCount - newCount} existing)` : ''} and ${sum.siteCameras} camera integrations.${askNew ? ' Delivery addresses are only needed for new sites, and only new sites show an address on the order form.' : ''} Licence and camera quantities on the line items are checked against these.${staged ? '' : ' All sites go live on the contract start date.'}${sum.siteCount > NUMBERED_SITES ? ` Every site is on the order form in the site schedule; Sites 1–${NUMBERED_SITES} also fill the numbered site fields.` : ''}`}
+          {`${sum.siteCount} site${sum.siteCount === 1 ? '' : 's'}${askNew ? ` (${newCount} new, ${sum.siteCount - newCount} existing)` : ''} and ${sum.siteCameras} camera integrations.${askNew ? ' Only new sites appear on the order form (with their delivery address and the delivery clause); a renewal of existing sites has no site section.' : ''} Licence and camera quantities on the line items are checked against these.${staged ? '' : ' All sites go live on the contract start date.'}${sum.siteCount > NUMBERED_SITES ? ` Every site is on the order form in the site schedule; Sites 1–${NUMBERED_SITES} also fill the numbered site fields.` : ''}`}
         </Text>
       )}
     </Flex>
