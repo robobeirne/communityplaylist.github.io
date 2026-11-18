@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 
 const TOKEN = process.env.HUBSPOT_TOKEN;
 if (!TOKEN) {
-  console.error('Set HUBSPOT_TOKEN to a service key with the hubdb scope.');
+  console.error('Set HUBSPOT_TOKEN to a service key with the hubdb.tables.read and hubdb.tables.write scopes.');
   process.exit(1);
 }
 const API = 'https://api.hubapi.com/cms/v3/hubdb/tables';

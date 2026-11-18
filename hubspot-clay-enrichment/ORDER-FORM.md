@@ -333,14 +333,14 @@ The dropdowns store values like `annually_in_advance` and show labels like "Annu
 
 From the `protex-account-intel` folder:
 
-0. **For the settings (rules and Terms library):** create the HubDB tables with a service key that has the `hubdb` scope:
+0. **For the settings (rules and Terms library):** create the HubDB tables with a service key that has the `hubdb.tables.read` and `hubdb.tables.write` scopes:
    ```
    read -s HUBSPOT_TOKEN
    export HUBSPOT_TOKEN
    node scripts/create-hubdb-tables.mjs
    unset HUBSPOT_TOKEN
    ```
-   It creates and publishes `order_form_rules` (9 rules) and `order_form_terms` (23 clauses), and is safe to re-run. Then upload and **reinstall the app**, which now also needs `hubdb`. If the defaults in `settings.ts` change, regenerate the seed with `node --experimental-strip-types scripts/build-hubdb-seed.ts`.
+   It creates and publishes `order_form_rules` (9 rules) and `order_form_terms` (23 clauses), and is safe to re-run. Then upload and **reinstall the app**, which now also needs `hubdb.tables.read` and `hubdb.tables.write`. If the defaults in `settings.ts` change, regenerate the seed with `node --experimental-strip-types scripts/build-hubdb-seed.ts`.
 0. **For special terms and approval (this version):** run step 1 to create the 5 approval properties, upload, then **reinstall the app**. It now also reads HubSpot owners and creates tasks (`crm.objects.owners.read`, `crm.objects.contacts.write`).
 1. **Create the new properties and update the changed ones.** Make a temporary HubSpot **service key** with `crm.schemas.deals.write`, then:
    ```
