@@ -10,7 +10,7 @@ The project has six cards:
 
 - **Account Intel** and **Pre-call brief** on companies (Clay enrichment), described below.
 - **Profile summary** and **Before you reach out** on contacts (Clay person research). See [CONTACTS.md](CONTACTS.md).
-- **Order form** on deals: captures the order form, checks it, and creates it as a HubSpot quote for e-signature (Juro only for MSA redlines). Pricing is the deal's line items, from the product library at list price with a discount per line; sites are an open-ended list. See [ORDER-FORM.md](ORDER-FORM.md).
+- **Order form** on deals: captures the order form, checks it, and creates it as a HubSpot quote for e-signature (Juro only for MSA redlines). Pricing is the deal's line items, from the product library at list price with a discount per line; sites are an open-ended list. See [ORDER-FORM.md](ORDER-FORM.md) and, for the quote template, [QUOTE-TEMPLATE.md](QUOTE-TEMPLATE.md).
 - **Discovery assessment** on deals: the 36-question discovery assessment, filled by AI from Avoma calls, with live discovery health and likelihood to close. See [DISCOVERY.md](DISCOVERY.md).
 
 **Account Intel** (record tab, middle column)
@@ -99,6 +99,7 @@ src/app/cards/
   orderform/lines.ts              line item pricing, discounts and checks (unit tested)
   orderform/terms.ts              order form quote wording: comments and terms (unit tested)
   orderform/legal.ts              legal settings: entity, standard MSA link, terms approved
+  orderform/inclusions.ts         free rows added to new business deals
   orderform/properties.json       order form deal properties (generated)
 src/app/functions/
   save-discovery.js               saves industry and level corrections from the Discovery card

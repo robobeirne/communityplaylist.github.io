@@ -87,6 +87,7 @@ add(G, 'of_ready_by', 'Order form created by', 'text')
 add(G, 'of_quote_id', 'Order form quote ID', 'text', 'The HubSpot quote that is this deal\'s order form.')
 add(G, 'of_quote_status', 'Order form quote status', 'select', 'Kept in step with the quote by the order form card.',
     ['Draft', 'Awaiting approval', 'Sent', 'Signed', 'Expired', 'Rejected'])
+add(G, 'of_standard_inclusions_added', 'Standard inclusions added', 'bool', 'Set once the card has added the free standard rows (Intelligence, Deployment Services, Standard Support) to a new business deal, so removing one sticks.')
 add(G, 'of_changed_after_quote', 'Order form changed after the quote was created', 'bool', 'Set when the card saves changes after the order form quote exists; cleared when a new quote is created.')
 add(G, 'of_signed_at', 'Order form signed at', 'datetime', 'When the order form quote was fully signed (including countersignature).')
 

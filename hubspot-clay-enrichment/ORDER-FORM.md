@@ -57,6 +57,7 @@ The line items on the deal are the pricing. The card doesn't keep a second copy,
 - A licence quantity that doesn't match the number of sites, or a camera quantity that doesn't match the cameras across sites, is flagged, with **Match the sites**.
 - A line in a different currency from the deal blocks creating the order form.
 - Deployment Services and On-site Installation default to one per site, and a mismatch with the sites is flagged.
+- **New business deals get the free standard rows automatically, once:** Protex AI Licence - Intelligence (Free), Deployment Services (one per site) and Standard Support Services. They're tagged **Standard inclusion**. The card records that it added them (`of_standard_inclusions_added`), so a row a rep removes stays removed. The list is in `src/app/cards/orderform/inclusions.ts`.
 - Free products (every price 0, or no price and "Free" in the name, like *Protex AI Licence - Intelligence (Free)*) are offered at 0 in every currency.
 
 **The totals:**
@@ -261,6 +262,7 @@ Every order form property, for reports, workflows and any document template. `of
 | `of_quote_id` | Order form quote ID | string |
 | `of_quote_status` | Order form quote status | enumeration |
 | `of_changed_after_quote` | Order form changed after the quote was created | bool |
+| `of_standard_inclusions_added` | Standard inclusions added | bool |
 | `of_signed_at` | Order form signed at | datetime |
 
 The dropdowns store values like `annually_in_advance` and show labels like "Annually in advance".
@@ -277,15 +279,15 @@ From the `protex-account-intel` folder:
    node scripts/create-deal-properties.mjs src/app/cards/orderform/properties.json --fix of_status,of_ready_at,of_ready_by,of_msa_date,of_existing_msa,of_legal_notes,of_counterparty_signer_contact_id,of_protex_signer_user_id
    unset HUBSPOT_TOKEN
    ```
-   The first command creates the five new properties: `of_msa_status`, `of_quote_id`, `of_quote_status`, `of_changed_after_quote` and `of_signed_at`. The second updates the status options (Draft, Ready to send, Sent, Signed; the old Juro values are kept hidden) and the changed labels. Delete the service key afterwards.
+   The first command creates any properties that don't exist yet: `of_msa_status`, `of_quote_id`, `of_quote_status`, `of_changed_after_quote`, `of_standard_inclusions_added` and `of_signed_at`. It skips the rest, so it's safe to run again. The second updates the status options (Draft, Ready to send, Sent, Signed; the old Juro values are kept hidden) and the changed labels. Delete the service key afterwards.
 2. **Upload:**
    ```
    cd src/app/cards && npm install && cd ../../..
    hs project upload
    ```
 3. **Reinstall the app.** It now also reads and creates quotes (`crm.objects.quotes.read`, `crm.objects.quotes.write`). Go to **Development > Projects > protex-account-intel > Protex Account Intel > Distribution** and reinstall it.
-4. **Quote template:** make sure there's a quote template that shows Comments and Terms, with e-signature. Naming it with "order form" in the name makes the card pick it by default.
-5. **Product library:** the order form lists *Standard Support Services (Free of Charge)*, but there's no product for it. Create a product "Standard Support Services" at 0, billed annually, so reps can add it like the other free rows.
+4. **Quote template:** build one that shows Comments to buyer, the line items, Terms and e-signature. Name it with "order form" in it so the card picks it by default. [QUOTE-TEMPLATE.md](QUOTE-TEMPLATE.md) lists everything the card fills in and the columns to use.
+5. **Product library:** *Standard Support Services* (SKU 13/SUPPORT, 0, annual) was created on 18 Nov 2026 for the free standard rows.
 6. **Legal:** the terms are the current order form wording. Once legal confirms, set `TERMS_APPROVED` to `true` in `src/app/cards/orderform/legal.ts` and upload again.
 7. **Optional:** a workflow on the quote being signed, to move the deal stage straight away.
 8. **Optional tidy-up:** the first version's per-product pricing properties (`of_safety_units`, `of_safety_unit_fee`, `of_cameras_*`, `of_ops_*`, `of_intel_*`, `of_hardware_*`, `of_implementation_fee`, `of_discount_applied`, `of_discount_type`, `of_discount_value`, `of_*_units_manual`, `of_*_total`) and `of_existing_msa` are no longer used. Archive them in **Settings > Properties**.

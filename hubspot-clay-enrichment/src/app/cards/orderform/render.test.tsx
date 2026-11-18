@@ -31,6 +31,13 @@ const LINE = (id: string, productId: string, quantity: number, extra: Record<str
   };
 };
 let dealLines: ReturnType<typeof LINE>[] = [];
+let extraProducts: typeof PRODUCTS = [];
+const FREE = (id: string, name: string) => ({ id, name, sku: '', description: '', prices: { GBP: 0, EUR: 0, USD: 0, CAD: 0 }, frequency: 'annually' });
+const INCLUSIONS = [
+  FREE('414730536132', 'Protex AI Licence - Intelligence (Free)'),
+  FREE('427764333792', 'Deployment Services'),
+  FREE('455664370894', 'Standard Support Services'),
+];
 type Q = { id: string; title: string; state: string; expires: string; link: string };
 let dealQuotes: Q[] = [];
 let quoteId = '';
@@ -67,7 +74,7 @@ g.serverless = async (name: string, opts: { parameters: Record<string, any> }) =
     quoteId = '950';
     return { statusCode: 200, body: { ok: true, quote: dealQuotes[dealQuotes.length - 1], properties: { of_quote_id: '950', of_status: 'ready_to_send', of_quote_status: 'draft', of_changed_after_quote: 'false' } } };
   }
-  if (opts.parameters.action === 'pricing') return { statusCode: 200, body: { ok: true, lines: dealLines, products: PRODUCTS } };
+  if (opts.parameters.action === 'pricing') return { statusCode: 200, body: { ok: true, lines: dealLines, products: [...PRODUCTS, ...extraProducts] } };
   const ch = opts.parameters.lines ?? {};
   const created = (ch.create ?? []).map((c: any, i: number) => LINE(String(900 + i), c.productId, c.quantity));
   dealLines = [...dealLines.filter((l) => !(ch.remove ?? []).includes(l.id)), ...created];
@@ -342,6 +349,23 @@ assert.ok(link, 'the missing item names its section as a link');
 link!.trigger('onClick');
 await r.waitFor(() => assert.equal(legal().props.open, true));
 console.log('the still-needed list opens the section it names');
+
+// New business: the free standard rows are added once, never for renewals, never again once recorded.
+extraProducts = INCLUSIONS;
+r = await renderWith(complete, COMPLETE_LINES);
+await r.waitFor(() => assert.equal(r.findAll(Tag).filter((t) => t.text === 'Standard inclusion').length, 3));
+assert.equal(num(r, 'qty-new-2').props.value, 3, 'Deployment Services: one per site');
+assert.equal(num(r, 'qty-new-1').props.value, 1);
+button(r, 'Save changes')!.trigger('onClick');
+await r.waitFor(() => assert.equal(lastCall().lines.create.length, 3));
+assert.deepEqual(lastCall().lines.create.map((c: any) => [c.productId, c.quantity]), [['414730536132', 1], ['427764333792', 3], ['455664370894', 1]]);
+assert.equal(lastSave().of_standard_inclusions_added, 'true');
+r = await renderWith({ ...complete, of_standard_inclusions_added: 'true' }, COMPLETE_LINES);
+assert.equal(r.findAll(Tag).filter((t) => t.text === 'New').length, 0, 'not re-added once recorded (a removed row stays removed)');
+r = await renderWith({ ...complete, pipeline: '497851373', of_order_type: 'renewal', pro_rata_renewal: 'No' }, COMPLETE_LINES);
+assert.equal(r.findAll(Tag).filter((t) => t.text === 'New').length, 0, 'not for renewals');
+extraProducts = [];
+console.log('new business gets Intelligence (Free), Deployment Services (one per site) and Standard Support once');
 
 // Renewals ask about pro-rata.
 r = await renderWith({ ...complete, pipeline: '497851373', of_order_type: '', renewable_date: '2027-03-31' }, COMPLETE_LINES);

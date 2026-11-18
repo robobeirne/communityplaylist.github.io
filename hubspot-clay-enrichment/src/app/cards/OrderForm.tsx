@@ -43,6 +43,7 @@ import {
   parseDate,
   parseSiteList,
   readiness,
+  readSites,
   msaStatus,
   normaliseStatus,
   summarise,
@@ -71,6 +72,7 @@ import {
   type RawLine,
 } from './orderform/lines.ts';
 import { orderComments, orderTerms } from './orderform/terms.ts';
+import { isInclusion, missingInclusions } from './orderform/inclusions.ts';
 import { PROTEX_ENTITY, STANDARD_MSA_URL, TERMS_APPROVED } from './orderform/legal.ts';
 
 /*
@@ -248,6 +250,31 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
       });
   }, [call, dealId, loadQuote]);
 
+  // New business: add the free standard rows (Intelligence, Deployment Services, Standard Support)
+  // once, and record it so a row a rep removes stays removed.
+  const inclusionsChecked = React.useRef(false);
+  const markInclusions = React.useRef(false);
+  React.useEffect(() => {
+    if (inclusionsChecked.current || !props || !pricing) return;
+    const cur = { ...props, ...saved, ...edits };
+    const type = cur.of_order_type || orderTypeFromPipeline(cur.pipeline);
+    if (type !== 'new_business' || cur.of_standard_inclusions_added === 'true' || !cur.deal_currency_code) return;
+    inclusionsChecked.current = true;
+    const missing = missingInclusions(
+      pricing.products,
+      pricing.lines.map((l) => String(l.properties.hs_product_id ?? '')),
+      readSites(cur).length,
+    );
+    if (!missing.length) {
+      markInclusions.current = true; // already there: just record it with the next save
+      return;
+    }
+    const rows = missing.map((m) => ({ id: `${NEW_PREFIX}${nextId.current++}`, productId: m.product.id, quantity: m.quantity }));
+    setAdded((a) => [...a, ...rows.map(({ id, productId }) => ({ id, productId }))]);
+    setLineEdits((e) => ({ ...e, ...Object.fromEntries(rows.map((row) => [row.id, { quantity: row.quantity }])) }));
+    setEdits((e) => ({ ...e, of_standard_inclusions_added: 'true' }));
+  }, [props, pricing, saved, edits]);
+
   if (loading) return <LoadingSpinner label="Loading the order form" layout="centered" />;
   if (error || !props) {
     return (
@@ -340,6 +367,7 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
     const sentAdded = added.map((a) => a.id);
     try {
       const payload: Values = { ...sent, ...computedProperties(v, lines), ...extra };
+      if (markInclusions.current) payload.of_standard_inclusions_added = 'true';
       if (!props.of_order_type) payload.of_order_type = v.of_order_type;
       // The quote is a copy taken when it was created, so flag changes made after it.
       if (dirty && liveQuote && v.of_changed_after_quote !== 'true') payload.of_changed_after_quote = 'true';
@@ -946,6 +974,7 @@ function ProductsSection(p: Shared & {
       {lines.map((l) => (
         <LineRow
           key={l.id}
+          inclusion={isInclusion(l.productId, products)}
           l={l}
           currency={currency}
           sum={sum}
@@ -1010,7 +1039,8 @@ function ProductsSection(p: Shared & {
   );
 }
 
-function LineRow({ l, currency, sum, edited, issues, onEdit, onUndo }: {
+function LineRow({ l, currency, sum, edited, issues, onEdit, onUndo, inclusion }: {
+  inclusion?: boolean;
   l: Line;
   currency: string;
   sum: Summary;
@@ -1045,6 +1075,7 @@ function LineRow({ l, currency, sum, edited, issues, onEdit, onUndo }: {
             <Text format={{ fontWeight: 'demibold' }}>{l.name}</Text>
             {l.sku && <Tag variant="default">{`SKU ${l.sku}`}</Tag>}
             <Tag variant={l.recurring ? 'info' : 'default'}>{l.recurring ? FREQUENCY[l.frequency] ?? l.frequency : 'One-off'}</Tag>
+            {inclusion && <Tag variant="default">Standard inclusion</Tag>}
             {isNew && <Tag variant="success">New</Tag>}
             {needsApproval && <Tag variant="warning">Needs approval</Tag>}
           </Flex>

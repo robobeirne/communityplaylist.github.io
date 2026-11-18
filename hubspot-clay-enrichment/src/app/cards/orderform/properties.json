@@ -1027,6 +1027,24 @@
   },
   {
     "groupLabel": "Order form — Status",
+    "name": "of_standard_inclusions_added",
+    "label": "Standard inclusions added",
+    "type": "bool",
+    "fieldType": "booleancheckbox",
+    "description": "Set once the card has added the free standard rows (Intelligence, Deployment Services, Standard Support) to a new business deal, so removing one sticks.",
+    "options": [
+      {
+        "label": "Yes",
+        "value": "true"
+      },
+      {
+        "label": "No",
+        "value": "false"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Order form — Status",
     "name": "of_changed_after_quote",
     "label": "Order form changed after the quote was created",
     "type": "bool",
