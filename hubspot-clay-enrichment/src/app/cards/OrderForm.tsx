@@ -2,6 +2,7 @@ import React from 'react';
 import {
   Accordion,
   Alert,
+  AutoGrid,
   Button,
   DateInput,
   Divider,
@@ -19,10 +20,14 @@ import {
   Statistics,
   StatisticsItem,
   StatusTag,
+  Tab,
   Table,
   TableBody,
   TableCell,
+  TableHead,
+  TableHeader,
   TableRow,
+  Tabs,
   Tag,
   Text,
   TextArea,
@@ -135,6 +140,14 @@ const QUOTE_VARIANT: Record<string, 'default' | 'info' | 'warning' | 'success' |
   expired: 'danger',
   rejected: 'danger',
 };
+const TAB_TITLE: Record<Section, string> = { order: 'Order & term', client: 'Client', sites: 'Sites', pricing: 'Products', legal: 'Legal & signing' };
+/** Fields laid out several to a row, wrapping on narrow screens. */
+const Grid = ({ children }: { children: React.ReactNode }) => (
+  <AutoGrid columnWidth={200} gap="sm" flexible>
+    {children}
+  </AutoGrid>
+);
+const SubHead = ({ children }: { children: string }) => <Text format={{ fontWeight: 'demibold' }}>{children}</Text>;
 const MSA_OPTIONS = [
   { label: 'Existing MSA', value: 'existing_msa' },
   { label: 'Standard MSA (accepted by signing this order form)', value: 'standard_msa' },
@@ -200,7 +213,9 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
   const [saving, setSaving] = React.useState(false);
   const [signers, setSigners] = React.useState<Signer[] | null>(null);
   const [signersError, setSignersError] = React.useState('');
-  const [openSections, setOpenSections] = React.useState<Section[] | null>(null);
+  const [tab, setTab] = React.useState<Section | null>(null);
+  /** The tab to start on, fixed once the data has loaded so the card never switches tabs by itself. */
+  const startTab = React.useRef<Section | null>(null);
   const [pricing, setPricing] = React.useState<Pricing | null>(null);
   const [pricingError, setPricingError] = React.useState('');
   const [contacts, setContacts] = React.useState<Person[] | null>(null);
@@ -439,10 +454,11 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
   };
 
   const missingIn = (s: Section) => r.missing.filter((g) => g.section === s);
-  // Sections with something to fill start open; complete ones start closed.
-  const open = openSections ?? SECTIONS.filter((s) => missingIn(s.key).length).map((s) => s.key);
-  const toggle = (k: Section) => setOpenSections(open.includes(k) ? open.filter((x) => x !== k) : [...open, k]);
-  const reveal = (k: Section) => setOpenSections(open.includes(k) ? open : [...open, k]);
+  // Start on the first tab with something to fill, worked out once the line items have loaded.
+  // After that only the rep changes tabs: filling the last field never moves them on.
+  if (!startTab.current && (pricing || pricingError)) startTab.current = SECTIONS.find((s) => missingIn(s.key).length)?.key ?? 'order';
+  const currentTab: Section = tab ?? startTab.current ?? 'order';
+  const reveal = (k: Section) => setTab(k);
   const done = r.required - r.missing.length;
   const shared = { v, set, currency, sum };
   const t = sum.totals;
@@ -522,43 +538,39 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
         onRefresh={loadQuote}
       />
 
-      {SECTIONS.map((s, i) => {
-        const left = missingIn(s.key).length;
-        return (
-          <Accordion
-            key={s.key}
-            title={`${i + 1}. ${s.title} · ${left ? `${left} to fill` : 'complete'}`}
-            open={open.includes(s.key)}
-            onClick={() => toggle(s.key)}
-            size="sm"
-          >
-            <Flex direction="column" gap="sm">
-              {s.key === 'client' && <ClientSection {...shared} people={people} company={company} />}
-              {s.key === 'order' && <OrderSection {...shared} />}
-              {s.key === 'pricing' && (
-                <ProductsSection
-                  {...shared}
-                  lines={lines}
-                  products={products}
-                  loaded={!!pricing}
-                  loadError={pricingError}
-                  edits={lineEdits}
-                  onEdit={editLine}
-                  onUndo={undoLine}
-                  onAdd={addProduct}
-                  termFixes={termFixes.length}
-                  amount={{ next: newAmount, current: Number.isFinite(currentAmount) ? currentAmount : null, stale: amountStale }}
-                  canSync={!dirty && !saving}
-                  onSync={() => save()}
-                />
-              )}
-              {s.key === 'sites' && <SitesSection {...shared} />}
-              {s.key === 'legal' && <LegalSection {...shared} people={people} signers={signers} signersError={signersError} />}
-              <Missing gaps={missingIn(s.key)} />
-            </Flex>
-          </Accordion>
-        );
-      })}
+      <Tabs variant="enclosed" selected={currentTab} onSelectedChange={(id: string | number) => setTab(String(id) as Section)}>
+        {SECTIONS.map((s) => {
+          const left = missingIn(s.key).length;
+          return (
+            <Tab key={s.key} tabId={s.key} title={`${TAB_TITLE[s.key]}${left ? ` · ${left} to fill` : ' ✓'}`}>
+              <Flex direction="column" gap="sm">
+                {s.key === 'client' && <ClientSection {...shared} people={people} company={company} />}
+                {s.key === 'order' && <OrderSection {...shared} />}
+                {s.key === 'pricing' && (
+                  <ProductsSection
+                    {...shared}
+                    lines={lines}
+                    products={products}
+                    loaded={!!pricing}
+                    loadError={pricingError}
+                    edits={lineEdits}
+                    onEdit={editLine}
+                    onUndo={undoLine}
+                    onAdd={addProduct}
+                    termFixes={termFixes.length}
+                    amount={{ next: newAmount, current: Number.isFinite(currentAmount) ? currentAmount : null, stale: amountStale }}
+                    canSync={!dirty && !saving}
+                    onSync={() => save()}
+                  />
+                )}
+                {s.key === 'sites' && <SitesSection {...shared} />}
+                {s.key === 'legal' && <LegalSection {...shared} people={people} signers={signers} signersError={signersError} />}
+                <Missing gaps={missingIn(s.key)} />
+              </Flex>
+            </Tab>
+          );
+        })}
+      </Tabs>
 
       {dirty && (
         <Actions dirty={dirty} saving={saving} onSave={() => save()} />
@@ -756,7 +768,7 @@ type Shared = { v: Values; set: Setter; currency: string; sum: Summary };
 
 function TextField({ v, set, name, label: l, area, required }: { v: Values; set: Setter; name: string; label?: string; area?: boolean; required?: boolean }) {
   const common = { name, label: l ?? label(name), value: String(v[name] ?? ''), required, onChange: (x: string) => set(name, x) };
-  return area ? <TextArea {...common} rows={3} /> : <Input {...common} />;
+  return area ? <TextArea {...common} rows={2} /> : <Input {...common} />;
 }
 
 function SelectField({ v, set, name, label: l, opts, required, value }: { v: Values; set: Setter; name: string; label?: string; opts?: { label: string; value: string }[]; required?: boolean; value?: string }) {
@@ -832,47 +844,43 @@ function ClientSection({ v, set, people, company }: Shared & { people: People; c
           <Text variant="microcopy">{`Uses ${company.name}${companyAddress ? ` and its address` : ''}. Check it matches the legal entity.`}</Text>
         </Flex>
       )}
-      <TextField v={v} set={set} name="of_client_legal_name" required />
-      <TextField v={v} set={set} name="of_client_legal_address" area required />
-      <Flex direction="row" gap="sm" wrap="wrap">
+      <Grid>
+        <TextField v={v} set={set} name="of_client_legal_name" required />
         <TextField v={v} set={set} name="of_client_company_number" />
         <TextField v={v} set={set} name="of_client_tax_id" />
-      </Flex>
-      <Divider />
-      <Text format={{ fontWeight: 'demibold' }}>Client contact</Text>
-      <ContactPicker
-        people={people}
-        label="Fill from a deal contact"
-        onPick={(p) => {
-          set('of_client_contact_name', p.name);
-          set('of_client_contact_email', p.email);
-          set('of_client_contact_title', p.title);
-        }}
-      />
-      <Flex direction="row" gap="sm" wrap="wrap">
-        <TextField v={v} set={set} name="of_client_contact_name" required />
-        <TextField v={v} set={set} name="of_client_contact_email" required />
-        <TextField v={v} set={set} name="of_client_contact_title" />
-      </Flex>
-      <Divider />
-      <Text format={{ fontWeight: 'demibold' }}>Billing</Text>
-      <ContactPicker
-        people={people}
-        label="Fill billing from a deal contact"
-        onPick={(p) => {
-          set('of_billing_contact_name', p.name);
-          set('client_s_email_for_invoicing_', p.email);
-        }}
-      />
-      <Flex direction="row" gap="sm" wrap="wrap">
-        <TextField v={v} set={set} name="of_billing_contact_name" />
-        <TextField v={v} set={set} name="client_s_email_for_invoicing_" label="Billing email (shows as TBD if blank)" />
-      </Flex>
-      <TextField v={v} set={set} name="of_billing_address" area />
-      <Flex direction="row" gap="sm" wrap="wrap" align="end">
-        <SelectField v={v} set={set} name="of_po_required" opts={YES_NO} />
+      </Grid>
+      <TextField v={v} set={set} name="of_client_legal_address" area required />
+      <SubHead>Client contact</SubHead>
+      <Grid>
+        <ContactPicker
+          people={people}
+          label="Fill from a deal contact"
+          onPick={(p) => {
+            set('of_client_contact_name', p.name);
+            set('of_client_contact_email', p.email);
+            set('of_client_contact_title', p.title);
+          }}
+        />
+        <TextField v={v} set={set} name="of_client_contact_name" label="Name" required />
+        <TextField v={v} set={set} name="of_client_contact_email" label="Email" required />
+        <TextField v={v} set={set} name="of_client_contact_title" label="Job title" />
+      </Grid>
+      <SubHead>Billing</SubHead>
+      <Grid>
+        <ContactPicker
+          people={people}
+          label="Fill billing from a deal contact"
+          onPick={(p) => {
+            set('of_billing_contact_name', p.name);
+            set('client_s_email_for_invoicing_', p.email);
+          }}
+        />
+        <TextField v={v} set={set} name="of_billing_contact_name" label="Billing contact" />
+        <TextField v={v} set={set} name="client_s_email_for_invoicing_" label="Billing email (TBD if blank)" />
+        <SelectField v={v} set={set} name="of_po_required" label="PO needed before invoicing?" opts={YES_NO} />
         <TextField v={v} set={set} name="purchase_order" label="PO number" />
-      </Flex>
+      </Grid>
+      <TextField v={v} set={set} name="of_billing_address" label="Billing address (blank = as legal entity address)" area />
     </Flex>
   );
 }
@@ -881,57 +889,44 @@ function OrderSection({ v, set, sum }: Shared) {
   const renewal = v.of_order_type === 'renewal';
   return (
     <Flex direction="column" gap="sm">
-      <Flex direction="row" gap="sm" wrap="wrap">
+      <Grid>
         <SelectField v={v} set={set} name="of_order_type" required />
         <SelectField v={v} set={set} name="deal_currency_code" label="Currency" opts={CURRENCIES} required />
-      </Flex>
-      <Flex direction="row" gap="sm" wrap="wrap">
         <DateField v={v} set={set} name="of_quote_date" required />
         <DateField v={v} set={set} name="of_offer_expiry_date" required />
         <DateField v={v} set={set} name="of_target_signature_date" required />
-      </Flex>
-      <Divider />
-      {renewal ? (
-        <Flex direction="row" gap="sm" wrap="wrap" align="end">
+      </Grid>
+      <SubHead>Term and billing</SubHead>
+      <Grid>
+        <SelectField v={v} set={set} name="term_year_length" label="Subscription term" opts={TERMS} required />
+        {renewal ? (
           <DateField v={v} set={set} name="contract_start_date" label="Contract start date" required />
-          <SelectField v={v} set={set} name="term_year_length" label="Subscription term" opts={TERMS} required />
-          <Flex direction="column" gap="flush">
-            <Text variant="microcopy">Contract end date</Text>
-            <Text format={{ fontWeight: 'demibold' }}>{shortDate(sum.end)}</Text>
-          </Flex>
-        </Flex>
-      ) : (
-        <Flex direction="column" gap="xs">
-          <Flex direction="row" gap="sm" wrap="wrap" align="end">
-            <SelectField v={v} set={set} name="term_year_length" label="Subscription term" opts={TERMS} required />
-            <DateField v={v} set={set} name="contract_start_date" label="Expected first Deployment Date (for forecasting)" />
-          </Flex>
-          <Text variant="microcopy">
-            {`The order form states the term as ${termMonths(v.term_year_length) ?? 'N'} months from each Site's Deployment Date: the day the first camera at that site is connected and captures its first snapshot.`}
-          </Text>
-        </Flex>
-      )}
-      <DateField v={v} set={set} name="subscription_start_date" label="Billing starts on (if not the Order Form Effective Date)" />
-      <Flex direction="row" gap="sm" wrap="wrap">
+        ) : (
+          <DateField v={v} set={set} name="contract_start_date" label="Expected first Deployment Date" />
+        )}
+        <DateField v={v} set={set} name="subscription_start_date" label="Billing starts (if not on signature)" />
         <SelectField v={v} set={set} name="of_billing_frequency" required />
         <SelectField v={v} set={set} name="of_payment_terms" required />
-        <SelectField v={v} set={set} name="of_auto_renew" label={label('of_auto_renew')} opts={YES_NO} value={v.of_auto_renew || 'true'} />
-      </Flex>
+        <SelectField v={v} set={set} name="of_auto_renew" label="Auto-renews" opts={YES_NO} value={v.of_auto_renew || 'true'} />
+      </Grid>
+      <Text variant="microcopy">
+        {renewal
+          ? `Runs ${shortDate(parseDate(v.contract_start_date))} to ${shortDate(sum.end)}.`
+          : `The order form states the term as ${termMonths(v.term_year_length) ?? 'N'} months from each Site's Deployment Date (the day the site's first camera is connected and captures its first snapshot). The expected date is only for forecasting.`}
+      </Text>
       {renewal && (
         <>
-          <Divider />
-          <Text format={{ fontWeight: 'demibold' }}>Renewal</Text>
-          {v.renewable_date && <Text variant="microcopy">{`Current renewal date: ${shortDate(parseDate(v.renewable_date))}`}</Text>}
-          <Flex direction="row" gap="sm" wrap="wrap">
+          <SubHead>Renewal</SubHead>
+          <Grid>
             <SelectField v={v} set={set} name="pro_rata_renewal" label="Pro-rata renewal?" opts={PRO_RATA} required />
             <SelectField v={v} set={set} name="coterm_site_renewals" label="Co-term site renewals?" opts={YES_NO} />
-          </Flex>
+          </Grid>
+          {v.renewable_date && <Text variant="microcopy">{`Current renewal date: ${shortDate(parseDate(v.renewable_date))}`}</Text>}
         </>
       )}
     </Flex>
   );
 }
-
 
 /* ---------------- products and pricing ---------------- */
 
@@ -978,19 +973,38 @@ function ProductsSection(p: Shared & {
     <Flex direction="column" gap="sm">
       {!currency && <Text variant="microcopy">Set the currency in Order and term first: products are priced from the product library in the deal's currency.</Text>}
       {lines.length === 0 && <Text variant="microcopy">No products on this deal yet. Add the platform licence first; its quantity defaults to the number of sites.</Text>}
-      {lines.map((l) => (
-        <LineRow
-          key={l.id}
-          inclusion={isInclusion(l.productId, products)}
-          l={l}
-          currency={currency}
-          sum={sum}
-          edited={!!p.edits[l.id] && !l.id.startsWith(NEW_PREFIX)}
-          issues={issues.filter((i) => i.lineId === l.id)}
-          onEdit={p.onEdit}
-          onUndo={p.onUndo}
-        />
-      ))}
+      {lines.length > 0 && (
+        <Table bordered flush>
+          <TableHead>
+            <TableRow>
+              <TableHeader>Product</TableHeader>
+              <TableHeader width={90}>Qty</TableHeader>
+              <TableHeader width={110}>Unit price</TableHeader>
+              <TableHeader width={200}>Discount</TableHeader>
+              <TableHeader width={110}>Net / unit</TableHeader>
+              <TableHeader width={130} align="right">
+                Line total
+              </TableHeader>
+              <TableHeader width="min"> </TableHeader>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {lines.map((l) => (
+              <LineRow
+                key={l.id}
+                inclusion={isInclusion(l.productId, products)}
+                l={l}
+                currency={currency}
+                sum={sum}
+                edited={!!p.edits[l.id] && !l.id.startsWith(NEW_PREFIX)}
+                issues={issues.filter((i) => i.lineId === l.id)}
+                onEdit={p.onEdit}
+                onUndo={p.onUndo}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      )}
       {currency && (
         <Select
           name="add-product"
@@ -1059,13 +1073,17 @@ function LineRow({ l, currency, sum, edited, issues, onEdit, onUndo, inclusion }
   const isNew = l.id.startsWith(NEW_PREFIX);
   if (l.removed) {
     return (
-      <Flex direction="row" gap="sm" align="center" wrap="wrap">
-        <Text format={{ lineDecoration: 'strikethrough' }}>{l.name}</Text>
-        <Tag variant="error">Removed when you save</Tag>
-        <Link href="#" preventDefault onClick={() => onUndo(l.id)}>
-          Undo
-        </Link>
-      </Flex>
+      <TableRow>
+        <TableCell colSpan={7}>
+          <Flex direction="row" gap="sm" align="center" wrap="wrap">
+            <Text format={{ lineDecoration: 'strikethrough' }}>{l.name}</Text>
+            <Tag variant="error">Removed when you save</Tag>
+            <Link href="#" preventDefault onClick={() => onUndo(l.id)}>
+              Undo
+            </Link>
+          </Flex>
+        </TableCell>
+      </TableRow>
     );
   }
   const rule = quantityRule(l);
@@ -1074,81 +1092,82 @@ function LineRow({ l, currency, sum, edited, issues, onEdit, onUndo, inclusion }
   const offList = l.listPrice !== null && Math.abs(l.price - l.listPrice) > 0.005;
   const wrongCurrency = !!currency && !!l.currency && l.currency !== currency;
   const needsApproval = l.discountPct >= DISCOUNT_APPROVAL_PCT;
+  const fixes = (issues.length > 0 || edited) && (
+    <Flex direction="row" gap="sm" wrap="wrap" align="center">
+      {rule && target > 0 && l.quantity !== target && (
+        <Link href="#" preventDefault onClick={() => onEdit(l.id, { quantity: target })}>
+          {`Match the ${rule === 'cameras' ? 'cameras' : 'sites'} (${target})`}
+        </Link>
+      )}
+      {offList && !wrongCurrency && (
+        <Link href="#" preventDefault onClick={() => onEdit(l.id, resetToList(l))}>
+          {`Reset to list (${money(l.listPrice!, currency)})${l.discount === 0 && l.price < l.listPrice! ? ' and show the difference as a discount' : ''}`}
+        </Link>
+      )}
+      {wrongCurrency && l.listPrice !== null && (
+        <Link href="#" preventDefault onClick={() => onEdit(l.id, { resetPrice: true })}>
+          {`Reprice at the ${currency} list price`}
+        </Link>
+      )}
+      {edited && (
+        <Link href="#" preventDefault onClick={() => onUndo(l.id)}>
+          Undo changes
+        </Link>
+      )}
+    </Flex>
+  );
   return (
-    <Tile compact>
-      <Flex direction="column" gap="xs">
-        <Flex direction="row" justify="between" align="center" wrap="wrap" gap="sm">
-          <Flex direction="row" gap="xs" align="center" wrap="wrap">
-            <Text format={{ fontWeight: 'demibold' }}>{l.name}</Text>
+    <TableRow>
+      <TableCell>
+        <Flex direction="column" gap="xs">
+          <Text format={{ fontWeight: 'demibold' }}>{l.name}</Text>
+          <Flex direction="row" gap="xs" wrap="wrap">
             {l.sku && <Tag variant="default">{`SKU ${l.sku}`}</Tag>}
             <Tag variant={l.recurring ? 'info' : 'default'}>{l.recurring ? FREQUENCY[l.frequency] ?? l.frequency : 'One-off'}</Tag>
             {inclusion && <Tag variant="default">Standard inclusion</Tag>}
             {isNew && <Tag variant="success">New</Tag>}
             {needsApproval && <Tag variant="warning">Needs approval</Tag>}
           </Flex>
-          <Text format={{ fontWeight: 'demibold' }}>{l.recurring ? `${money(l.annualNet, currency)} / year` : money(l.net, currency)}</Text>
+          {fixes}
         </Flex>
-        <Flex direction="row" gap="sm" wrap="wrap" align="end">
-          <NumberInput
-            name={`qty-${l.id}`}
-            label="Quantity"
-            min={0}
-            value={l.quantity}
-            onChange={(n) => onEdit(l.id, { quantity: Number.isFinite(n) ? n : 0 })}
-          />
-          <Flex direction="column" gap="flush">
-            <Text variant="microcopy">Unit price</Text>
-            <Text>{money(l.price, l.currency || currency)}</Text>
-          </Flex>
+      </TableCell>
+      <TableCell>
+        <NumberInput name={`qty-${l.id}`} label="" min={0} value={l.quantity} onChange={(n) => onEdit(l.id, { quantity: Number.isFinite(n) ? n : 0 })} />
+      </TableCell>
+      <TableCell>
+        <Text>{money(l.price, l.currency || currency)}</Text>
+      </TableCell>
+      <TableCell>
+        <Flex direction="row" gap="xs">
           <Select
             name={`dmode-${l.id}`}
-            label="Discount"
             value={l.discountMode}
             options={DISCOUNT_MODES}
             onChange={(x) => onEdit(l.id, { discountMode: x === 'amount' ? 'amount' : 'percent', discountValue: 0 })}
           />
           <NumberInput
             name={`dval-${l.id}`}
-            label={l.discountMode === 'percent' ? 'Percent off' : `Off each unit (${currency || l.currency})`}
+            label=""
+            placeholder={l.discountMode === 'percent' ? '%' : currency || l.currency}
             min={0}
             max={l.discountMode === 'percent' ? 100 : l.price}
             value={l.discountValue || undefined}
             onChange={(n) => onEdit(l.id, { discountMode: l.discountMode, discountValue: Number.isFinite(n) ? n : 0 })}
           />
-          <Flex direction="column" gap="flush">
-            <Text variant="microcopy">Net per unit</Text>
-            <Text>{money(Math.round(unitNet * 100) / 100, l.currency || currency)}</Text>
-          </Flex>
-          <Button size="sm" variant="transparent" onClick={() => onEdit(l.id, { remove: true })}>
-            Remove
-          </Button>
         </Flex>
-        {(issues.length > 0 || edited) && (
-          <Flex direction="row" gap="sm" wrap="wrap" align="center">
-            {rule && target > 0 && l.quantity !== target && (
-              <Link href="#" preventDefault onClick={() => onEdit(l.id, { quantity: target })}>
-                {`Match the ${rule === 'cameras' ? 'cameras' : 'sites'} (${target})`}
-              </Link>
-            )}
-            {offList && !wrongCurrency && (
-              <Link href="#" preventDefault onClick={() => onEdit(l.id, resetToList(l))}>
-                {`Reset to list (${money(l.listPrice!, currency)})${l.discount === 0 && l.price < l.listPrice! ? ' and show the difference as a discount' : ''}`}
-              </Link>
-            )}
-            {wrongCurrency && l.listPrice !== null && (
-              <Link href="#" preventDefault onClick={() => onEdit(l.id, { resetPrice: true })}>
-                {`Reprice at the ${currency} list price`}
-              </Link>
-            )}
-            {edited && (
-              <Link href="#" preventDefault onClick={() => onUndo(l.id)}>
-                Undo changes
-              </Link>
-            )}
-          </Flex>
-        )}
-      </Flex>
-    </Tile>
+      </TableCell>
+      <TableCell>
+        <Text>{money(Math.round(unitNet * 100) / 100, l.currency || currency)}</Text>
+      </TableCell>
+      <TableCell align="right">
+        <Text format={{ fontWeight: 'demibold' }}>{l.recurring ? `${money(l.annualNet, currency)} / yr` : money(l.net, currency)}</Text>
+      </TableCell>
+      <TableCell>
+        <Button size="sm" variant="transparent" onClick={() => onEdit(l.id, { remove: true })}>
+          Remove
+        </Button>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -1164,33 +1183,50 @@ function SitesSection({ v, set, sum }: Shared) {
   return (
     <Flex direction="column" gap="sm">
       <SelectField v={v} set={set} name="of_rollout" required />
-      {sites.length === 0 && <Text variant="microcopy">No sites yet. Add them one at a time, or paste a list.</Text>}
-      {sites.map((s, i) => (
-        <Flex key={i} direction="row" gap="sm" wrap="wrap" align="end">
-          <Input name={`site-${i}-name`} label={`Site ${i + 1}`} required value={s.name} onChange={(x) => change(i, { name: x })} />
-          <Input name={`site-${i}-address`} label="Delivery address" value={s.address} onChange={(x) => change(i, { address: x })} />
-          <NumberInput
-            name={`site-${i}-cameras`}
-            label="Camera integrations"
-            min={0}
-            value={s.cameras}
-            onChange={(n) => change(i, { cameras: Number.isFinite(n) ? n : 0 })}
-          />
-          {staged && (
-            <DateInput
-              name={`site-${i}-go-live`}
-              label="Go-live date"
-              required
-              format="ll"
-              value={toBase(s.goLive)}
-              onChange={(d) => change(i, { goLive: fromBase(d) })}
-            />
-          )}
-          <Button size="sm" variant="transparent" onClick={() => write(sites.filter((_, j) => j !== i))}>
-            Remove
-          </Button>
-        </Flex>
-      ))}
+      {sites.length === 0 ? (
+        <Text variant="microcopy">No sites yet. Add them one at a time, or paste a list.</Text>
+      ) : (
+        <Table bordered flush>
+          <TableHead>
+            <TableRow>
+              <TableHeader width={40}>#</TableHeader>
+              <TableHeader>Site name</TableHeader>
+              <TableHeader>Delivery address</TableHeader>
+              <TableHeader width={110}>Cameras</TableHeader>
+              {staged && <TableHeader width={170}>Go-live date</TableHeader>}
+              <TableHeader width="min"> </TableHeader>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {sites.map((s, i) => (
+              <TableRow key={i}>
+                <TableCell>
+                  <Text>{String(i + 1)}</Text>
+                </TableCell>
+                <TableCell>
+                  <Input name={`site-${i}-name`} label="" placeholder="Site name" required value={s.name} onChange={(x) => change(i, { name: x })} />
+                </TableCell>
+                <TableCell>
+                  <Input name={`site-${i}-address`} label="" placeholder="Where the device ships" value={s.address} onChange={(x) => change(i, { address: x })} />
+                </TableCell>
+                <TableCell>
+                  <NumberInput name={`site-${i}-cameras`} label="" min={0} value={s.cameras} onChange={(n) => change(i, { cameras: Number.isFinite(n) ? n : 0 })} />
+                </TableCell>
+                {staged && (
+                  <TableCell>
+                    <DateInput name={`site-${i}-go-live`} label="" required format="ll" value={toBase(s.goLive)} onChange={(d) => change(i, { goLive: fromBase(d) })} />
+                  </TableCell>
+                )}
+                <TableCell>
+                  <Button size="sm" variant="transparent" onClick={() => write(sites.filter((_, j) => j !== i))}>
+                    Remove
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
       <Flex direction="row" gap="sm" wrap="wrap">
         <Button size="sm" variant="secondary" onClick={() => write([...sites, { name: '', address: '', cameras: 0, goLive: '' }])}>
           Add a site
@@ -1260,82 +1296,67 @@ function TotalRow({ label: l, value, strong }: { label: string; value: string; s
 }
 
 function LegalSection({ v, set, people, signers, signersError }: Shared & { people: People; signers: Signer[] | null; signersError: string }) {
+  const msa = msaStatus(v);
   return (
     <Flex direction="column" gap="sm">
-      <Select
-        name="of_msa_status"
-        label="MSA status"
-        required
-        value={msaStatus(v)}
-        options={MSA_OPTIONS}
-        onChange={(x) => set('of_msa_status', String(x ?? ''))}
-      />
-      {(msaStatus(v) === 'existing_msa' || msaStatus(v) === 'signed_in_juro') && (
-        <Flex direction="row" gap="sm" wrap="wrap">
-          <DateField v={v} set={set} name="of_msa_date" required />
-          <TextField v={v} set={set} name="of_msa_details" area />
-        </Flex>
-      )}
-      {msaStatus(v) === 'negotiating_in_juro' && (
+      <Grid>
+        <Select name="of_msa_status" label="MSA status" required value={msa} options={MSA_OPTIONS} onChange={(x) => set('of_msa_status', String(x ?? ''))} />
+        {(msa === 'existing_msa' || msa === 'signed_in_juro') && <DateField v={v} set={set} name="of_msa_date" />}
+        {(msa === 'existing_msa' || msa === 'signed_in_juro') && <TextField v={v} set={set} name="of_msa_details" />}
+      </Grid>
+      {msa === 'negotiating_in_juro' && (
         <Text variant="microcopy">Redline the MSA in Juro. When it's signed, set this to Signed in Juro and add its date. The order form can't be created until then.</Text>
       )}
-      {msaStatus(v) === 'standard_msa' && (
+      {msa === 'standard_msa' && (
         <Text variant="microcopy">
-          {STANDARD_MSA_URL
-            ? `The order form links to the standard MSA (${STANDARD_MSA_URL}); signing it accepts the MSA.`
-            : 'Legal needs to add the link to the standard MSA before Standard MSA order forms can go out.'}
+          {STANDARD_MSA_URL ? `The order form refers to the standard MSA at ${STANDARD_MSA_URL}; signing the order form accepts it.` : 'Legal needs to add the standard MSA link.'}
         </Text>
       )}
-      <TextField v={v} set={set} name="of_legal_notes" area />
-      <Divider />
-      <Text format={{ fontWeight: 'demibold' }}>{`Counterparty signer${v.of_client_legal_name ? ` for ${v.of_client_legal_name}` : ''}`}</Text>
-      <Text variant="microcopy">Pick them from a deal contact: the order form quote is sent to that contact to e-sign.</Text>
-      <ContactPicker
-        people={people}
-        label="Fill from a deal contact"
-        onPick={(p) => {
-          set('of_counterparty_signer_name', p.name);
-          set('of_counterparty_signer_email', p.email);
-          set('of_counterparty_signer_title', p.title);
-          set('of_counterparty_signer_contact_id', p.id);
-        }}
-      />
-      <Flex direction="row" gap="sm" wrap="wrap">
+      <TextField v={v} set={set} name="of_legal_notes" label="Notes for legal (internal)" area />
+      <SubHead>{`Signs for ${v.of_client_legal_name || 'the client'} (e-signs the quote)`}</SubHead>
+      <Grid>
+        <ContactPicker
+          people={people}
+          label="Fill from a deal contact"
+          onPick={(p) => {
+            set('of_counterparty_signer_name', p.name);
+            set('of_counterparty_signer_email', p.email);
+            set('of_counterparty_signer_title', p.title);
+            set('of_counterparty_signer_contact_id', p.id);
+          }}
+        />
         <TextField v={v} set={set} name="of_counterparty_signer_name" label="Name" required />
         <TextField v={v} set={set} name="of_counterparty_signer_email" label="Email" required />
         <TextField v={v} set={set} name="of_counterparty_signer_title" label="Job title" required />
-      </Flex>
-      <Divider />
-      <Text format={{ fontWeight: 'demibold' }}>Countersigning for Protex</Text>
-      {signersError ? (
-        <Text variant="microcopy">{`Couldn't load HubSpot users (${signersError}). Type the signatory's details below.`}</Text>
-      ) : signers === null ? (
-        <LoadingSpinner label="Loading HubSpot users" size="sm" />
-      ) : (
-        <Select
-          name="of_protex_signer_user_id"
-          label="Protex signatory"
-          placeholder="Choose who signs for Protex"
-          value={String(v.of_protex_signer_user_id ?? '')}
-          options={signers.map((s) => ({ label: s.name, value: s.id }))}
-          onChange={(id) => {
-            const s = signers.find((x) => x.id === String(id));
-            if (!s) return;
-            set('of_protex_signer_user_id', s.id);
-            set('of_protex_signer_name', s.name);
-            set('of_protex_signer_email', s.email);
-            if (s.title || !v.of_protex_signer_title) set('of_protex_signer_title', s.title);
-          }}
-        />
-      )}
-      <Flex direction="row" gap="sm" wrap="wrap">
+      </Grid>
+      <SubHead>Countersigns for Protex</SubHead>
+      <Grid>
+        {signersError ? (
+          <Text variant="microcopy">{`Couldn't load HubSpot users (${signersError}). Type the details.`}</Text>
+        ) : signers === null ? (
+          <LoadingSpinner label="Loading HubSpot users" size="sm" />
+        ) : (
+          <Select
+            name="of_protex_signer_user_id"
+            label="Protex signatory"
+            placeholder="Choose who signs for Protex"
+            value={String(v.of_protex_signer_user_id ?? '')}
+            options={signers.map((s) => ({ label: s.name, value: s.id }))}
+            onChange={(id) => {
+              const s = signers.find((x) => x.id === String(id));
+              if (!s) return;
+              set('of_protex_signer_user_id', s.id);
+              set('of_protex_signer_name', s.name);
+              set('of_protex_signer_email', s.email);
+              if (s.title || !v.of_protex_signer_title) set('of_protex_signer_title', s.title);
+            }}
+          />
+        )}
         <TextField v={v} set={set} name="of_protex_signer_name" label="Name" required />
         <TextField v={v} set={set} name="of_protex_signer_email" label="Email" required />
         <TextField v={v} set={set} name="of_protex_signer_title" label="Job title" required />
-      </Flex>
-      <Text variant="microcopy">
-        The job title fills from the user's HubSpot profile, or from the last order form they signed. Type it once and it's remembered.
-      </Text>
+      </Grid>
+      <Text variant="microcopy">Job titles fill from the HubSpot user profile, or from the last order form they signed.</Text>
     </Flex>
   );
 }

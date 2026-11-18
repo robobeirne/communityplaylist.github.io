@@ -3,7 +3,7 @@
 import React from 'react';
 import assert from 'node:assert/strict';
 import { createRenderer } from '@hubspot/ui-extensions/testing';
-import { Accordion, Alert, Button, Heading, Input, Link, LoadingButton, NumberInput, Select, StatisticsItem, StatusTag, Tag, Text, TextArea } from '@hubspot/ui-extensions';
+import { Alert, Tab, Tabs, Button, Heading, Input, Link, LoadingButton, NumberInput, Select, StatisticsItem, StatusTag, Tag, Text, TextArea } from '@hubspot/ui-extensions';
 import { OrderForm } from '../OrderForm.tsx';
 
 const calls: { name: string; parameters: Record<string, any> }[] = [];
@@ -98,7 +98,8 @@ async function renderWith(props: Record<string, string>, lines: ReturnType<typeo
   return r;
 }
 type R = Awaited<ReturnType<typeof renderWith>>;
-const sections = (r: R) => r.findAll(Accordion).filter((a) => /^\d\./.test(String(a.props.title)));
+const sections = (r: R) => r.findAll(Tab);
+const selectedTab = (r: R) => r.find(Tabs).props.selected;
 const lastCreate = () => [...calls].reverse().find((c) => c.parameters.action === 'create_quote')?.parameters;
 const texts = (r: R) => r.findAll(Text).map((t) => t.text);
 const field = (r: R, name: string) => [...r.findAll(Input), ...r.findAll(TextArea)].find((x) => x.props.name === name)!;
@@ -116,7 +117,8 @@ assert.equal(sections(r).length, 5);
 assert.ok(r.findAll(Alert).some((a) => String(a.props.title).startsWith('Still needed before sending')));
 const gated = [...r.findAll(LoadingButton)].find((b) => b.text.startsWith('Create order form'));
 assert.ok(gated && gated.props.disabled && / to fill$/.test(gated.text), 'Create order form shows, disabled, with how much is left');
-assert.ok(sections(r).every((a) => a.props.open), 'every section has gaps, so every section starts open');
+assert.equal(selectedTab(r), 'order', 'starts on the first tab with gaps');
+assert.ok(sections(r).every((a) => / to fill$/.test(String(a.props.title))), 'every tab shows what is left');
 assert.ok(calls.some((c) => c.parameters.action === 'signatories'), 'loads the Protex signatories');
 await r.waitFor(() => assert.ok(select(r, 'pick-Fill from a deal contact')));
 assert.deepEqual(
@@ -124,7 +126,7 @@ assert.deepEqual(
   ['Alex Kim — COO — alex@northbridge.example', 'Pat Fox — Finance Manager — ap@northbridge.example', 'ops@northbridge.example'],
   'contacts show names, titles and emails, never a bare ID',
 );
-console.log('new deal: 5 sections open, still-needed alert, Create order form disabled');
+console.log('new deal: 5 tabs, still-needed alert, Create order form disabled');
 
 // Fill from the company and a deal contact, then save.
 button(r, 'Fill from the company')!.trigger('onClick');
@@ -196,8 +198,8 @@ assert.deepEqual(
     ['Sites', '3'],
   ],
 );
-assert.ok(sections(r).every((a) => String(a.props.title).endsWith('complete')));
-assert.ok(sections(r).every((a) => !a.props.open), 'complete sections start closed');
+assert.ok(sections(r).every((a) => String(a.props.title).endsWith('✓')));
+assert.equal(selectedTab(r), 'order', 'nothing to fill: starts on the first tab');
 // Save first (sends the calculated fields), then create the order form quote.
 field(r, 'of_legal_notes').trigger('onChange', 'Standard deal' as never);
 await r.waitFor(() => assert.ok(button(r, 'Save changes')));
@@ -338,17 +340,20 @@ assert.ok(texts(r).join(' ').includes('The MSA signed in Juro'));
 assert.ok(button(r, 'Create order form · 1 to fill')?.props.disabled);
 console.log('an MSA still in Juro blocks the order form');
 
-// The still-needed list links to its section: clicking opens it.
-r = await renderWith({ ...complete, of_counterparty_signer_title: '' }, COMPLETE_LINES);
-const legal = () => sections(r).find((a) => String(a.props.title).startsWith('5.'))!;
-assert.equal(legal().props.open, true, 'the section with a gap starts open');
-legal().trigger('onClick');
-await r.waitFor(() => assert.equal(legal().props.open, false));
+// The still-needed list links to its tab; filling the last field never moves the rep on.
+r = await renderWith({ ...complete, of_counterparty_signer_title: '', of_payment_terms: '' }, COMPLETE_LINES);
+assert.equal(selectedTab(r), 'order', 'starts on the first tab with a gap');
+select(r, 'of_payment_terms').trigger('onChange', 'net_30' as never);
+await r.waitFor(() => assert.ok(sections(r).find((t) => t.props.tabId === 'order')!.props.title.endsWith('✓')));
+assert.equal(selectedTab(r), 'order', 'filling Payment terms keeps you on the tab, so Auto-renews is still there to edit');
+assert.ok(select(r, 'of_auto_renew'));
 const link = r.findAll(Link).find((l) => l.text === 'Legal, MSA and signatures');
 assert.ok(link, 'the missing item names its section as a link');
 link!.trigger('onClick');
-await r.waitFor(() => assert.equal(legal().props.open, true));
-console.log('the still-needed list opens the section it names');
+await r.waitFor(() => assert.equal(selectedTab(r), 'legal'));
+r.find(Tabs).trigger('onSelectedChange', 'sites' as never);
+await r.waitFor(() => assert.equal(selectedTab(r), 'sites'));
+console.log('tabs never switch on their own; the still-needed list and tabs switch them');
 
 // New business: the free standard rows are added once, never for renewals, never again once recorded.
 extraProducts = INCLUSIONS;
