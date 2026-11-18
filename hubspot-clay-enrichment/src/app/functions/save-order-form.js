@@ -10,6 +10,9 @@
  *   { action: 'request_approval', dealId, ... }      ask the chosen approvers to approve non-standard price/terms (see requestApproval)
  *   { action: 'decide_approval', dealId, role, decision, note, user }  an approver approves or rejects
  *   { action: 'settings' }                           the order form rules and Terms library from HubDB
+ *   { action: 'sweep' }                              bring recent deals with a quote out for signature in step (signed → closed won)
+ *   { action: 'unlock', dealId, reason, user }       unlock a sent order form so it can be changed (logged)
+ *   { action: 'whoami' }                             version and the signed-in user as HubSpot reports it
  *   { action: 'save_settings', rules?, clauses?, user }  leadership saves rules / legal saves clauses (HubDB, published)
  *
  * Only order form properties (of_*) and the existing deal fields the card reuses can be written,
@@ -56,6 +59,44 @@ const PRODUCT_PROPERTIES = ['name', 'hs_sku', 'description', 'price', 'recurring
 const LINE_TO_DEAL = 20;
 
 const fail = (statusCode, message) => ({ statusCode, body: { ok: false, message } });
+
+/** Bumped with every release; the card shows it and warns if the card and this function differ. */
+const VERSION = 'v21';
+
+/**
+ * The signed-in user as HubSpot reports it to the function, if it does. Approvals, settings and
+ * unlocking use this rather than the email the card sends, so nobody can act as someone else.
+ */
+async function sessionUser(context) {
+  const u = context.user || context.userInfo || {};
+  let email = String(u.email || context.userEmail || context.user_email || '');
+  const id = String(u.id || u.userId || context.userId || context.user_id || '');
+  let source = email ? 'email' : '';
+  if (!email && id) {
+    const res = await call('POST', '/crm/v3/objects/users/search', {
+      filterGroups: [{ filters: [{ propertyName: 'hs_internal_user_id', operator: 'EQ', value: id }] }],
+      properties: ['hs_email'],
+      limit: 1,
+    }).catch(() => null);
+    email = String(res?.results?.[0]?.properties?.hs_email || '');
+    source = email ? 'user id' : '';
+  }
+  return { email, id, source };
+}
+
+/**
+ * Who is acting. If HubSpot tells us, that's who it is and the card's claim must match; if it
+ * doesn't, we fall back to the card's claim and record that it wasn't verified.
+ */
+async function actor(context, claimed = {}) {
+  const session = await sessionUser(context);
+  const claimedEmail = String(claimed.email || '');
+  if (session.email) {
+    if (claimedEmail && claimedEmail.toLowerCase() !== session.email.toLowerCase()) return { error: fail(403, "The signed-in user doesn't match. Refresh the page and try again.") };
+    return { email: session.email, name: String(claimed.name || session.email), verified: true };
+  }
+  return { email: claimedEmail, name: String(claimed.name || claimedEmail), verified: false };
+}
 const isId = (v) => /^\d+$/.test(String(v ?? ''));
 
 async function call(method, path, body) {
@@ -275,6 +316,9 @@ async function applyLines(dealId, changes, currency) {
 
 async function save({ dealId, properties, lines }) {
   if (!isId(dealId)) return fail(400, 'No deal id');
+  const lockState = await call('GET', `/crm/v3/objects/deals/${dealId}?properties=of_locked`).catch(() => null);
+  if (lockState?.properties?.of_locked === 'true')
+    return fail(423, 'This order form is locked because its quote has been sent or signed. Unlock it (with a reason) to make changes.');
   const out = {};
   for (const [k, v] of Object.entries(properties || {})) {
     if ((/^of_[a-z0-9_]+$/.test(k) || REUSED.has(k)) && (typeof v === 'string' || v === null)) out[k] = v ?? '';
@@ -412,27 +456,147 @@ async function quoteTemplates() {
  * The deal's quotes. The order form quote (of_quote_id) drives the card's status, so a quote that
  * was published or signed in HubSpot shows as Sent or Signed the next time anyone opens the card.
  */
-async function quote({ dealId }) {
-  if (!isId(dealId)) return fail(400, 'No deal id');
-  const [deal, quotes, t] = await Promise.all([
-    call('GET', `/crm/v3/objects/deals/${dealId}?properties=of_quote_id,of_status,of_quote_status,of_signed_at`),
-    dealQuotes(dealId),
-    quoteTemplates(),
-  ]);
+/** The closed-won stage of a deal pipeline (closed, 100% probability). */
+async function closedWonStage(pipelineId) {
+  const res = await call('GET', `/crm/v3/pipelines/deals/${encodeURIComponent(pipelineId)}`).catch(() => null);
+  const stage = (res?.stages || []).find((st) => String(st.metadata?.isClosed) === 'true' && Number(st.metadata?.probability) === 1);
+  return stage ? String(stage.id) : '';
+}
+
+/** What was signed, frozen: pricing, wording and approvals, from the quote itself. */
+async function signedSnapshot(quoteId, deal) {
+  const q = await call('GET', `/crm/v3/objects/quotes/${quoteId}?properties=hs_title,hs_terms,hs_comments,hs_quote_amount,hs_currency,hs_esign_date,hs_quote_link`);
+  const lineIds = await associatedIdsFrom('quotes', quoteId, 'line_items').catch(() => []);
+  const rows = lineIds.length ? await batchRead('line_items', lineIds, LINE_PROPERTIES).catch(() => []) : [];
+  const p = q.properties || {};
+  return {
+    quoteId: String(quoteId),
+    title: p.hs_title || '',
+    link: p.hs_quote_link || '',
+    signedAt: p.hs_esign_date ? new Date(Number(p.hs_esign_date) || Date.parse(p.hs_esign_date)).toISOString() : new Date().toISOString(),
+    currency: p.hs_currency || deal.deal_currency_code || '',
+    amount: p.hs_quote_amount || '',
+    lines: rows.map((r) => {
+      const l = r.properties || {};
+      return { productId: l.hs_product_id || '', name: l.name || '', sku: l.hs_sku || '', quantity: l.quantity || '', price: l.price || '', discountPct: l.hs_discount_percentage || '', discount: l.discount || '', amount: l.amount || '', frequency: l.recurringbillingfrequency || '' };
+    }),
+    comments: p.hs_comments || '',
+    terms: p.hs_terms || '',
+    approval: deal.of_approval || '',
+    amendments: deal.of_amendment_summary || '',
+  };
+}
+
+const SYNC_PROPS = 'of_quote_id,of_status,of_quote_status,of_signed_at,of_sent_at,of_locked,of_lock_log,of_signed_snapshot,of_approval,of_amendment_summary,pipeline,dealstage,deal_currency_code';
+
+/**
+ * Keep a deal in step with its order form quote: status, sent and signed dates, lock while it's
+ * out for signature or signed (unless unlocked for this quote), and on signature freeze a
+ * snapshot of what was signed and move the deal to its pipeline's closed-won stage.
+ */
+async function syncDeal(dealId, quotes = null, rules = null) {
+  const deal = await call('GET', `/crm/v3/objects/deals/${dealId}?properties=${SYNC_PROPS}`);
+  quotes = quotes || (await dealQuotes(dealId));
   const d = deal.properties || {};
   const current = quotes.find((q) => q.id === d.of_quote_id) || null;
-  let properties = {};
+  const properties = {};
   if (d.of_quote_id && !current) {
     // The order form quote was deleted in HubSpot: forget it, so the card offers a new one.
-    properties = { of_quote_id: '', of_quote_status: '', of_status: 'draft', of_changed_after_quote: '' };
-    for (const k of await patchDeal(dealId, properties)) delete properties[k];
+    Object.assign(properties, { of_quote_id: '', of_quote_status: '', of_status: 'draft', of_changed_after_quote: '', of_locked: 'false' });
   } else if (current) {
     const want = { of_quote_status: current.state, of_status: DEAL_STATUS[current.state] };
     if (current.signedAt) want.of_signed_at = current.signedAt;
+    if ((current.state === 'sent' || current.state === 'signed') && !d.of_sent_at) want.of_sent_at = new Date().toISOString();
+    const unlockedFor = parseJson(d.of_lock_log)?.unlockedQuoteId || '';
+    const shouldLock = ['awaiting_approval', 'sent', 'signed'].includes(current.state) && unlockedFor !== current.id;
+    want.of_locked = shouldLock ? 'true' : 'false';
     for (const [k, val] of Object.entries(want)) if ((d[k] || '') !== val && !(k === 'of_signed_at' && Date.parse(d[k] || '') === Date.parse(val))) properties[k] = val;
-    if (Object.keys(properties).length) for (const k of await patchDeal(dealId, properties)) delete properties[k];
+    if (current.state === 'signed' && !d.of_signed_snapshot) {
+      properties.of_signed_snapshot = JSON.stringify(await signedSnapshot(current.id, d));
+      const closeWon = String((rules ?? (await readRulesQuietly())).on_signature_close_won ?? 'yes') !== 'no';
+      if (closeWon && d.pipeline) {
+        const stage = await closedWonStage(d.pipeline);
+        if (stage && stage !== d.dealstage) properties.dealstage = stage;
+      }
+    }
   }
+  if (Object.keys(properties).length) {
+    const writable = { ...properties };
+    if (writable.dealstage) {
+      // dealstage isn't an order form field, so write it on its own.
+      await call('PATCH', `/crm/v3/objects/deals/${dealId}`, { properties: { dealstage: writable.dealstage } }).catch(() => delete properties.dealstage);
+      delete writable.dealstage;
+    }
+    for (const k of await patchDeal(dealId, writable)) delete properties[k];
+  }
+  return { current, quotes, properties };
+}
+
+async function readRulesQuietly() {
+  try {
+    return (await readSettings()).rules;
+  } catch {
+    return {};
+  }
+}
+
+async function quote({ dealId }) {
+  if (!isId(dealId)) return fail(400, 'No deal id');
+  const [quotes, t] = await Promise.all([dealQuotes(dealId), quoteTemplates()]);
+  const { current, properties } = await syncDeal(dealId, quotes);
   return { statusCode: 200, body: { ok: true, quotes, current, live: quotes.filter((q) => LIVE.has(q.state)), properties, ...t } };
+}
+
+/**
+ * Bring the most recently changed deals with an order form quote out for signature in step, so a
+ * deal is marked signed (and closed won) even if nobody opens its card. The card calls this in the
+ * background; a HubSpot workflow could call it on a schedule too.
+ */
+async function sweep() {
+  const res = await call('POST', '/crm/v3/objects/deals/search', {
+    filterGroups: [{ filters: [{ propertyName: 'of_quote_id', operator: 'HAS_PROPERTY' }, { propertyName: 'of_status', operator: 'IN', values: ['ready_to_send', 'sent', 'ready_for_juro', 'sent_to_juro'] }] }],
+    properties: ['of_quote_id'],
+    sorts: [{ propertyName: 'hs_lastmodifieddate', direction: 'DESCENDING' }],
+    limit: 10,
+  });
+  const rules = await readRulesQuietly();
+  const changed = [];
+  const ids = (res.results || []).map((d) => String(d.id));
+  for (let i = 0; i < ids.length; i += 5) {
+    const results = await Promise.all(ids.slice(i, i + 5).map((id) => syncDeal(id, null, rules).then((r) => ({ id, r })).catch(() => null)));
+    for (const x of results) if (x && Object.keys(x.r.properties).length) changed.push({ dealId: x.id, properties: x.r.properties });
+  }
+  return { statusCode: 200, body: { ok: true, checked: ids.length, changed } };
+}
+
+/**
+ * { dealId, reason, user } Unlock a locked order form so it can be changed (e.g. to send a new
+ * version). Legal editors, rules editors and the Finance approver can unlock. Logged on the deal.
+ */
+async function unlock({ dealId, reason, user: claimed = {} }, context = {}) {
+  if (!isId(dealId)) return fail(400, 'No deal id');
+  if (!String(reason || '').trim()) return fail(400, 'Give a reason for unlocking.');
+  const who = await actor(context, claimed);
+  if (who.error) return who.error;
+  const rules = await readRulesQuietly();
+  const allowed = [rules.legal_editors, rules.rules_editors, rules.approver_finance].some((list) => listHas(list ?? '', who.email));
+  if (!allowed) return fail(403, 'Only legal editors, rules editors or the Finance approver can unlock an order form.');
+  const deal = await call('GET', `/crm/v3/objects/deals/${dealId}?properties=of_quote_id,of_lock_log,of_quote_status`);
+  const d = deal.properties || {};
+  if (d.of_quote_status === 'signed') return fail(409, "A signed order form can't be unlocked. Changes after signature need a new deal (an expansion or amendment).");
+  const log = parseJson(d.of_lock_log) || {};
+  const entry = { action: 'unlocked', quoteId: d.of_quote_id || '', reason: String(reason), by: who.name, email: who.email, verified: who.verified, at: new Date().toISOString() };
+  const next = { unlockedQuoteId: d.of_quote_id || '', entries: [...(log.entries || []), entry] };
+  const properties = { of_locked: 'false', of_lock_log: JSON.stringify(next), of_changed_after_quote: 'true' };
+  const skipped = await patchDeal(dealId, properties);
+  for (const k of skipped) delete properties[k];
+  return { statusCode: 200, body: { ok: true, properties, warning: skippedNote(skipped) } };
+}
+
+/** What the function knows about the caller and itself, for the card's system check. */
+async function whoami(params, context = {}) {
+  const session = await sessionUser(context);
+  return { statusCode: 200, body: { ok: true, version: VERSION, session, contextKeys: Object.keys(context || {}).filter((k) => k !== 'parameters' && !/secret|token/i.test(k)) } };
 }
 
 /**
@@ -454,6 +618,8 @@ async function createQuote(params) {
   if (!isId(templateId)) return fail(400, 'Choose a quote template');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(expirationDate || ''))) return fail(400, 'The offer expiry date is needed for the quote');
   if (!isId(signerContactId)) return fail(400, 'Pick the counterparty signer from a deal contact so they can e-sign');
+  const lockState = await call('GET', `/crm/v3/objects/deals/${dealId}?properties=of_locked`).catch(() => null);
+  if (lockState?.properties?.of_locked === 'true') return fail(423, 'This order form is locked. Unlock it (with a reason) before creating a new version.');
 
   const [quotes, contactIds, companyIds] = await Promise.all([dealQuotes(dealId), associatedIds(dealId, 'contacts'), associatedIds(dealId, 'companies')]);
   if (!contactIds.includes(String(signerContactId))) return fail(400, "The counterparty signer isn't a contact on this deal");
@@ -524,6 +690,7 @@ async function createQuote(params) {
     of_quote_status: 'draft',
     of_status: 'ready_to_send',
     of_changed_after_quote: 'false',
+    of_locked: 'false',
     of_ready_at: new Date().toISOString(),
     of_ready_by: String(sender.email || ''),
   };
@@ -572,7 +739,15 @@ async function requestApproval({ dealId, request, requestedBy }) {
   const deal = await call('GET', `/crm/v3/objects/deals/${dealId}?properties=dealname`);
   const dealname = deal.properties?.dealname || 'deal';
   const problems = [];
-  const record = { fingerprint: String(request.fingerprint || ''), reasons, requestedBy: String(requestedBy || ''), requestedAt: new Date().toISOString(), roles: {} };
+  const previous = parseJson((await call('GET', `/crm/v3/objects/deals/${dealId}?properties=of_approval`).catch(() => ({})))?.properties?.of_approval);
+  const record = {
+    fingerprint: String(request.fingerprint || ''),
+    reasons,
+    requestedBy: String(requestedBy || ''),
+    requestedAt: new Date().toISOString(),
+    roles: {},
+    history: [...(previous?.history || []), { requested: reasons.map((r) => r.label), by: String(requestedBy || ''), at: new Date().toISOString() }],
+  };
   for (const role of roles) {
     const approver = request.approvers[role];
     const entry = { approver: { id: String(approver.id || ''), email: String(approver.email), name: String(approver.name || approver.email) }, status: 'pending' };
@@ -604,8 +779,11 @@ async function requestApproval({ dealId, request, requestedBy }) {
 }
 
 /** { dealId, role, decision: 'approved' | 'rejected', note, user: { email, name } } */
-async function decideApproval({ dealId, role, decision, note, user = {} }) {
+async function decideApproval({ dealId, role, decision, note, user: claimed = {} }, context = {}) {
   if (!isId(dealId)) return fail(400, 'No deal id');
+  const who = await actor(context, claimed);
+  if (who.error) return who.error;
+  const user = { email: who.email, name: who.name };
   if (!['approved', 'rejected'].includes(decision)) return fail(400, 'Approve or reject');
   const deal = await call('GET', `/crm/v3/objects/deals/${dealId}?properties=of_approval`);
   const record = parseJson(deal.properties?.of_approval);
@@ -613,7 +791,9 @@ async function decideApproval({ dealId, role, decision, note, user = {} }) {
   if (!entry) return fail(409, 'There is no approval request for that on this deal. Refresh the card.');
   if (String(entry.approver.email).toLowerCase() !== String(user.email || '').toLowerCase())
     return fail(403, `Only ${entry.approver.name} can approve this for ${ROLE_NAME[role] || role}`);
-  Object.assign(entry, { status: decision, by: String(user.name || user.email), at: new Date().toISOString(), note: String(note || '') });
+  Object.assign(entry, { status: decision, by: String(user.name || user.email), at: new Date().toISOString(), note: String(note || ''), verified: who.verified });
+  if (decision === 'rejected' && !String(note || '').trim()) return fail(400, 'Add a note saying why, so the rep knows what to change.');
+  record.history = [...(record.history || []), { role, decision, by: entry.by, at: entry.at, note: entry.note, verified: who.verified }];
   if (entry.taskId) await call('PATCH', `/crm/v3/objects/tasks/${entry.taskId}`, { properties: { hs_task_status: 'COMPLETED' } }).catch(() => {});
 
   const all = Object.values(record.roles);
@@ -704,7 +884,10 @@ const listHas = (list, email) =>
  * Rules need a rules editor; clauses need a legal editor (both lists are themselves rules).
  * Writes the HubDB drafts and publishes, so every card picks the change up straight away.
  */
-async function saveSettings({ rules = null, clauses = null, user = {} }) {
+async function saveSettings({ rules = null, clauses = null, user: claimed = {} }, context = {}) {
+  const acting = await actor(context, claimed);
+  if (acting.error) return acting.error;
+  const user = { email: acting.email, name: acting.name };
   let current;
   try {
     current = await readSettings();
@@ -742,9 +925,12 @@ async function saveSettings({ rules = null, clauses = null, user = {} }) {
   return { statusCode: 200, body: { ok: true, source: 'hubdb', rules: fresh.rules, library: fresh.library } };
 }
 
-exports.main = async (context) => {
+exports.main = async (context = {}) => {
   const params = context.parameters || {};
   try {
+    if (params.action === 'whoami') return await whoami(params, context);
+    if (params.action === 'sweep') return await sweep();
+    if (params.action === 'unlock') return await unlock(params, context);
     if (params.action === 'save') return await save(params);
     if (params.action === 'pricing') return await pricing(params);
     if (params.action === 'parties') return await parties(params);
@@ -752,9 +938,9 @@ exports.main = async (context) => {
     if (params.action === 'quote') return await quote(params);
     if (params.action === 'create_quote') return await createQuote(params);
     if (params.action === 'request_approval') return await requestApproval(params);
-    if (params.action === 'decide_approval') return await decideApproval(params);
+    if (params.action === 'decide_approval') return await decideApproval(params, context);
     if (params.action === 'settings') return await settings();
-    if (params.action === 'save_settings') return await saveSettings(params);
+    if (params.action === 'save_settings') return await saveSettings(params, context);
     return fail(400, 'Unknown action');
   } catch (e) {
     return fail(e.status || 500, e.message || 'Something went wrong');

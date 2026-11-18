@@ -34,6 +34,7 @@ import {
   hubspot,
 } from '@hubspot/ui-extensions';
 import { useRecordProperties, type CrmActions } from './lib/hooks.ts';
+import { CARD_VERSION } from './version.ts';
 import ORDER_FORM_PROPERTIES from './orderform/properties.json';
 import {
   CONTEXT,
@@ -110,6 +111,7 @@ hubspot.extend<'crm.record.tab'>(({ actions, context }) => (
 ));
 
 const FN = 'save_order_form';
+let swept = false;
 type Def = { name: string; label: string; options?: { label: string; value: string }[] };
 const DEFS = Object.fromEntries((ORDER_FORM_PROPERTIES as Def[]).map((d) => [d.name, d]));
 const PROPS = [...(ORDER_FORM_PROPERTIES as Def[]).map((d) => d.name), ...REUSED, ...CONTEXT];
@@ -238,6 +240,10 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
   const [approving, setApproving] = React.useState(false);
   /** Where the rules and Terms library came from (HubDB, or the built-in defaults), and a counter so a change re-renders. */
   const [settingsInfo, setSettingsInfo] = React.useState<{ source: string; error?: string; n: number }>({ source: 'loading', n: 0 });
+  /** What the app function reports about itself and the signed-in user (system check). */
+  const [system, setSystem] = React.useState<{ version: string; session: { email: string; id: string; source: string }; contextKeys: string[] } | null>(null);
+  const [unlockReason, setUnlockReason] = React.useState('');
+  const [unlocking, setUnlocking] = React.useState(false);
   const [signersError, setSignersError] = React.useState('');
   /** The open tab. Only the rep (or a still-needed link) changes it: filling a field never moves them on. */
   const [tab, setTab] = React.useState<TabKey>('deal');
@@ -280,6 +286,14 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
         setLastApprovers(b.lastApprovers ?? {});
       })
       .catch((e: Error) => setSignersError(e.message));
+    call({ action: 'whoami' })
+      .then((b) => setSystem(b as never))
+      .catch(() => setSystem(null));
+    // Bring recent deals with a quote out for signature in step (signed → closed won), once per page.
+    if (!swept) {
+      swept = true;
+      call({ action: 'sweep' }).catch(() => {});
+    }
     call({ action: 'settings' })
       .then((b) => {
         const body = b as Body & { source?: string; rules?: Rules; library?: Clause[]; error?: string };
@@ -542,6 +556,41 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
     }
   };
 
+  // Locked while the quote is out for signature or signed: no edits until someone allowed unlocks it.
+  const locked = v.of_locked === 'true';
+  const canUnlock = isLegalEditor(user.email) || isRulesEditor(user.email) || rule('approver_finance').toLowerCase() === user.email.toLowerCase();
+  const doUnlock = async () => {
+    setUnlocking(true);
+    try {
+      const b = await call({ action: 'unlock', dealId, reason: unlockReason, user: { email: user.email, name: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email } });
+      setSaved((x) => ({ ...x, ...(b.properties ?? {}) }));
+      setUnlockReason('');
+      actions.addAlert({ type: 'success', message: 'Unlocked. Make the changes, save, then create a new version of the quote.' });
+    } catch (e) {
+      actions.addAlert({ type: 'danger', message: `Couldn't unlock: ${(e as Error).message}` });
+    } finally {
+      setUnlocking(false);
+    }
+  };
+  // What was signed, and whether the deal's line items still match it.
+  const snapshot = (() => {
+    try {
+      return v.of_signed_snapshot ? (JSON.parse(String(v.of_signed_snapshot)) as { title: string; signedAt: string; link?: string; lines: { productId: string; name: string; quantity: string; price: string; discountPct: string; discount: string }[] }) : null;
+    } catch {
+      return null;
+    }
+  })();
+  const drift =
+    snapshot && pricing
+      ? (() => {
+          const key = (x: { productId?: string; name?: string; quantity?: string | number; price?: string | number; discountPct?: string | number; discount?: string | number }) =>
+            [x.productId || x.name, Number(x.quantity || 0), Number(x.price || 0), Number(x.discountPct || 0), Number(x.discount || 0)].join('|');
+          const signed = snapshot.lines.map(key).sort();
+          const now = pricing.lines.map((l) => key({ productId: String(l.properties.hs_product_id ?? ''), name: String(l.properties.name ?? ''), quantity: String(l.properties.quantity ?? ''), price: String(l.properties.price ?? ''), discountPct: String(l.properties.hs_discount_percentage ?? ''), discount: String(l.properties.discount ?? '') })).sort();
+          return signed.join(',') !== now.join(',');
+        })()
+      : false;
+
   const missingIn = (s: Section) => r.missing.filter((g) => g.section === s);
   const reveal = (k: Section) => setTab(tabOf(k));
   const done = r.required - r.missing.length;
@@ -613,9 +662,39 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
         </Alert>
       )}
 
-      <Actions dirty={dirty} saving={saving} onSave={() => save()} />
+      {locked && (
+        <Alert title={`Locked: the order form quote has been ${status === 'signed' ? 'signed' : 'sent for signature'}`} variant="info">
+          <Flex direction="column" gap="xs">
+            <Text>
+              {status === 'signed'
+                ? "It can't be changed. Changes after signature need a new deal (an expansion or amendment)."
+                : 'Nothing here can be changed while the client has it. To change it, unlock with a reason, make the changes, save, then create a new version of the quote.'}
+            </Text>
+            {status !== 'signed' && canUnlock && (
+              <Flex direction="row" gap="sm" align="end" wrap="wrap">
+                <Input name="unlock-reason" label="Reason for unlocking" value={unlockReason} onChange={setUnlockReason} />
+                <LoadingButton size="sm" variant="secondary" loading={unlocking} disabled={!unlockReason.trim()} onClick={doUnlock}>
+                  Unlock
+                </LoadingButton>
+              </Flex>
+            )}
+            {status !== 'signed' && !canUnlock && <Text variant="microcopy">Legal, a rules editor or the Finance approver can unlock it.</Text>}
+          </Flex>
+        </Alert>
+      )}
+      {snapshot && (
+        <Alert title={drift ? "The deal's line items no longer match what was signed" : 'Signed'} variant={drift ? 'danger' : 'success'}>
+          <Text>
+            {drift
+              ? `${snapshot.title} was signed ${shortDate(new Date(snapshot.signedAt))} with different products, quantities, prices or discounts. The signed version is kept on the deal; put the line items back, or record the change as a new order.`
+              : `${snapshot.title}, signed ${shortDate(new Date(snapshot.signedAt))}. A copy of exactly what was signed is kept on the deal.`}
+          </Text>
+        </Alert>
+      )}
 
-      {approval.status !== 'not_needed' && (
+      {!locked && <Actions dirty={dirty} saving={saving} onSave={() => save()} />}
+
+      {!locked && approval.status !== 'not_needed' && (
         <ApprovalPanel
           state={approval}
           users={signers}
@@ -641,8 +720,10 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
         onTemplate={setTemplateId}
         onCreate={createQuote}
         onRefresh={loadQuote}
+        locked={locked}
       />
 
+      {!locked && (
       <Tabs variant="enclosed" selected={tab} onSelectedChange={(id: string | number) => setTab(String(id) as TabKey)}>
         {TABS.map((t) => {
           const gaps = t.sections.flatMap((k) => missingIn(k));
@@ -688,14 +769,19 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
           );
         })}
       </Tabs>
+      )}
 
       {dirty && (
         <Actions dirty={dirty} saving={saving} onSave={() => save()} />
       )}
 
       {(isRulesEditor(user.email) || isLegalEditor(user.email)) && (
-        <SettingsPanel key={settingsInfo.n} me={user.email} users={signers ?? []} source={settingsInfo.source} error={settingsInfo.error} onSave={saveSettings} />
+        <SettingsPanel key={settingsInfo.n} me={user.email} users={signers ?? []} source={settingsInfo.source} error={settingsInfo.error} onSave={saveSettings} system={system} />
       )}
+
+      <Text variant="microcopy">
+        {`Order form card ${CARD_VERSION}${system && system.version !== CARD_VERSION ? ` · app function ${system.version}: the two don't match, so part of an update didn't deploy. Upload again.` : ''}`}
+      </Text>
     </Flex>
   );
 }
@@ -740,6 +826,7 @@ function QuotePanel(p: {
   onTemplate: (id: string) => void;
   onCreate: (replaceQuoteId?: string) => void;
   onRefresh: () => void;
+  locked?: boolean;
 }) {
   const { v, info, current } = p;
   const [preview, setPreview] = React.useState(false);
@@ -748,7 +835,7 @@ function QuotePanel(p: {
   const ours = current && live.some((q) => q.id === current.id) ? current : null;
   const others = live.filter((q) => q.id !== ours?.id);
   const changed = v.of_changed_after_quote === 'true';
-  const canCreate = !p.missing && !p.dirty && !!p.templateId && !p.busy;
+  const canCreate = !p.missing && !p.dirty && !!p.templateId && !p.busy && !p.locked;
   const createLabel = p.missing ? `Create order form · ${p.missing} to fill` : p.dirty ? 'Save, then create the order form' : 'Create order form';
   const signer = String(v.of_protex_signer_name || 'the Protex signatory');
   const replaceLabel = ours?.state === 'draft' ? 'Replace the draft quote' : 'Create a new version';
@@ -1644,7 +1731,14 @@ const clauseLabel = (c: Clause) =>
     ? `Special term: ${c.title || c.id}${c.enabled === false ? ' (off)' : ''}`
     : `Terms ${c.section}${String.fromCharCode(64 + (c.position ?? 1))}${c.condition ? ` (${CONDITION_LABEL[c.condition] ?? c.condition})` : ''}`;
 
-function SettingsPanel(p: { me: string; users: Signer[]; source: string; error?: string; onSave: (x: { rules?: Rules; clauses?: Clause[] }) => Promise<boolean> }) {
+function SettingsPanel(p: {
+  me: string;
+  users: Signer[];
+  source: string;
+  error?: string;
+  onSave: (x: { rules?: Rules; clauses?: Clause[] }) => Promise<boolean>;
+  system: { version: string; session: { email: string; id: string; source: string }; contextKeys: string[] } | null;
+}) {
   const [open, setOpen] = React.useState(false);
   const [rules, setRules] = React.useState<Rules>({ ...getRules() });
   const [savingRules, setSavingRules] = React.useState(false);
@@ -1677,6 +1771,15 @@ function SettingsPanel(p: { me: string; users: Signer[]; source: string; error?:
               </Text>
             </Alert>
           )}
+          <Flex direction="column" gap="xs">
+            <SubHead>System check</SubHead>
+            <Text variant="microcopy">{`Card ${CARD_VERSION} · app function ${p.system?.version ?? 'not reachable'}${p.system && p.system.version !== CARD_VERSION ? ' (mismatch: upload again)' : ''} · settings from ${p.source === 'hubdb' ? 'HubDB' : 'built-in defaults'}`}</Text>
+            <Text variant="microcopy">
+              {p.system?.session.email
+                ? `HubSpot identifies you to the app as ${p.system.session.email}, so approvals, unlocking and settings changes are checked against your real login.`
+                : `HubSpot didn't tell the app who's signed in${p.system ? ` (it passed: ${p.system.contextKeys.join(', ') || 'nothing'})` : ''}, so approvals, unlocking and settings changes trust the card. They're recorded as unverified.`}
+            </Text>
+          </Flex>
           {canRules && (
             <Flex direction="column" gap="sm">
               <SubHead>Rules (leadership)</SubHead>
@@ -1695,6 +1798,16 @@ function SettingsPanel(p: { me: string; users: Signer[]; source: string; error?:
                   value={rules.auto_renew_off_role || 'legal'}
                   options={ROLE_OPTIONS}
                   onChange={(x) => setRule('auto_renew_off_role', String(x ?? ''))}
+                />
+                <Select
+                  name="rule-closewon"
+                  label="On signature, move the deal to Closed Won"
+                  value={rules.on_signature_close_won === 'no' ? 'no' : 'yes'}
+                  options={[
+                    { label: 'Yes', value: 'yes' },
+                    { label: 'No', value: 'no' },
+                  ]}
+                  onChange={(x) => setRule('on_signature_close_won', String(x ?? 'yes'))}
                 />
                 {(['finance', 'legal', 'sales'] as Role[]).map((r) => (
                   <Select

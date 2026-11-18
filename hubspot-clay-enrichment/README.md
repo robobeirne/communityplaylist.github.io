@@ -95,6 +95,7 @@ src/app/cards/
   discovery/guide.ts              level descriptions and what counts, per question
   order-form-hsmeta.json          deal record tab card definition
   OrderForm.tsx                   order form card
+  version.ts                      card build version (bump with VERSION in save-order-form.js)
   orderform/calc.ts               sites, totals, Juro fields and readiness (unit tested)
   orderform/lines.ts              line item pricing, discounts and checks (unit tested)
   orderform/terms.ts              order form quote wording: comments and terms (unit tested)
@@ -119,6 +120,8 @@ scripts/deal-properties.json      deal property definitions (generated)
 scripts/create-deal-properties.mjs creates the deal properties
 scripts/build-order-form-properties.py regenerates the order form properties
 scripts/create-hubdb-tables.mjs   creates the HubDB settings tables (rules, Terms library)
+scripts/check-setup.mjs           checks (and with --fix creates) properties, HubDB tables and products
+scripts/live-test.mjs             runs the app function end to end against real HubSpot, then cleans up
 scripts/build-hubdb-seed.ts       regenerates scripts/hubdb-seed.json from settings.ts
 ```
 

@@ -31,6 +31,7 @@ const LINE = (id: string, productId: string, quantity: number, extra: Record<str
   };
 };
 let dealLines: ReturnType<typeof LINE>[] = [];
+let functionVersion = 'v21';
 let asUser = { email: 'rep@protex.ai', firstName: 'Rob', lastName: 'Rep' };
 let currentApproval = '';
 const approvalAfterDecision = (p: any) => {
@@ -69,6 +70,9 @@ g.serverless = async (name: string, opts: { parameters: Record<string, any> }) =
       },
     };
   }
+  if (opts.parameters.action === 'whoami') return { statusCode: 200, body: { ok: true, version: functionVersion, session: { email: '', id: '', source: '' }, contextKeys: ['accountId'] } };
+  if (opts.parameters.action === 'sweep') return { statusCode: 200, body: { ok: true, checked: 0, changed: [] } };
+  if (opts.parameters.action === 'unlock') return { statusCode: 200, body: { ok: true, properties: { of_locked: 'false', of_changed_after_quote: 'true' } } };
   if (opts.parameters.action === 'settings') return { statusCode: 200, body: { ok: true, source: 'hubdb', rules: {}, library: [] } };
   if (opts.parameters.action === 'save_settings') return { statusCode: 200, body: { ok: true, source: 'hubdb', rules: opts.parameters.rules ?? {}, library: opts.parameters.clauses ?? [] } };
   if (opts.parameters.action === 'request_approval') {
@@ -110,7 +114,7 @@ async function renderWith(props: Record<string, string>, lines: ReturnType<typeo
   r.render(<OrderForm actions={r.mocks.actions as never} dealId="77" portalId="24888392" user={asUser} />);
   await r.waitFor(() => assert.ok(r.maybeFind(Heading)));
   await r.waitFor(() => assert.ok(!texts(r).join(' ').includes('Line items (loading)')));
-  await r.waitFor(() => assert.ok(button(r, 'Fill from the company')));
+  if (props.of_locked !== 'true') await r.waitFor(() => assert.ok(button(r, 'Fill from the company')));
   await r.waitFor(() => assert.ok(!texts(r).includes("Checking the deal's quotes") && texts(r).includes('Order form quote')));
   return r;
 }
@@ -484,6 +488,38 @@ assert.ok(texts(r).join(' ').includes('Client redlines (round 1): resolve them')
 button(r, 'Mark round 1 resolved')!.trigger('onClick');
 await r.waitFor(() => assert.ok(button(r, 'The client sent redlines')));
 console.log('contract wording: reps amend (Legal approval), client redline rounds are logged and block sending until resolved');
+
+// Version footer, and a warning if the app function didn't deploy with the card.
+r = await renderWith({ ...complete }, COMPLETE_LINES);
+assert.ok(texts(r).includes('Order form card v21'));
+functionVersion = 'v20';
+r = await renderWith({ ...complete }, COMPLETE_LINES);
+await r.waitFor(() => assert.ok(texts(r).some((t) => t.startsWith("Order form card v21 · app function v20: the two don't match"))));
+functionVersion = 'v21';
+
+// Locked while the quote is out: no editing; legal can unlock with a reason.
+const SENT_Q = { id: '950', title: 'Northbridge | Order form', state: 'sent', expires: '', link: '' };
+r = await renderWith({ ...complete, of_status: 'sent', of_quote_id: '950', of_locked: 'true' }, COMPLETE_LINES, [SENT_Q]);
+assert.ok(r.findAll(Alert).some((a) => a.props.title === 'Locked: the order form quote has been sent for signature'));
+assert.equal(r.findAll(Tabs).length, 0, 'no editing while locked');
+assert.equal(field(r, 'unlock-reason'), undefined, 'reps cannot unlock');
+assert.ok(texts(r).includes('Legal, a rules editor or the Finance approver can unlock it.'));
+asUser = { email: 'jemima.davison@protex.ai', firstName: 'Jemima', lastName: 'Davison' };
+r = await renderWith({ ...complete, of_status: 'sent', of_quote_id: '950', of_locked: 'true' }, COMPLETE_LINES, [SENT_Q]);
+field(r, 'unlock-reason').trigger('onChange', 'Client asked for Net 45' as never);
+await r.waitFor(() => assert.equal(button(r, 'Unlock')?.props.disabled, false));
+button(r, 'Unlock')!.trigger('onClick');
+await r.waitFor(() => assert.equal(r.findAll(Tabs).length, 1, 'editable again after unlocking'));
+assert.equal([...calls].reverse().find((c) => c.parameters.action === 'unlock')!.parameters.reason, 'Client asked for Net 45');
+asUser = { email: 'rep@protex.ai', firstName: 'Rob', lastName: 'Rep' };
+
+// Signed: the snapshot is shown, and the card warns if the deal's line items drift from it.
+const snap = (qty: string) => JSON.stringify({ title: 'Northbridge | Order form', signedAt: '2026-11-20T10:00:00Z', lines: COMPLETE_LINES.map((l) => ({ productId: l.properties.hs_product_id, name: l.properties.name, quantity: l.id === '501' ? qty : l.properties.quantity, price: l.properties.price, discountPct: '', discount: '' })) });
+r = await renderWith({ ...complete, of_status: 'signed', of_quote_id: '950', of_locked: 'true', of_signed_snapshot: snap('3') }, COMPLETE_LINES, [{ ...SENT_Q, state: 'signed' }]);
+assert.ok(r.findAll(Alert).some((a) => a.props.title === 'Signed'));
+r = await renderWith({ ...complete, of_status: 'signed', of_quote_id: '950', of_locked: 'true', of_signed_snapshot: snap('2') }, COMPLETE_LINES, [{ ...SENT_Q, state: 'signed' }]);
+assert.ok(r.findAll(Alert).some((a) => a.props.title === "The deal's line items no longer match what was signed"));
+console.log('version footer; locked while out for signature (legal unlocks with a reason); signed snapshot with drift warning');
 
 // New business: the free standard rows are added once, never for renewals, never again once recorded.
 extraProducts = INCLUSIONS;

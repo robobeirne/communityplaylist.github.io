@@ -195,6 +195,30 @@ The quote prints the amended wording. Removed clauses drop out and the sections 
 
 The **Change history** lists every amendment, removal, reversion and rejection, with round, who, when and why. It's stored on the deal in `of_amendments`, with a readable summary in `of_amendment_summary`.
 
+## Locking, signature and the signed snapshot
+
+- **Locked while out for signature.** Once the order form quote is published (or awaiting approval), the card stops showing the editing tabs and the app refuses changes to the order form and its line items.
+- **Unlocking.** To change something, a legal editor, a rules editor or the Finance approver unlocks it with a reason (logged in `of_lock_log`), makes the change, saves, and creates a new version of the quote.
+- **Signed means final.** A signed order form can't be unlocked; changes after signature need a new deal.
+- **At signature, automatically:**
+  - status Signed and `of_signed_at`;
+  - the deal moves to its pipeline's closed-won stage (switch this off with the "On signature, move the deal to Closed Won" rule);
+  - a frozen copy of exactly what was signed goes in `of_signed_snapshot`: the quote, pricing lines, Comments and Terms, approvals and amendments.
+- **Line item changes after signature.** HubSpot's own Line items card can still edit line items, so the order form card compares them with the signed copy and warns if they no longer match.
+- **No need to open the card.** Every time anyone opens an order form card, it also checks the 10 most recently changed deals with a quote out for signature and brings them up to date, so signed deals are marked Signed and Closed Won without anyone opening them. `of_sent_at` records when a quote first went out.
+
+## Version and system check
+
+- **Version.** The bottom of the card shows its version (e.g. "Order form card v21"). If the app function behind it reports a different version, part of an update didn't deploy, and the card says so.
+- **System check.** For editors, **System check** in Order form settings shows the versions, where the settings come from, and whether HubSpot tells the app who's signed in.
+- **When HubSpot identifies the user,** approvals, unlocking and settings changes are checked against that login, and a mismatch is refused.
+- **When it doesn't,** they rely on the card and are recorded as unverified.
+
+## Setup check and live test
+
+- `node scripts/check-setup.mjs` checks every order form property, the HubDB tables and their default rows, and the automatic products. `--fix` creates what's missing. The key needs `crm.schemas.deals.write`, `hubdb.tables.read`, `hubdb.tables.write` and `e-commerce`.
+- `node scripts/live-test.mjs` runs the app's own code against your real HubSpot: test deal and contact, pricing, save with a line item, settings, quote templates, create and replace the order form quote, an approval request with a task, and the sweep. It then deletes what it made (`--keep` to leave it). It prints PASS or FAIL with HubSpot's error for each step. The key needs the same permissions as the app.
+
 ## MSAs and Juro
 
 - **Existing MSA:** the order form is governed by it. Enter its date.
@@ -353,6 +377,7 @@ The dropdowns store values like `annually_in_advance` and show labels like "Annu
 
 From the `protex-account-intel` folder:
 
+0. **Quickest way to set up or check any version:** `node scripts/check-setup.mjs --fix`, then upload, then confirm the version at the bottom of the card. v21 adds 4 properties (`of_sent_at`, `of_locked`, `of_lock_log`, `of_signed_snapshot`) and one rule (`on_signature_close_won`).
 0. **For deal amendments and redlines:** run step 1 to create the 2 new properties (`of_amendments`, `of_amendment_summary`), then upload. No new permissions.
 0. **For the settings (rules and Terms library):** create the HubDB tables with a service key that has the `hubdb.tables.read` and `hubdb.tables.write` scopes:
    ```

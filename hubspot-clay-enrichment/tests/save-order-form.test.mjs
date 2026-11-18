@@ -31,8 +31,9 @@ test('save writes order form fields and the reused deal fields, nothing else', a
     },
   });
   assert.equal(res.statusCode, 200);
-  assert.equal(sent[0].auth, 'Bearer test-token');
-  assert.deepEqual(sent[0].body, { properties: { of_client_legal_name: 'Northbridge Ltd', deal_currency_code: 'GBP', amount: '5', of_legal_notes: '' } }, 'Amount is allowed (set from the line items); stage and close date are not');
+  const patch0 = sent.find((x) => x.method === 'PATCH');
+  assert.equal(patch0.auth, 'Bearer test-token');
+  assert.deepEqual(patch0.body, { properties: { of_client_legal_name: 'Northbridge Ltd', deal_currency_code: 'GBP', amount: '5', of_legal_notes: '' } }, 'Amount is allowed (set from the line items); stage and close date are not');
 });
 
 test('save rejects a bad deal id or nothing to save', async () => {
@@ -348,7 +349,7 @@ test('save skips deal properties that do not exist yet instead of failing', asyn
   assert.equal(res.body.ok, true);
   assert.match(res.body.warning, /skipped: of_standard_inclusions_added, of_msa_status/);
   assert.deepEqual(res.body.properties, { of_client_legal_name: 'Lennox' });
-  assert.deepEqual(sent[1].body.properties, { of_client_legal_name: 'Lennox' }, 'retried without the missing ones');
+  assert.deepEqual(sent.filter((x) => x.method === 'PATCH')[1].body.properties, { of_client_legal_name: 'Lennox' }, 'retried without the missing ones');
 
   stub([['PATCH', /objects\/deals\/77$/, { __status: 400, message: 'Some other validation error' }]]);
   const other = await main({ parameters: { action: 'save', dealId: '77', properties: { of_client_legal_name: 'Lennox' } } });
@@ -366,7 +367,7 @@ test('quote: forgets an order form quote that was deleted in HubSpot', async () 
   const res = await main({ parameters: { action: 'quote', dealId: '77' } });
   assert.equal(res.body.current, null);
   assert.deepEqual(res.body.live.map((q) => q.id), ['451645967574'], 'the manual draft is still reported, so the card can offer to replace it');
-  assert.deepEqual(sent.find((s) => s.method === 'PATCH').body.properties, { of_quote_id: '', of_quote_status: '', of_status: 'draft', of_changed_after_quote: '' });
+  assert.deepEqual(sent.find((s) => s.method === 'PATCH').body.properties, { of_quote_id: '', of_quote_status: '', of_status: 'draft', of_changed_after_quote: '', of_locked: 'false' });
 });
 
 test('request_approval saves the request and gives each approver a task on the deal', async () => {
@@ -430,8 +431,11 @@ test('decide_approval: only the named approver decides; all approved completes i
     ['GET', /objects\/deals\/77\?properties=of_approval/, { properties: { of_approval: JSON.stringify(record) } }],
     ['PATCH', /objects\/(deals\/77|tasks\/9001)$/, {}],
   ]);
-  const rejected = await main({ parameters: { action: 'decide_approval', dealId: '77', role: 'finance', decision: 'rejected', user: { email: 'cfo@protex.ai' } } });
+  const noNote = await main({ parameters: { action: 'decide_approval', dealId: '77', role: 'finance', decision: 'rejected', user: { email: 'cfo@protex.ai' } } });
+  assert.equal(noNote.statusCode, 400, 'a rejection needs a note');
+  const rejected = await main({ parameters: { action: 'decide_approval', dealId: '77', role: 'finance', decision: 'rejected', note: 'Net 90 is too long', user: { email: 'cfo@protex.ai' } } });
   assert.equal(rejected.body.properties.of_approval_status, 'rejected');
+  assert.equal(JSON.parse(rejected.body.properties.of_approval).history.at(-1).note, 'Net 90 is too long', 'decisions are kept as history');
 });
 
 const RULE_ROWS = {
@@ -493,4 +497,86 @@ test('save_settings: only rules editors change rules, only legal editors change 
   assert.ok(sent.some((s) => /order_form_terms\/draft\/publish$/.test(s.url)));
   stub(routes());
   assert.equal((await main({ parameters: { action: 'save_settings', clauses: [{ id: 'tc_3d', body: 'x' }], user: { email: 'scott.cahill@protex.ai' } } })).statusCode, 403);
+});
+
+test('identity: when HubSpot names the signed-in user, the card cannot claim to be someone else', async () => {
+  const record = { fingerprint: 'fp', reasons: [], roles: { finance: { approver: { id: '1', email: 'cfo@protex.ai', name: 'Cara CFO' }, status: 'pending' } } };
+  stub([
+    ['GET', /objects\/deals\/77\?properties=of_approval/, { properties: { of_approval: JSON.stringify(record) } }],
+    ['PATCH', /objects\/deals\/77$/, {}],
+  ]);
+  const spoof = await main({ user: { email: 'rep@protex.ai' }, parameters: { action: 'decide_approval', dealId: '77', role: 'finance', decision: 'approved', user: { email: 'cfo@protex.ai' } } });
+  assert.equal(spoof.statusCode, 403, 'claimed email differs from the signed-in user');
+  const real = await main({ user: { email: 'cfo@protex.ai' }, parameters: { action: 'decide_approval', dealId: '77', role: 'finance', decision: 'approved', user: { email: 'cfo@protex.ai', name: 'Cara CFO' } } });
+  assert.equal(real.statusCode, 200);
+  assert.equal(JSON.parse(real.body.properties.of_approval).roles.finance.verified, true);
+
+  stub([['POST', /users\/search/, { results: [{ properties: { hs_email: 'cfo@protex.ai' } }] }]]);
+  const who = await main({ userId: 69128949, parameters: { action: 'whoami' } });
+  assert.deepEqual(who.body.session, { email: 'cfo@protex.ai', id: '69128949', source: 'user id' }, 'a user id is looked up');
+  assert.equal(who.body.version, 'v21');
+});
+
+test('locking: sent quotes lock the order form; saves are refused until unlocked with a reason', async () => {
+  stub([['GET', /objects\/deals\/77\?properties=of_locked/, { properties: { of_locked: 'true' } }]]);
+  const res = await main({ parameters: { action: 'save', dealId: '77', properties: { of_legal_notes: 'x' } } });
+  assert.equal(res.statusCode, 423);
+
+  const sent = stub([
+    ['GET', /hubdb\/tables\/order_form_rules\/rows/, { results: [{ id: '1', values: { key: 'legal_editors', value: 'jemima.davison@protex.ai' } }] }],
+    ['GET', /hubdb\/tables\/order_form_terms\/rows/, { results: [] }],
+    ['GET', /objects\/deals\/77\?properties=of_quote_id,of_lock_log/, { properties: { of_quote_id: '950', of_quote_status: 'sent' } }],
+    ['PATCH', /objects\/deals\/77$/, {}],
+  ]);
+  assert.equal((await main({ parameters: { action: 'unlock', dealId: '77', reason: '', user: { email: 'jemima.davison@protex.ai' } } })).statusCode, 400, 'a reason is required');
+  assert.equal((await main({ parameters: { action: 'unlock', dealId: '77', reason: 'Client asked for Net 45', user: { email: 'rep@protex.ai' } } })).statusCode, 403);
+  const ok = await main({ parameters: { action: 'unlock', dealId: '77', reason: 'Client asked for Net 45', user: { email: 'jemima.davison@protex.ai', name: 'Jemima Davison' } } });
+  assert.equal(ok.statusCode, 200);
+  const log = JSON.parse(ok.body.properties.of_lock_log);
+  assert.equal(log.unlockedQuoteId, '950');
+  assert.equal(log.entries[0].reason, 'Client asked for Net 45');
+  assert.equal(ok.body.properties.of_locked, 'false');
+});
+
+test('signature: snapshot of what was signed, deal moved to closed won, order form locked', async () => {
+  const sent = stub([
+    ['GET', /objects\/deals\/77\?properties=of_quote_id/, { properties: { of_quote_id: '901', of_status: 'sent', pipeline: 'default', dealstage: 'contractsent', deal_currency_code: 'USD', of_amendment_summary: '3D: amended' } }],
+    ['GET', /v4\/objects\/deals\/77\/associations\/quotes/, { results: [{ toObjectId: 901 }] }],
+    ['POST', /quotes\/batch\/read/, { results: [Q('901', { hs_status: 'APPROVAL_NOT_NEEDED', hs_esign_date: '1795000000000' })] }],
+    ['GET', /objects\/quotes\/901\?properties/, { properties: { hs_title: 'Lennox | Order form', hs_terms: '<h3>Terms</h3>', hs_comments: '<table></table>', hs_quote_amount: '200000', hs_currency: 'USD', hs_esign_date: '1795000000000' } }],
+    ['GET', /v4\/objects\/quotes\/901\/associations\/line_items/, { results: [{ toObjectId: 700 }] }],
+    ['POST', /line_items\/batch\/read/, { results: [{ id: '700', properties: { name: 'Licence', quantity: '4', price: '45000', hs_discount_percentage: '22.22', amount: '140000' } }] }],
+    ['GET', /hubdb/, { results: [] }],
+    ['GET', /pipelines\/deals\/default/, { stages: [{ id: 'contractsent', metadata: { isClosed: 'false', probability: '0.9' } }, { id: 'closedwon', metadata: { isClosed: 'true', probability: '1.0' } }, { id: 'closedlost', metadata: { isClosed: 'true', probability: '0.0' } }] }],
+    ['GET', /objects\/quote_template/, { results: [] }],
+    ['PATCH', /objects\/deals\/77$/, {}],
+  ]);
+  const res = await main({ parameters: { action: 'quote', dealId: '77' } });
+  assert.equal(res.statusCode, 200);
+  const patches = sent.filter((x) => x.method === 'PATCH').map((x) => x.body.properties);
+  assert.ok(patches.some((p) => p.dealstage === 'closedwon'), 'moved to the closed won stage');
+  const props = patches.find((p) => p.of_signed_snapshot);
+  const snap = JSON.parse(props.of_signed_snapshot);
+  assert.equal(snap.title, 'Lennox | Order form');
+  assert.equal(snap.terms, '<h3>Terms</h3>');
+  assert.deepEqual(snap.lines.map((l) => [l.name, l.quantity, l.price, l.discountPct]), [['Licence', '4', '45000', '22.22']]);
+  assert.equal(snap.amendments, '3D: amended');
+  assert.equal(props.of_locked, 'true');
+  assert.equal(props.of_status, 'signed');
+});
+
+test('sweep: checks recent deals with a quote out and syncs the ones that changed', async () => {
+  stub([
+    ['POST', /deals\/search/, { results: [{ id: '77' }] }],
+    ['GET', /hubdb/, { results: [] }],
+    ['GET', /objects\/deals\/77\?properties=of_quote_id/, { properties: { of_quote_id: '901', of_status: 'ready_to_send' } }],
+    ['GET', /v4\/objects\/deals\/77\/associations\/quotes/, { results: [{ toObjectId: 901 }] }],
+    ['POST', /quotes\/batch\/read/, { results: [Q('901', { hs_status: 'APPROVAL_NOT_NEEDED' })] }],
+    ['PATCH', /objects\/deals\/77$/, {}],
+  ]);
+  const res = await main({ parameters: { action: 'sweep' } });
+  assert.equal(res.body.checked, 1);
+  assert.equal(res.body.changed[0].properties.of_status, 'sent');
+  assert.equal(res.body.changed[0].properties.of_locked, 'true');
+  assert.ok(res.body.changed[0].properties.of_sent_at);
 });

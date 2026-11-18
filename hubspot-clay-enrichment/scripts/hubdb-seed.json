@@ -29,6 +29,10 @@
       "value": "scott.cahill@protex.ai"
     },
     {
+      "key": "on_signature_close_won",
+      "value": "yes"
+    },
+    {
       "key": "legal_editors",
       "value": "jemima.davison@protex.ai, aoife.harte@protex.ai"
     },

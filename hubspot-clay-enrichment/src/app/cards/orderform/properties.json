@@ -1063,6 +1063,48 @@
   },
   {
     "groupLabel": "Order form — Status",
+    "name": "of_sent_at",
+    "label": "Order form sent at",
+    "type": "datetime",
+    "fieldType": "date",
+    "description": "When the order form quote was first published for signature."
+  },
+  {
+    "groupLabel": "Order form — Status",
+    "name": "of_locked",
+    "label": "Order form locked",
+    "type": "bool",
+    "fieldType": "booleancheckbox",
+    "description": "Locked while the quote is out for signature or signed. Unlock on the card, with a reason, to change it.",
+    "options": [
+      {
+        "label": "Yes",
+        "value": "true"
+      },
+      {
+        "label": "No",
+        "value": "false"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Order form — Status",
+    "name": "of_lock_log",
+    "label": "Order form lock log (card data)",
+    "type": "string",
+    "fieldType": "textarea",
+    "description": "Who unlocked the order form, when and why, as JSON."
+  },
+  {
+    "groupLabel": "Order form — Status",
+    "name": "of_signed_snapshot",
+    "label": "Order form signed snapshot (card data)",
+    "type": "string",
+    "fieldType": "textarea",
+    "description": "What was signed, frozen at signature: quote, pricing lines, wording, approvals and amendments, as JSON."
+  },
+  {
+    "groupLabel": "Order form — Status",
     "name": "of_signed_at",
     "label": "Order form signed at",
     "type": "datetime",

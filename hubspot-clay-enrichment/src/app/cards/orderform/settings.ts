@@ -41,6 +41,7 @@ export const DEFAULT_RULES: Rules = {
   approver_finance: 'aoife.harte@protex.ai',
   approver_legal: 'aoife.harte@protex.ai',
   approver_sales: 'scott.cahill@protex.ai',
+  on_signature_close_won: 'yes',
   legal_editors: 'jemima.davison@protex.ai, aoife.harte@protex.ai',
   rules_editors: 'jemima.davison@protex.ai, aoife.harte@protex.ai, scott.cahill@protex.ai, rob.obeirne@protex.ai',
 };
