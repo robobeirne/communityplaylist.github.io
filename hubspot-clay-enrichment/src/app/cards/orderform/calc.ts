@@ -89,6 +89,8 @@ export function msaStatus(v: Values): string {
 
 export interface Site {
   name: string;
+  /** Delivery address: devices ship here (DAP). */
+  address: string;
   cameras: number;
   /** ISO date, or "" */
   goLive: string;
@@ -104,7 +106,7 @@ export function readSites(v: Values): Site[] {
     try {
       const list = JSON.parse(raw);
       if (Array.isArray(list))
-        return list.map((s) => ({ name: String(s?.name ?? ''), cameras: num(s?.cameras), goLive: String(s?.goLive ?? '') }));
+        return list.map((s) => ({ name: String(s?.name ?? ''), address: String(s?.address ?? ''), cameras: num(s?.cameras), goLive: String(s?.goLive ?? '') }));
     } catch {
       /* fall through to the numbered fields */
     }
@@ -113,15 +115,16 @@ export function readSites(v: Values): Site[] {
   const out: Site[] = [];
   for (let i = 1; i <= count; i++) {
     const d = parseDate(v[`of_site_${i}_go_live`]);
-    out.push({ name: String(v[`of_site_${i}_name`] ?? '').trim(), cameras: num(v[`of_site_${i}_cameras`]), goLive: d ? isoDate(d) : '' });
+    out.push({ name: String(v[`of_site_${i}_name`] ?? '').trim(), address: '', cameras: num(v[`of_site_${i}_cameras`]), goLive: d ? isoDate(d) : '' });
   }
   return out;
 }
 
 /**
  * A pasted site list, one site per line: "Leeds DC, 12, 2027-02-01". Cameras and the go-live date
- * are optional and are read from the end of the line, so a name can contain commas. Tabs work
- * too, so columns copied from a spreadsheet paste straight in.
+ * are optional and are read from the end of the line, so a name can contain commas. Columns copied
+ * from a spreadsheet (tab-separated) can also carry the delivery address:
+ * Name | Address | Cameras | Go-live.
  */
 export function parseSiteList(text: string): Site[] {
   return text
@@ -129,12 +132,15 @@ export function parseSiteList(text: string): Site[] {
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => {
-      const parts = line.split(/\t|,|;/).map((p) => p.trim()).filter((p, i, all) => p !== '' || i < all.length - 1);
+      const tabbed = line.includes('\t');
+      const parts = line.split(tabbed ? /\t/ : /,|;/).map((p) => p.trim());
+      while (parts.length > 1 && parts[parts.length - 1] === '') parts.pop();
       let goLive = '';
       let cameras = 0;
       if (parts.length > 1 && /^\d{4}-\d{2}-\d{2}$/.test(parts[parts.length - 1])) goLive = parts.pop()!;
       if (parts.length > 1 && /^\d+$/.test(parts[parts.length - 1])) cameras = Number(parts.pop());
-      return { name: parts.join(', ').trim(), cameras, goLive };
+      if (tabbed) return { name: parts[0] ?? '', address: parts.slice(1).filter(Boolean).join(', '), cameras, goLive };
+      return { name: parts.filter(Boolean).join(', ').trim(), address: '', cameras, goLive };
     })
     .filter((s) => s.name);
 }
@@ -147,6 +153,7 @@ export function siteSchedule(sites: Site[], staged: boolean, start: Date | null)
   return sites
     .map((s, idx) => {
       const parts = [`${idx + 1}. ${s.name || `Site ${idx + 1}`}`];
+      if (s.address) parts.push(s.address);
       if (s.cameras) parts.push(`${s.cameras} camera integration${s.cameras === 1 ? '' : 's'}`);
       const live = staged ? parseDate(s.goLive) : start;
       if (live) parts.push(`go-live ${longDate(live)}`);
@@ -260,7 +267,8 @@ export function readiness(v: Values, lines: Line[]): { missing: Gap[]; warnings:
   need('order', has('of_offer_expiry_date'), 'Offer expiry date');
   need('order', has('of_target_signature_date'), 'Target signature date');
   need('order', has('deal_currency_code'), 'Currency');
-  need('order', has('contract_start_date'), 'Contract start date');
+  // New business and expansions run from each site's Deployment Date; renewals have fixed dates.
+  if (v.of_order_type === 'renewal') need('order', has('contract_start_date'), 'Contract start date');
   need('order', has('term_year_length'), 'Contract term');
   need('order', has('of_billing_frequency'), 'Billing frequency');
   need('order', has('of_payment_terms'), 'Payment terms');
@@ -276,7 +284,7 @@ export function readiness(v: Values, lines: Line[]): { missing: Gap[]; warnings:
   need('client', has('of_client_legal_address'), "Client's legal entity address");
   need('client', has('of_client_contact_name'), 'Client contact name');
   need('client', has('of_client_contact_email'), 'Client contact email');
-  need('client', has('client_s_email_for_invoicing_'), 'Billing email');
+
   email('client', 'of_client_contact_email', 'Client contact email');
   email('client', 'client_s_email_for_invoicing_', 'Billing email');
 
@@ -287,6 +295,8 @@ export function readiness(v: Values, lines: Line[]): { missing: Gap[]; warnings:
   const start = parseDate(v.contract_start_date);
   s.sites.forEach((site, idx) => {
     need('sites', !!site.name, `Site ${idx + 1}: name`);
+    if (v.of_order_type !== 'renewal' && !site.address.trim())
+      warnings.push({ section: 'sites', label: `Site ${idx + 1}: no delivery address (devices ship there)` });
     if (staged) {
       need('sites', !!site.goLive, `Site ${idx + 1}: go-live date`);
       const live = parseDate(site.goLive);
@@ -313,9 +323,10 @@ export function readiness(v: Values, lines: Line[]): { missing: Gap[]; warnings:
   // Legal, MSA and signatures
   const msa = msaStatus(v);
   need('legal', !!msa, 'MSA status');
-  if (msa === 'existing_msa' || msa === 'signed_in_juro') need('legal', has('of_msa_date'), 'MSA date');
   if (msa === 'negotiating_in_juro') need('legal', false, 'The MSA signed in Juro (then set MSA status to Signed in Juro)');
   if (msa === 'standard_msa' && !STANDARD_MSA_URL) need('legal', false, 'A link to the standard MSA (legal to add it to the card)');
+  if (v.of_auto_renew === 'false')
+    warnings.push({ section: 'order', label: 'Auto-renewal is off, so the order form leaves out the auto-renewal clause. Check this with legal.' });
   need('legal', has('of_counterparty_signer_name'), 'Counterparty signer name');
   need('legal', has('of_counterparty_signer_email'), 'Counterparty signer email');
   need('legal', has('of_counterparty_signer_title'), 'Counterparty signer job title');

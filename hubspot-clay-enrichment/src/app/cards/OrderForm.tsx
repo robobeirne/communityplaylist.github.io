@@ -724,13 +724,13 @@ function TextField({ v, set, name, label: l, area, required }: { v: Values; set:
   return area ? <TextArea {...common} rows={3} /> : <Input {...common} />;
 }
 
-function SelectField({ v, set, name, label: l, opts, required }: { v: Values; set: Setter; name: string; label?: string; opts?: { label: string; value: string }[]; required?: boolean }) {
+function SelectField({ v, set, name, label: l, opts, required, value }: { v: Values; set: Setter; name: string; label?: string; opts?: { label: string; value: string }[]; required?: boolean; value?: string }) {
   return (
     <Select
       name={name}
       label={l ?? label(name)}
       required={required}
-      value={String(v[name] ?? '')}
+      value={value ?? String(v[name] ?? '')}
       options={opts ?? options(name)}
       onChange={(x) => set(name, String(x ?? ''))}
     />
@@ -831,7 +831,7 @@ function ClientSection({ v, set, people, company }: Shared & { people: People; c
       />
       <Flex direction="row" gap="sm" wrap="wrap">
         <TextField v={v} set={set} name="of_billing_contact_name" />
-        <TextField v={v} set={set} name="client_s_email_for_invoicing_" label="Billing email" required />
+        <TextField v={v} set={set} name="client_s_email_for_invoicing_" label="Billing email (shows as TBD if blank)" />
       </Flex>
       <TextField v={v} set={set} name="of_billing_address" area />
       <Flex direction="row" gap="sm" wrap="wrap" align="end">
@@ -856,19 +856,31 @@ function OrderSection({ v, set, sum }: Shared) {
         <DateField v={v} set={set} name="of_target_signature_date" required />
       </Flex>
       <Divider />
-      <Flex direction="row" gap="sm" wrap="wrap" align="end">
-        <DateField v={v} set={set} name="contract_start_date" label="Contract start (live) date" required />
-        <SelectField v={v} set={set} name="term_year_length" label="Contract term" opts={TERMS} required />
-        <Flex direction="column" gap="flush">
-          <Text variant="microcopy">Contract end date</Text>
-          <Text format={{ fontWeight: 'demibold' }}>{shortDate(sum.end)}</Text>
+      {renewal ? (
+        <Flex direction="row" gap="sm" wrap="wrap" align="end">
+          <DateField v={v} set={set} name="contract_start_date" label="Contract start date" required />
+          <SelectField v={v} set={set} name="term_year_length" label="Subscription term" opts={TERMS} required />
+          <Flex direction="column" gap="flush">
+            <Text variant="microcopy">Contract end date</Text>
+            <Text format={{ fontWeight: 'demibold' }}>{shortDate(sum.end)}</Text>
+          </Flex>
         </Flex>
-      </Flex>
-      <DateField v={v} set={set} name="subscription_start_date" label="Billing starts on (if different from the contract start)" />
+      ) : (
+        <Flex direction="column" gap="xs">
+          <Flex direction="row" gap="sm" wrap="wrap" align="end">
+            <SelectField v={v} set={set} name="term_year_length" label="Subscription term" opts={TERMS} required />
+            <DateField v={v} set={set} name="contract_start_date" label="Expected first Deployment Date (for forecasting)" />
+          </Flex>
+          <Text variant="microcopy">
+            {`The order form states the term as ${termMonths(v.term_year_length) ?? 'N'} months from each Site's Deployment Date: the day the first camera at that site is connected and captures its first snapshot.`}
+          </Text>
+        </Flex>
+      )}
+      <DateField v={v} set={set} name="subscription_start_date" label="Billing starts on (if not the Order Form Effective Date)" />
       <Flex direction="row" gap="sm" wrap="wrap">
         <SelectField v={v} set={set} name="of_billing_frequency" required />
         <SelectField v={v} set={set} name="of_payment_terms" required />
-        <SelectField v={v} set={set} name="of_auto_renew" opts={YES_NO} />
+        <SelectField v={v} set={set} name="of_auto_renew" label={label('of_auto_renew')} opts={YES_NO} value={v.of_auto_renew || 'true'} />
       </Flex>
       {renewal && (
         <>
@@ -1020,7 +1032,7 @@ function LineRow({ l, currency, sum, edited, issues, onEdit, onUndo }: {
     );
   }
   const rule = quantityRule(l);
-  const target = rule === 'sites' ? sum.siteCount : rule === 'cameras' ? sum.siteCameras : 0;
+  const target = rule === 'sites' || rule === 'deployment' ? sum.siteCount : rule === 'cameras' ? sum.siteCameras : 0;
   const unitNet = l.discountMode === 'percent' ? l.price * (1 - Math.min(l.discountValue, 100) / 100) : l.price - Math.min(l.discountValue, l.price);
   const offList = l.listPrice !== null && Math.abs(l.price - l.listPrice) > 0.005;
   const wrongCurrency = !!currency && !!l.currency && l.currency !== currency;
@@ -1077,7 +1089,7 @@ function LineRow({ l, currency, sum, edited, issues, onEdit, onUndo }: {
           <Flex direction="row" gap="sm" wrap="wrap" align="center">
             {rule && target > 0 && l.quantity !== target && (
               <Link href="#" preventDefault onClick={() => onEdit(l.id, { quantity: target })}>
-                {`Match the ${rule === 'sites' ? 'sites' : 'cameras'} (${target})`}
+                {`Match the ${rule === 'cameras' ? 'cameras' : 'sites'} (${target})`}
               </Link>
             )}
             {offList && !wrongCurrency && (
@@ -1118,6 +1130,7 @@ function SitesSection({ v, set, sum }: Shared) {
       {sites.map((s, i) => (
         <Flex key={i} direction="row" gap="sm" wrap="wrap" align="end">
           <Input name={`site-${i}-name`} label={`Site ${i + 1}`} required value={s.name} onChange={(x) => change(i, { name: x })} />
+          <Input name={`site-${i}-address`} label="Delivery address" value={s.address} onChange={(x) => change(i, { address: x })} />
           <NumberInput
             name={`site-${i}-cameras`}
             label="Camera integrations"
@@ -1141,7 +1154,7 @@ function SitesSection({ v, set, sum }: Shared) {
         </Flex>
       ))}
       <Flex direction="row" gap="sm" wrap="wrap">
-        <Button size="sm" variant="secondary" onClick={() => write([...sites, { name: '', cameras: 0, goLive: '' }])}>
+        <Button size="sm" variant="secondary" onClick={() => write([...sites, { name: '', address: '', cameras: 0, goLive: '' }])}>
           Add a site
         </Button>
         <Button size="sm" variant="secondary" onClick={() => setPaste(paste === null ? '' : null)}>
@@ -1153,7 +1166,7 @@ function SitesSection({ v, set, sum }: Shared) {
           <TextArea
             name="site-paste"
             label="Paste sites, one per line"
-            description="Name, cameras, go-live date (YYYY-MM-DD). Cameras and the date are optional. Columns copied from a spreadsheet work too."
+            description="Name, cameras, go-live date (YYYY-MM-DD); cameras and the date are optional. To include delivery addresses, copy columns from a spreadsheet: Name, Address, Cameras, Go-live."
             rows={6}
             value={paste}
             onChange={(x) => setPaste(x)}

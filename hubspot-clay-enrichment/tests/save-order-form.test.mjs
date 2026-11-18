@@ -291,3 +291,25 @@ test('create_quote: blocks a second live quote, replaces only a draft, checks th
   assert.equal((await main({ parameters: { ...CREATE, signerContactId: '999' } })).statusCode, 400, 'signer must be a deal contact');
   assert.equal((await main({ parameters: { ...CREATE, templateId: '' } })).statusCode, 400);
 });
+
+test('free products are offered at 0 in every currency', async () => {
+  stub([
+    ['GET', /v4\/objects\/deals\/77\/associations\/line_items/, { results: [] }],
+    [
+      'GET',
+      /objects\/products\?/,
+      {
+        results: [
+          { id: '414730536132', properties: { name: 'Protex AI Licence - Intelligence (Free)', recurringbillingfrequency: 'annually', hs_status: 'active' } },
+          { id: '427764333792', properties: { name: 'Deployment Services', hs_price_gbp: '0', hs_price_usd: '0', recurringbillingfrequency: 'annually' } },
+          { id: '1', properties: { name: 'Unpriced thing' } },
+        ],
+      },
+    ],
+  ]);
+  const res = await main({ parameters: { action: 'pricing', dealId: '77' } });
+  const by = Object.fromEntries(res.body.products.map((p) => [p.name, p.prices]));
+  assert.deepEqual(by['Protex AI Licence - Intelligence (Free)'], { GBP: 0, EUR: 0, USD: 0, CAD: 0 });
+  assert.deepEqual(by['Deployment Services'], { GBP: 0, EUR: 0, USD: 0, CAD: 0 });
+  assert.deepEqual(by['Unpriced thing'], {}, 'no price and not free: still needs a price');
+});

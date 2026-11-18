@@ -184,14 +184,17 @@ export function totals(lines: Line[], months: number | null): Totals {
 export function defaultQuantity(product: Pick<Product, 'name' | 'sku'>, siteCount: number, siteCameras: number): number {
   const label = `${product.name} ${product.sku}`.toLowerCase();
   if (/camera/.test(label)) return siteCameras || 1;
+  if (/deployment|installation/.test(label)) return siteCount || 1;
   if (/licen[cs]e/.test(label) && !/intelligence \(free\)/.test(label)) return siteCount || 1;
   return 1;
 }
 
-export type QuantityRule = 'sites' | 'cameras' | null;
+/** sites: one licence per site; cameras: the cameras across sites; deployment: one deployment per site. */
+export type QuantityRule = 'sites' | 'cameras' | 'deployment' | null;
 export function quantityRule(line: Pick<Line, 'name' | 'sku'>): QuantityRule {
   const label = `${line.name} ${line.sku}`.toLowerCase();
   if (/camera/.test(label)) return 'cameras';
+  if (/deployment|installation/.test(label)) return 'deployment';
   if (/site licen[cs]e|licen[cs]e - (safety|operations|signal)|platform/.test(label)) return 'sites';
   return null;
 }
@@ -222,6 +225,8 @@ export function lineIssues(lines: Line[], dealCurrency: string, siteCount: numbe
     const rule = quantityRule(l);
     if (rule === 'sites' && siteCount > 0 && l.quantity !== siteCount)
       out.push({ lineId: l.id, kind: 'check', label: `${l.name}: ${l.quantity} licences for ${siteCount} sites` });
+    if (rule === 'deployment' && siteCount > 0 && l.quantity !== siteCount)
+      out.push({ lineId: l.id, kind: 'check', label: `${l.name}: ${l.quantity} for ${siteCount} sites` });
     if (rule === 'cameras' && siteCameras > 0 && l.quantity !== siteCameras)
       out.push({ lineId: l.id, kind: 'check', label: `${l.name}: ${l.quantity} cameras, but the sites add up to ${siteCameras}` });
   }

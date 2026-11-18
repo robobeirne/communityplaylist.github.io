@@ -41,9 +41,9 @@ const raw = (id: string, productId: string, quantity: number, extra: Record<stri
 };
 const linesFor = (raws: RawLine[]) => raws.map((r) => toLine(r, undefined, PRODUCTS, 'GBP'));
 const SITES = JSON.stringify([
-  { name: 'Leeds DC', cameras: 12, goLive: '' },
-  { name: 'Wakefield', cameras: 10, goLive: '' },
-  { name: 'Doncaster', cameras: 8, goLive: '' },
+  { name: 'Leeds DC', address: '1 Dock Road, Leeds', cameras: 12, goLive: '' },
+  { name: 'Wakefield', address: '2 Mill Lane, Wakefield', cameras: 10, goLive: '' },
+  { name: 'Doncaster', address: '3 Rail Way, Doncaster', cameras: 8, goLive: '' },
 ]);
 const LINES = linesFor([raw('a', '1', 3), raw('b', '2', 30), raw('c', '3', 3)]);
 
@@ -62,25 +62,34 @@ test('sites come from the site list, or the numbered fields on older deals', () 
   assert.deepEqual(readSites({ of_sites: SITES }).map((s) => s.name), ['Leeds DC', 'Wakefield', 'Doncaster']);
   const old = readSites({ number_of_sites_to_start: '2', of_site_1_name: 'Amesbury', of_site_1_cameras: '18', of_site_1_go_live: '1801440000000', of_site_2_name: 'Leeds' });
   assert.deepEqual(old, [
-    { name: 'Amesbury', cameras: 18, goLive: '2027-02-01' },
-    { name: 'Leeds', cameras: 0, goLive: '' },
+    { name: 'Amesbury', address: '', cameras: 18, goLive: '2027-02-01' },
+    { name: 'Leeds', address: '', cameras: 0, goLive: '' },
   ]);
   assert.deepEqual(readSites({ of_sites: 'not json', number_of_sites_to_start: '1', of_site_1_name: 'A' }).map((s) => s.name), ['A']);
+});
+
+test('a pasted spreadsheet can carry delivery addresses', () => {
+  assert.deepEqual(parseSiteList('Plant 1\t1 Main St, Marshalltown, IA\t15\t2027-02-01\nPlant 2\t\t15'), [
+    { name: 'Plant 1', address: '1 Main St, Marshalltown, IA', cameras: 15, goLive: '2027-02-01' },
+    { name: 'Plant 2', address: '', cameras: 15, goLive: '' },
+  ]);
+  const w = readiness({ ...FULL, of_sites: JSON.stringify([{ name: 'A', address: '', cameras: 30, goLive: '' }]) }, LINES).warnings.map((x) => x.label);
+  assert.ok(w.includes('Site 1: no delivery address (devices ship there)'));
 });
 
 test('a pasted site list: commas, tabs, optional cameras and date', () => {
   assert.deepEqual(
     parseSiteList('Leeds DC, 12, 2027-02-01\nWakefield\t10\n\nSmith & Sons, Unit 4, 6\nDoncaster; 2027-05-01\n'),
     [
-      { name: 'Leeds DC', cameras: 12, goLive: '2027-02-01' },
-      { name: 'Wakefield', cameras: 10, goLive: '' },
-      { name: 'Smith & Sons, Unit 4', cameras: 6, goLive: '' },
-      { name: 'Doncaster', cameras: 0, goLive: '2027-05-01' },
+      { name: 'Leeds DC', address: '', cameras: 12, goLive: '2027-02-01' },
+      { name: 'Wakefield', address: '', cameras: 10, goLive: '' },
+      { name: 'Smith & Sons, Unit 4', address: '', cameras: 6, goLive: '' },
+      { name: 'Doncaster', address: '', cameras: 0, goLive: '2027-05-01' },
     ],
   );
 });
 
-test('summary and the calculated properties for Juro', () => {
+test('summary and the calculated properties', () => {
   const v = { of_sites: SITES, term_year_length: '24 months', contract_start_date: '2027-01-01', deal_currency_code: 'GBP', of_rollout: 'all_sites_together' };
   const s = summarise(v, LINES);
   assert.equal(s.siteCount, 3);
@@ -95,7 +104,7 @@ test('summary and the calculated properties for Juro', () => {
   assert.equal(p.of_contract_end_date, '2028-12-31');
   assert.equal(p.of_site_1_name, 'Leeds DC');
   assert.equal(p.of_site_4_name, '', 'numbered fields past the list are cleared');
-  assert.ok(p.of_site_schedule.startsWith('1. Leeds DC — 12 camera integrations — go-live 1 Jan 2027'));
+  assert.ok(p.of_site_schedule.startsWith('1. Leeds DC — 1 Dock Road, Leeds — 12 camera integrations — go-live 1 Jan 2027'));
   assert.equal(p.of_pricing_table.split('\n').length, 3);
 });
 
@@ -151,13 +160,15 @@ test('readiness lists what is missing, by section', () => {
   assert.deepEqual(r.warnings, []);
 
   assert.deepEqual(readiness({ ...FULL, of_order_type: 'renewal' }, LINES).missing.map((g) => g.label), ['Pro-rata renewal?']);
-  assert.deepEqual(readiness({ ...FULL, of_msa_date: '' }, LINES).missing.map((g) => g.label), ['MSA date']);
+  assert.deepEqual(readiness({ ...FULL, of_msa_date: '' }, LINES).missing, [], 'the MSA date is a record, not needed for the order form');
+  assert.deepEqual(readiness({ ...FULL, client_s_email_for_invoicing_: '' }, LINES).missing, [], 'billing email can be TBD');
+  assert.deepEqual(readiness({ ...FULL, contract_start_date: '' }, LINES).missing, [], 'new business runs from each Deployment Date');
+  assert.deepEqual(readiness({ ...FULL, contract_start_date: '', of_order_type: 'renewal', pro_rata_renewal: 'No' }, LINES).missing.map((g) => g.label), ['Contract start date']);
+  assert.ok(readiness({ ...FULL, of_auto_renew: 'false' }, LINES).warnings.some((w) => w.label.startsWith('Auto-renewal is off')));
   assert.deepEqual(readiness({ ...FULL, of_msa_status: 'negotiating_in_juro' }, LINES).missing.map((g) => g.label), [
     'The MSA signed in Juro (then set MSA status to Signed in Juro)',
   ]);
-  assert.deepEqual(readiness({ ...FULL, of_msa_status: 'standard_msa' }, LINES).missing.map((g) => g.label), [
-    'A link to the standard MSA (legal to add it to the card)',
-  ], 'blocked until legal adds the standard MSA link');
+  assert.deepEqual(readiness({ ...FULL, of_msa_status: 'standard_msa' }, LINES).missing, [], 'standard MSA at www.protex.ai/legal');
   assert.deepEqual(readiness({ ...FULL, of_msa_status: 'signed_in_juro' }, LINES).missing, []);
   assert.deepEqual(readiness({ ...FULL, of_msa_status: '', of_existing_msa: 'yes' }, LINES).missing, [], 'older deals: "existing MSA: yes" counts');
   assert.deepEqual(readiness({ ...FULL, of_counterparty_signer_contact_id: '' }, LINES).missing.map((g) => g.label), [

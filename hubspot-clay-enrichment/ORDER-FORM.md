@@ -17,15 +17,15 @@ One card on the deal captures everything the order form needs, for new business,
 - **Five sections**, each showing what's left to fill. Sections with gaps start open and complete ones start closed:
   1. **Order and term.**
      - Order type, currency, quote date, offer expiry and target signature date.
-     - Contract start (live) date and term, with the end date calculated.
+     - Subscription term. For new business and expansions the order form states it as *N months from each Site's Deployment Date*, so a start date is optional (expected first Deployment Date, for forecasting). Renewals need a contract start date, and the end date is calculated.
      - Billing frequency, payment terms and auto-renewal.
      - For renewals: pro-rata and co-term.
   2. **Client and contacts.**
      - Legal entity name and address, with **Fill from the company**.
      - Registration number and VAT ID.
      - Client contact and billing contact, each filled from a deal contact.
-     - Billing email, billing address and PO.
-  3. **Sites and rollout.** All together or staged, then the site list: name and cameras per site, plus a go-live date for a staged rollout. There's no limit. Add sites one at a time, or **Paste a list of sites** (one per line, e.g. `Leeds DC, 12, 2027-02-01`; columns copied from a spreadsheet work too) and add them or replace the list.
+     - Billing email (shows as **TBD** if blank, as the order form allows), billing address (**As legal entity address** if blank) and PO.
+  3. **Sites and rollout.** All together or staged, then the site list: name, delivery address (devices ship there, DAP) and cameras per site, plus a go-live date for a staged rollout. There's no limit. Add sites one at a time, or **Paste a list of sites** (one per line, e.g. `Leeds DC, 12, 2027-02-01`; columns copied from a spreadsheet work too) and add them or replace the list.
   4. **Products and pricing.** The deal's HubSpot line items, edited in place:
      - **Add a product** lists the active products in the product library that have a price in the deal's currency, with that price. The quantity defaults from the sites: one licence per site, and the cameras added up across sites.
      - Each line shows the product, SKU, billing (per year or one-off), quantity, unit price, a discount (**% off** or **off per unit**), the net unit price and the line total. **Remove** takes it off on save; **Undo** brings it back.
@@ -56,6 +56,8 @@ The line items on the deal are the pricing. The card doesn't keep a second copy,
 - A unit price that isn't list (the hidden discounting found on existing deals) is flagged, with a one-click fix.
 - A licence quantity that doesn't match the number of sites, or a camera quantity that doesn't match the cameras across sites, is flagged, with **Match the sites**.
 - A line in a different currency from the deal blocks creating the order form.
+- Deployment Services and On-site Installation default to one per site, and a mismatch with the sites is flagged.
+- Free products (every price 0, or no price and "Free" in the name, like *Protex AI Licence - Intelligence (Free)*) are offered at 0 in every currency.
 
 **The totals:**
 - A line is quantity × unit price, minus its discount. A % is capped at 100% and an amount at the unit price.
@@ -76,8 +78,17 @@ The calculated deal fields are written when the card saves. If someone edits lin
 - **Template:** the one you pick. The card picks a template with "order form" in its name if there is one.
 - **People:** the counterparty signer as the contact who signs, the deal's company, and you as the sender.
 - **E-signature:** switched on.
-- **Comments to buyer:** client legal entity, address and IDs, contacts, subscription term, billing and payment terms, PO, and every site with its go-live date.
-- **Terms:** the agreement clause pointing at the MSA, renewal or expansion if relevant, subscription term and auto-renewal, fees and payment, sites, and offer validity.
+- **Comments to buyer**, laid out like the order form:
+  - quote date and offer expiry;
+  - **Client Details** (legal entity name and address, Attn, contact email);
+  - **Billing Details** (billing email or TBD, billing address or "As legal entity address", VAT number, PO);
+  - **Subscription Term** ("12 months from each Site's Deployment Date");
+  - the **Notes**: Edge Device lease, cameras per site (e.g. "15 Camera Integrations per Site"), camera limits;
+  - **Site Information**: each site with its address and cameras.
+- **Terms**: the order form's Terms and Conditions (sections 1–7), word for word. Only these parts change by deal:
+  - billing frequency (3C);
+  - payment terms (3D, e.g. Net 30);
+  - auto-renewal (section 4). It's on by default, as on the standard form. Switching it off leaves the clause out and warns.
 
 Every quote template shows the Comments and Terms fields, so no template tokens are needed.
 
@@ -99,8 +110,7 @@ To move the deal stage the moment a quote is signed, add a HubSpot workflow on t
 
 **Legal settings** live in `src/app/cards/orderform/legal.ts`:
 - `TERMS_APPROVED` is false until legal approves the wording in `orderform/terms.ts`. Until then, the card warns and every quote's Terms start with "DRAFT TERMS: NOT YET APPROVED BY LEGAL".
-- `PROTEX_ENTITY` is the contracting entity name. Legal to confirm.
-- `STANDARD_MSA_URL` is the link to the standard MSA. Until legal adds it, "Standard MSA" order forms can't be created.
+- `PROTEX_ENTITY` is "Protex AI Limited" and `STANDARD_MSA_URL` is "www.protex.ai/legal", both taken from the current order form.
 
 ## MSAs and Juro
 
@@ -275,9 +285,10 @@ From the `protex-account-intel` folder:
    ```
 3. **Reinstall the app.** It now also reads and creates quotes (`crm.objects.quotes.read`, `crm.objects.quotes.write`). Go to **Development > Projects > protex-account-intel > Protex Account Intel > Distribution** and reinstall it.
 4. **Quote template:** make sure there's a quote template that shows Comments and Terms, with e-signature. Naming it with "order form" in the name makes the card pick it by default.
-5. **Legal:** have legal review the wording in `src/app/cards/orderform/terms.ts` and set `PROTEX_ENTITY`, `STANDARD_MSA_URL` and `TERMS_APPROVED` in `src/app/cards/orderform/legal.ts`, then upload again.
-6. **Optional:** a workflow on the quote being signed, to move the deal stage straight away.
-7. **Optional tidy-up:** the first version's per-product pricing properties (`of_safety_units`, `of_safety_unit_fee`, `of_cameras_*`, `of_ops_*`, `of_intel_*`, `of_hardware_*`, `of_implementation_fee`, `of_discount_applied`, `of_discount_type`, `of_discount_value`, `of_*_units_manual`, `of_*_total`) and `of_existing_msa` are no longer used. Archive them in **Settings > Properties**.
+5. **Product library:** the order form lists *Standard Support Services (Free of Charge)*, but there's no product for it. Create a product "Standard Support Services" at 0, billed annually, so reps can add it like the other free rows.
+6. **Legal:** the terms are the current order form wording. Once legal confirms, set `TERMS_APPROVED` to `true` in `src/app/cards/orderform/legal.ts` and upload again.
+7. **Optional:** a workflow on the quote being signed, to move the deal stage straight away.
+8. **Optional tidy-up:** the first version's per-product pricing properties (`of_safety_units`, `of_safety_unit_fee`, `of_cameras_*`, `of_ops_*`, `of_intel_*`, `of_hardware_*`, `of_implementation_fee`, `of_discount_applied`, `of_discount_type`, `of_discount_value`, `of_*_units_manual`, `of_*_total`) and `of_existing_msa` are no longer used. Archive them in **Settings > Properties**.
 
 ## Changing the fields
 

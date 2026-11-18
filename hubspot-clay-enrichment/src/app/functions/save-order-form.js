@@ -116,6 +116,11 @@ function toProduct(r) {
     const v = parseFloat(p[`hs_price_${c.toLowerCase()}`]);
     if (Number.isFinite(v)) prices[c] = v;
   }
+  // Free products (every listed price is 0, or none listed and "Free" in the name, like
+  // "Licence - Intelligence (Free)") are offered at 0 in every currency.
+  const listed = Object.values(prices);
+  const free = listed.length ? listed.every((x) => x === 0) : /\bfree\b/i.test(p.name || '') && !(parseFloat(p.price) > 0);
+  if (free) for (const c of CURRENCIES) prices[c] = 0;
   return {
     id: String(r.id),
     name: p.name || '',

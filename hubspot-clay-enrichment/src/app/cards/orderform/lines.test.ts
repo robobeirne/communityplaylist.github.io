@@ -79,12 +79,14 @@ test('totals split recurring and one-off; TCV uses the term', () => {
 test('default quantities and quantity rules', () => {
   assert.equal(defaultQuantity(SAFETY, 4, 40), 4);
   assert.equal(defaultQuantity(CAMERA, 4, 40), 40);
-  assert.equal(defaultQuantity(INSTALL, 4, 40), 1);
+  assert.equal(defaultQuantity(INSTALL, 4, 40), 4, 'installation is per site');
   assert.equal(defaultQuantity(FREE, 4, 40), 1);
   assert.equal(defaultQuantity(SAFETY, 0, 0), 1);
   assert.equal(quantityRule({ name: 'Protex AI Licence - Operations', sku: '6' }), 'sites');
   assert.equal(quantityRule({ name: 'Camera License - Operations', sku: '7' }), 'cameras');
-  assert.equal(quantityRule({ name: 'Deployment Services', sku: '' }), null);
+  assert.equal(quantityRule({ name: 'Deployment Services', sku: '' }), 'deployment');
+  assert.equal(quantityRule({ name: 'Standard Support Services', sku: '' }), null);
+  assert.equal(defaultQuantity({ name: 'Deployment Services', sku: '' }, 4, 60), 4, 'one deployment per site');
 });
 
 test('line issues', () => {
