@@ -1068,5 +1068,67 @@
     "type": "datetime",
     "fieldType": "date",
     "description": "When the order form quote was fully signed (including countersignature)."
+  },
+  {
+    "groupLabel": "Order form — Approval",
+    "name": "of_special_terms",
+    "label": "Special terms (card data)",
+    "type": "string",
+    "fieldType": "textarea",
+    "description": "The optional special terms ticked on the order form card, as JSON. Printed on the quote after the Terms and Conditions."
+  },
+  {
+    "groupLabel": "Order form — Approval",
+    "name": "of_approval_status",
+    "label": "Order form approval status",
+    "type": "enumeration",
+    "fieldType": "select",
+    "description": "Whether non-standard price or terms need approval, and where that stands. Kept up to date by the order form card.",
+    "options": [
+      {
+        "label": "Not needed",
+        "value": "not_needed"
+      },
+      {
+        "label": "Needed",
+        "value": "needed"
+      },
+      {
+        "label": "Pending",
+        "value": "pending"
+      },
+      {
+        "label": "Approved",
+        "value": "approved"
+      },
+      {
+        "label": "Rejected",
+        "value": "rejected"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Order form — Approval",
+    "name": "of_approval",
+    "label": "Order form approval record (card data)",
+    "type": "string",
+    "fieldType": "textarea",
+    "description": "What was put up for approval, to whom, and each decision with who and when, as JSON."
+  },
+  {
+    "groupLabel": "Order form — Approval",
+    "name": "of_approved_at",
+    "label": "Order form approved at",
+    "type": "datetime",
+    "fieldType": "date",
+    "description": "When the last approval needed was given."
+  },
+  {
+    "groupLabel": "Order form — Approval",
+    "name": "of_approved_by",
+    "label": "Order form approved by",
+    "type": "string",
+    "fieldType": "text",
+    "description": "Who approved, by type (e.g. Finance: Jane Doe; Legal: …)."
   }
 ]

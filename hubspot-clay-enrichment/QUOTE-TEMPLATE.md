@@ -79,6 +79,9 @@ The site section depends on the order:
   <tr><td>1</td><td><p><strong>A.</strong> By signing this Order Form…</p><p><strong>B.</strong> Capitalized terms…</p></td></tr>
   …through section 7 (6 if auto-renewal is off)…
 </tbody></table>
+(<h3>Special Terms</h3><p>The following special terms form part of this Order Form and prevail…</p>
+<table><tbody><tr><td>S1</td><td><p><strong>Data residency.</strong> Client Data will be hosted in the European Union.</p></td></tr>…</tbody></table>
+ only when the rep ticked special terms)
 ```
 
 ## Sections to put in the template, top to bottom

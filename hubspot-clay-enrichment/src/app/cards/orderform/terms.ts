@@ -8,6 +8,7 @@
 
 import { isNewSite, parseDate, readSites, termEnd, termMonths, type Site, type Values } from './calc.ts';
 import { PROTEX_ENTITY, STANDARD_MSA_URL } from './legal.ts';
+import { activeTerms } from './specialterms.ts';
 
 export { PROTEX_ENTITY, STANDARD_MSA_URL };
 
@@ -172,5 +173,14 @@ export function orderTerms(v: Values): string {
     (clauses, i) => `<tr><td>${i + 1}</td><td>${clauses.map((text, j) => `<p><strong>${String.fromCharCode(65 + j)}.</strong> ${text}</p>`).join('')}</td></tr>`,
   );
   out.push(`<table><tbody>${rows.join('')}</tbody></table>`);
+  // Special terms the rep ticked, after the standard terms.
+  const special = activeTerms(v).filter(({ term, value }) => !term.input || value);
+  if (special.length) {
+    out.push('<h3>Special Terms</h3>');
+    out.push('<p>The following special terms form part of this Order Form and prevail over the Terms and Conditions above and the MSA to the extent of any conflict.</p>');
+    out.push(
+      `<table><tbody>${special.map(({ term, value }, i) => `<tr><td>S${i + 1}</td><td><p><strong>${esc(term.title)}.</strong> ${esc(term.clause(value))}</p></td></tr>`).join('')}</tbody></table>`,
+    );
+  }
   return out.join('');
 }

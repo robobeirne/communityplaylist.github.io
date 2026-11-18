@@ -4,6 +4,8 @@
 
 import { lineIssues, pricingTable, quantityRule, totals, type Line, type Totals } from './lines.ts';
 import { STANDARD_MSA_URL } from './legal.ts';
+import { approvalState, ROLE_LABEL } from './approvals.ts';
+import { activeTerms, termMissingValue } from './specialterms.ts';
 
 export type Values = Record<string, string | null | undefined>;
 
@@ -235,6 +237,7 @@ export function computedProperties(v: Values, lines: Line[]): Record<string, str
     of_one_off_fees: String(t.oneOff),
     of_total_contract_value: t.tcv === null ? '' : String(t.tcv),
     of_contract_end_date: s.end ? isoDate(s.end) : '',
+    of_approval_status: approvalState(v, lines).status,
   };
   const amount = dealAmount(lines);
   if (amount !== null) out.amount = String(amount);
@@ -249,13 +252,14 @@ export function computedProperties(v: Values, lines: Line[]): Record<string, str
 
 /* ---------------- readiness ---------------- */
 
-export type Section = 'client' | 'order' | 'pricing' | 'sites' | 'legal';
+export type Section = 'client' | 'order' | 'pricing' | 'sites' | 'legal' | 'approval';
 export const SECTIONS: { key: Section; title: string }[] = [
   { key: 'order', title: 'Order and term' },
   { key: 'client', title: 'Client and contacts' },
   { key: 'sites', title: 'Sites and rollout' },
   { key: 'pricing', title: 'Products and pricing' },
   { key: 'legal', title: 'Legal, MSA and signatures' },
+  { key: 'approval', title: 'Approval' },
 ];
 
 export interface Gap {
@@ -354,6 +358,23 @@ export function readiness(v: Values, lines: Line[]): { missing: Gap[]; warnings:
   need('legal', has('of_protex_signer_email'), 'Protex signatory email');
   need('legal', has('of_protex_signer_title'), 'Protex signatory job title');
   email('legal', 'of_counterparty_signer_email', 'Counterparty signer email');
+
+  // Special terms: a ticked term needs its blank filled in.
+  for (const { term, value } of activeTerms(v)) if (termMissingValue(term, value)) need('legal', false, `Special term "${term.title}": ${term.input!.label}`);
+
+  // Approval of non-standard price and terms.
+  const approval = approvalState(v, lines);
+  if (approval.status !== 'not_needed') {
+    const who = (roles: string[]) => roles.map((r) => ROLE_LABEL[r as keyof typeof ROLE_LABEL]).join(', ');
+    const pending = approval.roles.filter((r) => approval.record?.roles[r]?.status !== 'approved');
+    const label =
+      approval.status === 'needed'
+        ? `Approval from ${who(approval.roles)}: request it in the Approval box`
+        : approval.status === 'pending'
+          ? `Approval pending from ${who(pending)}`
+          : `Approval rejected by ${who(approval.roles.filter((r) => approval.record?.roles[r]?.status === 'rejected'))}: change the terms and ask again`;
+    need('approval', approval.status === 'approved', label);
+  }
 
   return { missing, warnings, required };
 }

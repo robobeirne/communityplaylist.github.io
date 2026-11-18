@@ -3,7 +3,7 @@
 import React from 'react';
 import assert from 'node:assert/strict';
 import { createRenderer } from '@hubspot/ui-extensions/testing';
-import { Alert, Tab, Tabs, Button, Heading, Input, Link, LoadingButton, NumberInput, Select, StatisticsItem, StatusTag, Tag, Text, TextArea } from '@hubspot/ui-extensions';
+import { Alert, Tab, Tabs, ToggleGroup, Button, Heading, Input, Link, LoadingButton, NumberInput, Select, StatisticsItem, StatusTag, Tag, Text, TextArea } from '@hubspot/ui-extensions';
 import { OrderForm } from '../OrderForm.tsx';
 
 const calls: { name: string; parameters: Record<string, any> }[] = [];
@@ -31,6 +31,12 @@ const LINE = (id: string, productId: string, quantity: number, extra: Record<str
   };
 };
 let dealLines: ReturnType<typeof LINE>[] = [];
+let currentApproval = '';
+const approvalAfterDecision = (p: any) => {
+  const rec = JSON.parse(currentApproval);
+  rec.roles[p.role] = { ...rec.roles[p.role], status: p.decision, by: p.user.name, note: p.note };
+  return JSON.stringify(rec);
+};
 let extraProducts: typeof PRODUCTS = [];
 const FREE = (id: string, name: string) => ({ id, name, sku: '', description: '', prices: { GBP: 0, EUR: 0, USD: 0, CAD: 0 }, frequency: 'annually' });
 const INCLUSIONS = [
@@ -61,6 +67,14 @@ g.serverless = async (name: string, opts: { parameters: Record<string, any> }) =
         company: { id: '9', name: 'Northbridge Logistics Ltd', address: '1 Dock Road', address2: '', city: 'Leeds', state: '', zip: 'LS1 1AA', country: 'United Kingdom' },
       },
     };
+  }
+  if (opts.parameters.action === 'request_approval') {
+    const { request, requestedBy } = opts.parameters;
+    const roles = Object.fromEntries(Object.entries(request.approvers).map(([r, a]: [string, any]) => [r, { approver: a, status: 'pending' }]));
+    return { statusCode: 200, body: { ok: true, properties: { of_approval: JSON.stringify({ fingerprint: request.fingerprint, reasons: request.reasons, requestedBy, roles }), of_approval_status: 'pending' } } };
+  }
+  if (opts.parameters.action === 'decide_approval') {
+    return { statusCode: 200, body: { ok: true, properties: { of_approval: approvalAfterDecision(opts.parameters), of_approval_status: opts.parameters.decision } } };
   }
   if (opts.parameters.action === 'quote') {
     const live = dealQuotes.filter((q) => ['draft', 'awaiting_approval', 'sent', 'signed'].includes(q.state));
@@ -374,6 +388,43 @@ await r.waitFor(() => assert.equal(selectedTab(r), 'legal'));
 r.find(Tabs).trigger('onSelectedChange', 'scope' as never);
 await r.waitFor(() => assert.equal(selectedTab(r), 'scope'));
 console.log('three tabs; they only change when clicked, and say how many details are missing');
+
+// Non-standard terms need approval before the order form can be created.
+r = await renderWith({ ...complete, of_payment_terms: 'net_60', of_special_terms: JSON.stringify([{ id: 'reference' }]) }, COMPLETE_LINES);
+assert.ok(texts(r).includes('Approval'));
+assert.ok(texts(r).includes('• Payment terms: Net 60'));
+assert.ok(texts(r).join(' ').includes('Approval from Finance: request it in the Approval box'));
+assert.ok(button(r, 'Create order form · 1 to fill')?.props.disabled, 'blocked until approved');
+select(r, 'approver-finance').trigger('onChange', '1398950922464' as never);
+await r.waitFor(() => assert.equal(button(r, 'Request approval')?.props.disabled, false));
+button(r, 'Request approval')!.trigger('onClick');
+await r.waitFor(() => assert.ok([...calls].reverse().find((c) => c.parameters.action === 'request_approval')));
+const req = [...calls].reverse().find((c) => c.parameters.action === 'request_approval')!.parameters;
+assert.deepEqual(req.request.reasons.map((x: any) => x.label), ['Payment terms: Net 60']);
+assert.equal(req.request.approvers.finance.email, 'jesse@protex.ai');
+await r.waitFor(() => assert.ok(texts(r).includes('Waiting for Jesse Maggs.')));
+assert.equal(button(r, 'Approve'), undefined, 'only the approver sees Approve');
+
+// The approver opens the card and approves.
+currentApproval = JSON.stringify({
+  fingerprint: req.request.fingerprint,
+  reasons: req.request.reasons,
+  roles: { finance: { approver: { id: '7', email: 'rep@protex.ai', name: 'Rob Rep' }, status: 'pending' } },
+});
+r = await renderWith({ ...complete, of_payment_terms: 'net_60', of_approval: currentApproval }, COMPLETE_LINES);
+field(r, 'approval-note-finance').trigger('onChange', 'Fine for a 4-site launch' as never);
+button(r, 'Approve')!.trigger('onClick');
+await r.waitFor(() => assert.ok(texts(r).some((t) => t.startsWith('Approved by Rob Rep'))));
+await r.waitFor(() => assert.equal(button(r, 'Create order form')?.props.disabled, false), 'approved: the order form can be created');
+console.log('non-standard terms need approval; approvers get asked, approve on the card, and the order form unlocks');
+
+// Special terms: tick, fill the blank, and they print on the quote.
+r = await renderWith({ ...complete }, COMPLETE_LINES);
+r.findAll(ToggleGroup).find((t) => t.props.name === 'special-terms')!.trigger('onChange', ['data_residency'] as never);
+await r.waitFor(() => assert.ok(select(r, 'term-data_residency')));
+select(r, 'term-data_residency').trigger('onChange', 'European Union' as never);
+await r.waitFor(() => assert.ok(texts(r).includes('• Special term: Data residency (European Union)')));
+console.log('special terms are ticked, filled in, and trigger the right approval');
 
 // New business: the free standard rows are added once, never for renewals, never again once recorded.
 extraProducts = INCLUSIONS;

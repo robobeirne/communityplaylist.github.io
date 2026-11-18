@@ -100,6 +100,8 @@ src/app/cards/
   orderform/terms.ts              order form quote wording: comments and terms (unit tested)
   orderform/legal.ts              legal settings: entity, standard MSA link, terms approved
   orderform/inclusions.ts         free rows added to new business deals
+  orderform/specialterms.ts       optional special terms: wording, blanks, who approves
+  orderform/approvals.ts          what needs approval and whether it's current (unit tested)
   orderform/properties.json       order form deal properties (generated)
 src/app/functions/
   save-discovery.js               saves industry and level corrections from the Discovery card

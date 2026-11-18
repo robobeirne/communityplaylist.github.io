@@ -91,6 +91,15 @@ add(G, 'of_standard_inclusions_added', 'Standard inclusions added', 'bool', 'Set
 add(G, 'of_changed_after_quote', 'Order form changed after the quote was created', 'bool', 'Set when the card saves changes after the order form quote exists; cleared when a new quote is created.')
 add(G, 'of_signed_at', 'Order form signed at', 'datetime', 'When the order form quote was fully signed (including countersignature).')
 
+# Special terms and approval
+G = 'Approval'
+add(G, 'of_special_terms', 'Special terms (card data)', 'textarea', 'The optional special terms ticked on the order form card, as JSON. Printed on the quote after the Terms and Conditions.')
+add(G, 'of_approval_status', 'Order form approval status', 'select', 'Whether non-standard price or terms need approval, and where that stands. Kept up to date by the order form card.',
+    ['Not needed', 'Needed', 'Pending', 'Approved', 'Rejected'])
+add(G, 'of_approval', 'Order form approval record (card data)', 'textarea', 'What was put up for approval, to whom, and each decision with who and when, as JSON.')
+add(G, 'of_approved_at', 'Order form approved at', 'datetime', 'When the last approval needed was given.')
+add(G, 'of_approved_by', 'Order form approved by', 'text', 'Who approved, by type (e.g. Finance: Jane Doe; Legal: …).')
+
 json.dump(P, open(out, 'w'), indent=2, ensure_ascii=False)
 open(out, 'a').write('\n')
 from collections import Counter

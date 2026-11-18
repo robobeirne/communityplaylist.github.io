@@ -7,6 +7,8 @@
  *   { action: 'signatories' }                        HubSpot users who can sign for Protex, with email and job title
  *   { action: 'quote', dealId }                      the deal's quotes and their state, keeping the order form status in step; quote templates
  *   { action: 'create_quote', dealId, ... }          create the order form quote from the deal (see createQuote)
+ *   { action: 'request_approval', dealId, ... }      ask the chosen approvers to approve non-standard price/terms (see requestApproval)
+ *   { action: 'decide_approval', dealId, role, decision, note, user }  an approver approves or rejects
  *
  * Only order form properties (of_*) and the existing deal fields the card reuses can be written,
  * including Amount, which the card sets from the line items.
@@ -335,7 +337,7 @@ async function signatories() {
     })
     .filter((u) => u.name && u.email)
     .sort((a, b) => a.name.localeCompare(b.name));
-  return { statusCode: 200, body: { ok: true, users: list } };
+  return { statusCode: 200, body: { ok: true, users: list, lastApprovers: await lastApprovers() } };
 }
 
 /* ---------------- order form quote ---------------- */
@@ -533,6 +535,113 @@ async function associatedIdsFrom(fromType, id, toType) {
   return (page.results || []).map((r) => String(r.toObjectId));
 }
 
+/* ---------------- approval of non-standard price and terms ---------------- */
+
+const ROLE_NAME = { finance: 'Finance', legal: 'Legal', sales: 'Sales leadership' };
+/** HubSpot-defined task → deal association. */
+const TASK_TO_DEAL = 216;
+
+const parseJson = (s) => {
+  try {
+    return JSON.parse(s || '');
+  } catch {
+    return null;
+  }
+};
+
+async function ownerIdFor(email) {
+  const page = await call('GET', `/crm/v3/owners/?email=${encodeURIComponent(email)}&limit=1`);
+  return page.results?.[0]?.id ? String(page.results[0].id) : '';
+}
+
+/**
+ * { dealId, request: { fingerprint, reasons: [{key,label,role}], approvers: { role: {id,email,name} } }, requestedBy }
+ * Saves the request on the deal (of_approval, status Pending) and gives each approver a HubSpot
+ * task on the deal. If a task can't be created, the request still stands and the card says so.
+ */
+async function requestApproval({ dealId, request, requestedBy }) {
+  if (!isId(dealId)) return fail(400, 'No deal id');
+  const reasons = Array.isArray(request?.reasons) ? request.reasons : [];
+  const roles = [...new Set(reasons.map((r) => r.role))].filter((r) => ROLE_NAME[r]);
+  if (!roles.length) return fail(400, 'Nothing needs approval');
+  const missing = roles.filter((r) => !request.approvers?.[r]?.email);
+  if (missing.length) return fail(400, `Choose an approver for ${missing.map((r) => ROLE_NAME[r]).join(', ')}`);
+
+  const deal = await call('GET', `/crm/v3/objects/deals/${dealId}?properties=dealname`);
+  const dealname = deal.properties?.dealname || 'deal';
+  const problems = [];
+  const record = { fingerprint: String(request.fingerprint || ''), reasons, requestedBy: String(requestedBy || ''), requestedAt: new Date().toISOString(), roles: {} };
+  for (const role of roles) {
+    const approver = request.approvers[role];
+    const entry = { approver: { id: String(approver.id || ''), email: String(approver.email), name: String(approver.name || approver.email) }, status: 'pending' };
+    try {
+      const owner = await ownerIdFor(approver.email);
+      const items = reasons.filter((r) => r.role === role).map((r) => `• ${r.label}`).join('<br>');
+      const task = await call('POST', '/crm/v3/objects/tasks', {
+        properties: {
+          hs_timestamp: new Date().toISOString(),
+          hs_task_subject: `Approve order form terms: ${dealname}`,
+          hs_task_body: `${requestedBy || 'A rep'} asks ${ROLE_NAME[role]} to approve:<br>${items}<br><br>Open the deal's Order form tab to approve or reject.`,
+          hs_task_status: 'NOT_STARTED',
+          hs_task_priority: 'HIGH',
+          ...(owner ? { hubspot_owner_id: owner } : {}),
+        },
+        associations: [{ to: { id: String(dealId) }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: TASK_TO_DEAL }] }],
+      });
+      entry.taskId = String(task.id);
+      if (!owner) problems.push(`${entry.approver.name} isn't a HubSpot owner, so their task is unassigned`);
+    } catch (e) {
+      problems.push(`Couldn't create a task for ${entry.approver.name} (${e.message}); let them know yourself`);
+    }
+    record.roles[role] = entry;
+  }
+  const properties = { of_approval: JSON.stringify(record), of_approval_status: 'pending', of_approved_at: '', of_approved_by: '' };
+  const skipped = await patchDeal(dealId, properties);
+  for (const k of skipped) delete properties[k];
+  return { statusCode: 200, body: { ok: true, properties, warning: problems.length ? problems.join('. ') : skippedNote(skipped) } };
+}
+
+/** { dealId, role, decision: 'approved' | 'rejected', note, user: { email, name } } */
+async function decideApproval({ dealId, role, decision, note, user = {} }) {
+  if (!isId(dealId)) return fail(400, 'No deal id');
+  if (!['approved', 'rejected'].includes(decision)) return fail(400, 'Approve or reject');
+  const deal = await call('GET', `/crm/v3/objects/deals/${dealId}?properties=of_approval`);
+  const record = parseJson(deal.properties?.of_approval);
+  const entry = record?.roles?.[role];
+  if (!entry) return fail(409, 'There is no approval request for that on this deal. Refresh the card.');
+  if (String(entry.approver.email).toLowerCase() !== String(user.email || '').toLowerCase())
+    return fail(403, `Only ${entry.approver.name} can approve this for ${ROLE_NAME[role] || role}`);
+  Object.assign(entry, { status: decision, by: String(user.name || user.email), at: new Date().toISOString(), note: String(note || '') });
+  if (entry.taskId) await call('PATCH', `/crm/v3/objects/tasks/${entry.taskId}`, { properties: { hs_task_status: 'COMPLETED' } }).catch(() => {});
+
+  const all = Object.values(record.roles);
+  const status = all.some((r) => r.status === 'rejected') ? 'rejected' : all.every((r) => r.status === 'approved') ? 'approved' : 'pending';
+  const properties = { of_approval: JSON.stringify(record), of_approval_status: status };
+  if (status === 'approved') {
+    properties.of_approved_at = new Date().toISOString();
+    properties.of_approved_by = Object.entries(record.roles).map(([r, e]) => `${ROLE_NAME[r] || r}: ${e.by}`).join('; ');
+  }
+  const skipped = await patchDeal(dealId, properties);
+  for (const k of skipped) delete properties[k];
+  return { statusCode: 200, body: { ok: true, properties, warning: skippedNote(skipped) } };
+}
+
+/** The approver last chosen for each type on any deal, so the card can suggest them. */
+async function lastApprovers() {
+  const out = {};
+  const res = await call('POST', '/crm/v3/objects/deals/search', {
+    filterGroups: [{ filters: [{ propertyName: 'of_approval', operator: 'HAS_PROPERTY' }] }],
+    properties: ['of_approval'],
+    sorts: [{ propertyName: 'hs_lastmodifieddate', direction: 'DESCENDING' }],
+    limit: 50,
+  }).catch(() => ({ results: [] }));
+  for (const d of res.results || []) {
+    const rec = parseJson(d.properties?.of_approval);
+    for (const [role, entry] of Object.entries(rec?.roles || {})) if (!out[role] && entry?.approver?.email) out[role] = entry.approver;
+  }
+  return out;
+}
+
 exports.main = async (context) => {
   const params = context.parameters || {};
   try {
@@ -542,6 +651,8 @@ exports.main = async (context) => {
     if (params.action === 'signatories') return await signatories();
     if (params.action === 'quote') return await quote(params);
     if (params.action === 'create_quote') return await createQuote(params);
+    if (params.action === 'request_approval') return await requestApproval(params);
+    if (params.action === 'decide_approval') return await decideApproval(params);
     return fail(400, 'Unknown action');
   } catch (e) {
     return fail(e.status || 500, e.message || 'Something went wrong');

@@ -121,6 +121,38 @@ If the card saves changes after the quote exists, it flags that the quote is out
 **Legal settings** live in `src/app/cards/orderform/legal.ts`:
 - `PROTEX_ENTITY` is "Protex AI Limited" and `STANDARD_MSA_URL` is "www.protex.ai/legal", both taken from the current order form.
 
+## Special terms and approval
+
+**Special terms** are optional clauses outside the standard order form. Reps tick them on the **Legal & signing** tab and fill in any blank (a %, a number of months or days, a region, or free text). Ticked terms print on the quote under **Special Terms**, after the Terms and Conditions, with a line saying they prevail over the standard terms and the MSA. The wording lives in `src/app/cards/orderform/specialterms.ts`.
+
+| Term | Blank | Approval | Order types |
+| --- | --- | --- | --- |
+| Renewal price cap | Max increase % | Finance | All |
+| Expansion pricing lock | Months | Sales leadership | All |
+| Invoice from each Deployment Date | None | Finance | New business, expansion |
+| Ramped fees | Year 1 % of full fees | Finance | All |
+| Pilot exit | Days after first Deployment Date | Legal | New business |
+| Reference and logo rights | None | None | All |
+| Data residency | EU / US / UK | Legal | All |
+| Other special term | Free text | Legal | All |
+
+**What needs approval:**
+- a line discounted 20% or more, approved by Sales leadership;
+- payment terms other than Net 30, approved by Finance;
+- billing other than annually in advance, approved by Finance;
+- auto-renewal switched off, approved by Legal;
+- any ticked special term that names an approver.
+
+The **Approval** box lists each item under the type of approver. **Create order form** stays locked until everything is approved.
+
+**How approval works:**
+1. The rep picks the approver for each type from HubSpot users (the card suggests whoever was used last) and clicks **Request approval**.
+2. Each approver gets a HubSpot task on the deal.
+3. The approver opens the deal's Order form tab, adds an optional note and clicks **Approve** or **Reject**. Only the named approver sees those buttons.
+4. Approving completes the task. The decision, who made it, when and the note are kept in `of_approval`, with a summary in `of_approval_status`, `of_approved_at` and `of_approved_by`.
+
+Approval covers exactly what was approved. Changing an approved item (for example Net 60 to Net 90) makes it **Needed** again.
+
 ## MSAs and Juro
 
 - **Existing MSA:** the order form is governed by it. Enter its date.
@@ -279,6 +311,7 @@ The dropdowns store values like `annually_in_advance` and show labels like "Annu
 
 From the `protex-account-intel` folder:
 
+0. **For special terms and approval (this version):** run step 1 to create the 5 approval properties, upload, then **reinstall the app**. It now also reads HubSpot owners and creates tasks (`crm.objects.owners.read`, `crm.objects.contacts.write`).
 1. **Create the new properties and update the changed ones.** Make a temporary HubSpot **service key** with `crm.schemas.deals.write`, then:
    ```
    read -s HUBSPOT_TOKEN

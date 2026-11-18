@@ -368,3 +368,68 @@ test('quote: forgets an order form quote that was deleted in HubSpot', async () 
   assert.deepEqual(res.body.live.map((q) => q.id), ['451645967574'], 'the manual draft is still reported, so the card can offer to replace it');
   assert.deepEqual(sent.find((s) => s.method === 'PATCH').body.properties, { of_quote_id: '', of_quote_status: '', of_status: 'draft', of_changed_after_quote: '' });
 });
+
+test('request_approval saves the request and gives each approver a task on the deal', async () => {
+  const sent = stub([
+    ['GET', /objects\/deals\/77\?properties=dealname/, { properties: { dealname: 'Lennox' } }],
+    ['GET', /owners\/\?email=cfo/, { results: [{ id: '501' }] }],
+    ['GET', /owners\/\?email=legal/, { results: [] }],
+    ['POST', /objects\/tasks$/, (url, opts) => ({ id: JSON.parse(opts.body).properties.hubspot_owner_id ? '9001' : '9002' })],
+    ['PATCH', /objects\/deals\/77$/, {}],
+  ]);
+  const request = {
+    fingerprint: 'payment:net_60|term:pilot_exit:90',
+    reasons: [
+      { key: 'payment:net_60', label: 'Payment terms: Net 60', role: 'finance' },
+      { key: 'term:pilot_exit:90', label: 'Special term: Pilot exit (90)', role: 'legal' },
+    ],
+    approvers: { finance: { id: '1', email: 'cfo@protex.ai', name: 'Cara CFO' }, legal: { id: '2', email: 'legal@protex.ai', name: 'Lee Legal' } },
+  };
+  const res = await main({ parameters: { action: 'request_approval', dealId: '77', request, requestedBy: 'rep@protex.ai' } });
+  assert.equal(res.statusCode, 200);
+  const tasks = sent.filter((s) => s.method === 'POST' && /objects\/tasks$/.test(s.url));
+  assert.equal(tasks.length, 2);
+  assert.equal(tasks[0].body.properties.hubspot_owner_id, '501');
+  assert.equal(tasks[0].body.properties.hs_task_subject, 'Approve order form terms: Lennox');
+  assert.ok(tasks[0].body.properties.hs_task_body.includes('• Payment terms: Net 60'));
+  assert.equal(tasks[0].body.associations[0].types[0].associationTypeId, 216);
+  const saved = JSON.parse(res.body.properties.of_approval);
+  assert.equal(res.body.properties.of_approval_status, 'pending');
+  assert.equal(saved.roles.finance.taskId, '9001');
+  assert.equal(saved.roles.legal.status, 'pending');
+  assert.match(res.body.warning, /Lee Legal isn't a HubSpot owner/);
+
+  stub([]);
+  const missing = await main({ parameters: { action: 'request_approval', dealId: '77', request: { ...request, approvers: { finance: request.approvers.finance } } } });
+  assert.equal(missing.statusCode, 400, 'every type needs an approver');
+});
+
+test('decide_approval: only the named approver decides; all approved completes it', async () => {
+  const record = {
+    fingerprint: 'fp',
+    reasons: [],
+    roles: {
+      finance: { approver: { id: '1', email: 'cfo@protex.ai', name: 'Cara CFO' }, status: 'pending', taskId: '9001' },
+      legal: { approver: { id: '2', email: 'legal@protex.ai', name: 'Lee Legal' }, status: 'approved', by: 'Lee Legal' },
+    },
+  };
+  let sent = stub([
+    ['GET', /objects\/deals\/77\?properties=of_approval/, { properties: { of_approval: JSON.stringify(record) } }],
+    ['PATCH', /objects\/(deals\/77|tasks\/9001)$/, {}],
+  ]);
+  const wrong = await main({ parameters: { action: 'decide_approval', dealId: '77', role: 'finance', decision: 'approved', user: { email: 'rep@protex.ai' } } });
+  assert.equal(wrong.statusCode, 403);
+  const res = await main({ parameters: { action: 'decide_approval', dealId: '77', role: 'finance', decision: 'approved', note: 'OK for this one', user: { email: 'CFO@protex.ai', name: 'Cara CFO' } } });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.properties.of_approval_status, 'approved');
+  assert.equal(res.body.properties.of_approved_by, 'Finance: Cara CFO; Legal: Lee Legal');
+  assert.equal(JSON.parse(res.body.properties.of_approval).roles.finance.note, 'OK for this one');
+  assert.ok(sent.some((s) => s.method === 'PATCH' && /tasks\/9001$/.test(s.url) && s.body.properties.hs_task_status === 'COMPLETED'), 'the task is completed');
+
+  stub([
+    ['GET', /objects\/deals\/77\?properties=of_approval/, { properties: { of_approval: JSON.stringify(record) } }],
+    ['PATCH', /objects\/(deals\/77|tasks\/9001)$/, {}],
+  ]);
+  const rejected = await main({ parameters: { action: 'decide_approval', dealId: '77', role: 'finance', decision: 'rejected', user: { email: 'cfo@protex.ai' } } });
+  assert.equal(rejected.body.properties.of_approval_status, 'rejected');
+});

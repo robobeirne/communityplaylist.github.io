@@ -30,6 +30,7 @@ import {
   Text,
   TextArea,
   Tile,
+  ToggleGroup,
   hubspot,
 } from '@hubspot/ui-extensions';
 import { useRecordProperties, type CrmActions } from './lib/hooks.ts';
@@ -77,6 +78,8 @@ import {
 } from './orderform/lines.ts';
 import { orderComments, orderTerms } from './orderform/terms.ts';
 import { isInclusion, missingInclusions } from './orderform/inclusions.ts';
+import { approvalState, fingerprint, ROLE_LABEL, type Role } from './orderform/approvals.ts';
+import { readSpecialTerms, termsFor, type ChosenTerm } from './orderform/specialterms.ts';
 import { PROTEX_ENTITY, STANDARD_MSA_URL } from './orderform/legal.ts';
 
 /*
@@ -144,7 +147,7 @@ type TabKey = 'deal' | 'scope' | 'legal';
 const TABS: { key: TabKey; title: string; sections: Section[] }[] = [
   { key: 'deal', title: 'Order & client', sections: ['order', 'client'] },
   { key: 'scope', title: 'Sites & products', sections: ['sites', 'pricing'] },
-  { key: 'legal', title: 'Legal & signing', sections: ['legal'] },
+  { key: 'legal', title: 'Legal & signing', sections: ['legal', 'approval'] },
 ];
 const tabOf = (section: Section): TabKey => TABS.find((t) => t.sections.includes(section))!.key;
 
@@ -183,6 +186,7 @@ type Body = {
   message?: string;
   properties?: Values;
   users?: Signer[];
+  lastApprovers?: Partial<Record<Role, Signer>>;
   lines?: RawLine[] | null;
   products?: Product[];
   contacts?: Person[];
@@ -219,6 +223,8 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
   const [edits, setEdits] = React.useState<Values>({});
   const [saving, setSaving] = React.useState(false);
   const [signers, setSigners] = React.useState<Signer[] | null>(null);
+  const [lastApprovers, setLastApprovers] = React.useState<Partial<Record<Role, Signer>>>({});
+  const [approving, setApproving] = React.useState(false);
   const [signersError, setSignersError] = React.useState('');
   /** The open tab. Only the rep (or a still-needed link) changes it: filling a field never moves them on. */
   const [tab, setTab] = React.useState<TabKey>('deal');
@@ -256,7 +262,10 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
 
   React.useEffect(() => {
     call({ action: 'signatories' })
-      .then((b) => setSigners(b.users ?? []))
+      .then((b) => {
+        setSigners(b.users ?? []);
+        setLastApprovers(b.lastApprovers ?? {});
+      })
       .catch((e: Error) => setSignersError(e.message));
     call({ action: 'pricing', dealId })
       .then((b) => setPricing({ lines: b.lines ?? [], products: b.products ?? [] }))
@@ -429,6 +438,38 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
 
   const templates = quoteInfo?.templates ?? [];
   const chosenTemplate = templateId || (templates.find((x) => /order form/i.test(x.name)) ?? templates[0])?.id || '';
+  const approval = approvalState(v, lines);
+  const requestApproval = async (approvers: Partial<Record<Role, Signer>>) => {
+    setApproving(true);
+    try {
+      const b = await call({
+        action: 'request_approval',
+        dealId,
+        request: { fingerprint: fingerprint(approval.reasons), reasons: approval.reasons, approvers },
+        requestedBy: user.email,
+      });
+      setSaved((x) => ({ ...x, ...(b.properties ?? {}) }));
+      actions.addAlert({ type: 'success', message: 'Approval requested. Each approver has a HubSpot task linking to this deal.' });
+      if (b.warning) actions.addAlert({ type: 'warning', message: b.warning });
+    } catch (e) {
+      actions.addAlert({ type: 'danger', message: `Couldn't request approval: ${(e as Error).message}` });
+    } finally {
+      setApproving(false);
+    }
+  };
+  const decideApproval = async (role: Role, decision: 'approved' | 'rejected', note: string) => {
+    setApproving(true);
+    try {
+      const b = await call({ action: 'decide_approval', dealId, role, decision, note, user: { email: user.email, name: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email } });
+      setSaved((x) => ({ ...x, ...(b.properties ?? {}) }));
+      actions.addAlert({ type: decision === 'approved' ? 'success' : 'warning', message: decision === 'approved' ? 'Approved.' : 'Rejected. The rep sees your note on the card.' });
+    } catch (e) {
+      actions.addAlert({ type: 'danger', message: `Couldn't record that: ${(e as Error).message}` });
+    } finally {
+      setApproving(false);
+    }
+  };
+
   const createQuote = async (replaceQuoteId?: string) => {
     setCreating(true);
     try {
@@ -531,6 +572,19 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
       )}
 
       <Actions dirty={dirty} saving={saving} onSave={() => save()} />
+
+      {approval.status !== 'not_needed' && (
+        <ApprovalPanel
+          state={approval}
+          users={signers}
+          suggested={lastApprovers}
+          me={user.email}
+          dirty={dirty}
+          busy={approving || saving}
+          onRequest={requestApproval}
+          onDecide={decideApproval}
+        />
+      )}
 
       <QuotePanel
         v={v}
@@ -1364,6 +1418,166 @@ function LegalSection({ v, set, people, signers, signersError }: Shared & { peop
         <TextField v={v} set={set} name="of_protex_signer_title" label="Job title" required />
       </Grid>
       <Text variant="microcopy">Job titles fill from the HubSpot user profile, or from the last order form they signed.</Text>
+      <Divider />
+      <SpecialTermsField v={v} set={set} />
     </Flex>
+  );
+}
+
+/* ---------------- special terms ---------------- */
+
+function SpecialTermsField({ v, set }: { v: Values; set: Setter }) {
+  const available = termsFor(v.of_order_type);
+  const chosen = readSpecialTerms(v).filter((c) => available.some((t) => t.id === c.id));
+  const write = (list: ChosenTerm[]) => set('of_special_terms', JSON.stringify(list));
+  return (
+    <Flex direction="column" gap="sm">
+      <SubHead>Special terms (optional)</SubHead>
+      <ToggleGroup
+        name="special-terms"
+        label="Add to this order form"
+        toggleType="checkboxList"
+        value={chosen.map((c) => c.id)}
+        options={available.map((t) => ({
+          label: `${t.title}${t.role ? ` · needs ${ROLE_LABEL[t.role]} approval` : ''}`,
+          value: t.id,
+          description: t.summary,
+        }))}
+        onChange={(ids) => {
+          const picked = (ids as string[] | undefined) ?? [];
+          write(picked.map((id) => chosen.find((c) => c.id === id) ?? { id }));
+        }}
+      />
+      {chosen.map((c) => {
+        const t = available.find((x) => x.id === c.id)!;
+        if (!t.input) return null;
+        const setValue = (value: string) => write(chosen.map((x) => (x.id === c.id ? { ...x, value } : x)));
+        if (t.input.kind === 'choice')
+          return (
+            <Select
+              key={c.id}
+              name={`term-${c.id}`}
+              label={`${t.title}: ${t.input.label}`}
+              required
+              value={c.value ?? ''}
+              options={(t.input.options ?? []).map((o) => ({ label: o, value: o }))}
+              onChange={(x) => setValue(String(x ?? ''))}
+            />
+          );
+        if (t.input.kind === 'text')
+          return <TextArea key={c.id} name={`term-${c.id}`} label={`${t.title}: ${t.input.label}`} required rows={3} value={c.value ?? ''} onChange={setValue} />;
+        return (
+          <NumberInput
+            key={c.id}
+            name={`term-${c.id}`}
+            label={`${t.title}: ${t.input.label}`}
+            required
+            min={0}
+            value={c.value ? Number(c.value) : undefined}
+            onChange={(n) => setValue(Number.isFinite(n) ? String(n) : '')}
+          />
+        );
+      })}
+      <Text variant="microcopy">Ticked terms print on the quote under "Special Terms", after the Terms and Conditions.</Text>
+    </Flex>
+  );
+}
+
+/* ---------------- approval ---------------- */
+
+const APPROVAL_LABEL: Record<string, string> = { needed: 'Approval needed', pending: 'Pending', approved: 'Approved', rejected: 'Rejected' };
+const APPROVAL_VARIANT: Record<string, 'default' | 'info' | 'warning' | 'success' | 'danger'> = {
+  needed: 'warning',
+  pending: 'info',
+  approved: 'success',
+  rejected: 'danger',
+};
+
+function ApprovalPanel(p: {
+  state: ReturnType<typeof approvalState>;
+  users: Signer[] | null;
+  suggested: Partial<Record<Role, Signer>>;
+  me: string;
+  dirty: boolean;
+  busy: boolean;
+  onRequest: (approvers: Partial<Record<Role, Signer>>) => void;
+  onDecide: (role: Role, decision: 'approved' | 'rejected', note: string) => void;
+}) {
+  const { state } = p;
+  const [picked, setPicked] = React.useState<Partial<Record<Role, string>>>({});
+  const [note, setNote] = React.useState('');
+  const current = state.status === 'pending' || state.status === 'approved' || state.status === 'rejected';
+  const canAsk = state.status === 'needed' || state.status === 'rejected';
+  const users = p.users ?? [];
+  const chosen = (role: Role): Signer | undefined => {
+    const id = picked[role] ?? p.suggested[role]?.id ?? (current ? state.record?.roles[role]?.approver.id : undefined);
+    return users.find((u) => u.id === id) ?? (p.suggested[role] && !picked[role] ? (p.suggested[role] as Signer) : undefined);
+  };
+  const ready = state.roles.every((r) => chosen(r));
+  return (
+    <Tile>
+      <Flex direction="column" gap="sm">
+        <Flex direction="row" gap="sm" align="center" wrap="wrap">
+          <Text format={{ fontWeight: 'demibold' }}>Approval</Text>
+          <StatusTag variant={APPROVAL_VARIANT[state.status] ?? 'default'}>{APPROVAL_LABEL[state.status] ?? state.status}</StatusTag>
+        </Flex>
+        <Text variant="microcopy">These are outside the standard order form, so they need sign-off before the order form can be created.</Text>
+        {state.roles.map((role) => {
+          const entry = current ? state.record?.roles[role] : undefined;
+          const mine = entry && entry.status === 'pending' && entry.approver.email.toLowerCase() === p.me.toLowerCase();
+          return (
+            <Flex key={role} direction="column" gap="xs">
+              <Text format={{ fontWeight: 'demibold' }}>{ROLE_LABEL[role]}</Text>
+              {state.reasons
+                .filter((r) => r.role === role)
+                .map((r) => (
+                  <Text key={r.key}>{`• ${r.label}`}</Text>
+                ))}
+              {entry && (
+                <Text variant="microcopy">
+                  {entry.status === 'pending'
+                    ? `Waiting for ${entry.approver.name}.`
+                    : `${entry.status === 'approved' ? 'Approved' : 'Rejected'} by ${entry.by ?? entry.approver.name}${entry.at ? ` on ${shortDate(new Date(entry.at))}` : ''}${entry.note ? `: "${entry.note}"` : '.'}`}
+                </Text>
+              )}
+              {canAsk && (
+                <Select
+                  name={`approver-${role}`}
+                  label={`${ROLE_LABEL[role]} approver`}
+                  placeholder="Choose who approves"
+                  value={chosen(role)?.id ?? ''}
+                  options={users.map((u) => ({ label: u.name, value: u.id }))}
+                  onChange={(x) => setPicked((cur) => ({ ...cur, [role]: String(x ?? '') }))}
+                />
+              )}
+              {mine && (
+                <Flex direction="row" gap="sm" align="end" wrap="wrap">
+                  <Input name={`approval-note-${role}`} label="Note (optional)" value={note} onChange={setNote} />
+                  <LoadingButton size="sm" variant="primary" loading={p.busy} onClick={() => p.onDecide(role, 'approved', note)}>
+                    Approve
+                  </LoadingButton>
+                  <LoadingButton size="sm" variant="destructive" loading={p.busy} onClick={() => p.onDecide(role, 'rejected', note)}>
+                    Reject
+                  </LoadingButton>
+                </Flex>
+              )}
+            </Flex>
+          );
+        })}
+        {canAsk && (
+          <Flex direction="row" gap="sm" align="center" wrap="wrap">
+            <LoadingButton
+              variant="primary"
+              loading={p.busy}
+              disabled={p.dirty || !ready}
+              onClick={() => p.onRequest(Object.fromEntries(state.roles.map((r) => [r, chosen(r)!])) as Partial<Record<Role, Signer>>)}
+            >
+              {p.dirty ? 'Save, then request approval' : state.status === 'rejected' ? 'Ask again' : 'Request approval'}
+            </LoadingButton>
+            <Text variant="microcopy">Each approver gets a HubSpot task on this deal and approves here, on the card. Changing anything approved means asking again.</Text>
+          </Flex>
+        )}
+      </Flex>
+    </Tile>
   );
 }
