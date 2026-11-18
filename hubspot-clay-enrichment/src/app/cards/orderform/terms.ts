@@ -32,10 +32,6 @@ const longDate = (v: unknown) => {
   const d = v instanceof Date ? v : parseDate(v);
   return d ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : '';
 };
-const para = (...parts: (string | false | null | undefined)[]) => {
-  const body = parts.filter(Boolean).join('<br>');
-  return body ? `<p>${body}</p>` : '';
-};
 const list = (items: string[]) => (items.length ? `<ul>${items.map((i) => `<li>${i}</li>`).join('')}</ul>` : '');
 
 /** Auto-renewal is on unless the rep switched it off: it's part of the standard order form. */
@@ -61,33 +57,43 @@ export function cameraApportionment(sites: Site[]): string {
   return sites.map((s, i) => `${s.name || `Site ${i + 1}`}: ${s.cameras}`).join('; ');
 }
 
-/** "Comments to buyer": client and billing details, the notes, and the site information. */
+/**
+ * "Comments to buyer": client and billing details, subscription term, notes and site information.
+ *
+ * HTML contract with the quote template: plain semantic tags only (table/thead/tbody/tr/th/td,
+ * h3, p, ul/li, strong, u), no classes or inline styles. The template styles them by element
+ * inside its Comments and Terms wrappers. The template should not rebuild these sections itself.
+ */
 export function orderComments(v: Values): string {
   const sites = readSites(v);
   const staged = v.of_rollout === 'staged_rollout';
   const term = subscriptionTerm(v);
   const apportion = cameraApportionment(sites);
   const po = has(v.purchase_order) ? esc(v.purchase_order) : v.of_po_required === 'true' ? 'Required (to be sent to accounts@protex.ai)' : '';
+  const label = (l: string, value: string) => `<strong>${l}:</strong> ${value}`;
+  const client = [
+    label('Legal Entity Name', esc(v.of_client_legal_name)),
+    label('Legal Entity Address', oneLine(v.of_client_legal_address)),
+    has(v.of_client_company_number) && label('Company Number', esc(v.of_client_company_number)),
+    label('Attn', esc(v.of_client_contact_name)),
+    label('Contact Email', esc(v.of_client_contact_email)),
+  ].filter(Boolean) as string[];
+  const billing = [
+    label('Billing Email', has(v.client_s_email_for_invoicing_) ? esc(v.client_s_email_for_invoicing_) : 'TBD'),
+    label('Billing Address', has(v.of_billing_address) ? oneLine(v.of_billing_address) : 'As legal entity address'),
+    has(v.of_billing_contact_name) && label('Billing Contact', esc(v.of_billing_contact_name)),
+    has(v.of_client_tax_id) && label('VAT Number', esc(v.of_client_tax_id)),
+    po && label('Purchase Order', po),
+  ].filter(Boolean) as string[];
+  const rows = Array.from({ length: Math.max(client.length, billing.length) }, (_, i) => `<tr><td>${client[i] ?? ''}</td><td>${billing[i] ?? ''}</td></tr>`);
+  const siteHead = ['Site', 'Delivery Address', 'Camera Integrations', ...(staged ? ['Expected Go-live'] : [])];
+  const siteRows = (sites.length ? sites : [{ name: '', address: '', cameras: 0, goLive: '' }]).map((s, i) =>
+    `<tr>${[`Site ${i + 1}: ${esc(s.name)}`, esc(s.address), s.cameras ? String(s.cameras) : '', ...(staged ? [longDate(s.goLive)] : [])].map((c) => `<td>${c}</td>`).join('')}</tr>`,
+  );
   return [
-    para(`Quote Date: ${longDate(v.of_quote_date) || '—'} | Offer Expiry Date: ${longDate(v.of_offer_expiry_date) || '—'}`),
-    para(
-      '<strong>Client Details</strong>',
-      `Legal Entity Name: ${esc(v.of_client_legal_name)}`,
-      `Legal Entity Address: ${oneLine(v.of_client_legal_address)}`,
-      has(v.of_client_company_number) && `Company Number: ${esc(v.of_client_company_number)}`,
-      `Attn: ${esc(v.of_client_contact_name)}`,
-      `Contact Email: ${esc(v.of_client_contact_email)}`,
-    ),
-    para(
-      '<strong>Billing Details</strong>',
-      `Billing Email: ${has(v.client_s_email_for_invoicing_) ? esc(v.client_s_email_for_invoicing_) : 'TBD'}`,
-      `Billing Address: ${has(v.of_billing_address) ? oneLine(v.of_billing_address) : 'As legal entity address'}`,
-      has(v.of_billing_contact_name) && `Billing Contact: ${esc(v.of_billing_contact_name)}`,
-      has(v.of_client_tax_id) && `VAT Number: ${esc(v.of_client_tax_id)}`,
-      po && `Purchase Order: ${po}`,
-    ),
-    term && para(`<strong>Subscription Term:</strong> ${esc(term)}`),
-    '<p><strong>Notes</strong></p>',
+    `<table><thead><tr><th>Client Details</th><th>Billing Details</th></tr></thead><tbody>${rows.join('')}</tbody></table>`,
+    term && `<h3>Subscription Term</h3><p>${esc(term)}</p>`,
+    '<h3>Notes</h3>',
     list(
       [
         'Each Protex AI Platform Site License includes the lease of one (1) Edge Device.',
@@ -95,24 +101,11 @@ export function orderComments(v: Values): string {
         'Camera integrations are limited to the number specified above. Each Device can hold up to 40 connected cameras, depending on stream configuration settings as set forth in the applicable Documentation. Additional camera integrations are chargeable. Additional Devices needed to support additional camera connections are chargeable. A reconnection fee may apply if a camera is deactivated and subsequently reconnected. Protex AI does not provide cameras.',
       ].filter(Boolean) as string[],
     ),
-    '<p><strong>Site Information</strong></p>',
-    sites.length
-      ? para(
-          ...sites.map((s, i) =>
-            [
-              `Site ${i + 1}: ${esc(s.name)}`,
-              s.address && esc(s.address),
-              s.cameras ? `${s.cameras} Camera Integration${s.cameras === 1 ? '' : 's'}` : '',
-              staged && s.goLive ? `expected go-live ${longDate(s.goLive)}` : '',
-            ]
-              .filter(Boolean)
-              .join(' — '),
-          ),
-        )
-      : para('Site 1:'),
+    '<h3>Site Information</h3>',
+    `<table><thead><tr>${siteHead.map((h) => `<th>${h}</th>`).join('')}</tr></thead><tbody>${siteRows.join('')}</tbody></table>`,
   ]
     .filter(Boolean)
-    .join('\n');
+    .join('');
 }
 
 /** "Terms": the Terms and Conditions. */
@@ -158,9 +151,11 @@ export function orderTerms(v: Values): string {
   );
   const out: string[] = [];
   if (!TERMS_APPROVED) out.push('<p><strong>DRAFT TERMS: NOT YET APPROVED BY LEGAL</strong></p>');
-  out.push('<p><strong>Terms and Conditions</strong></p>');
-  sections.forEach((clauses, i) => {
-    clauses.forEach((text, j) => out.push(`<p><strong>${i + 1}${String.fromCharCode(65 + j)}.</strong> ${text}</p>`));
-  });
-  return out.join('\n');
+  out.push('<h3>Terms and Conditions</h3>');
+  // One row per numbered section; its lettered clauses (A, B…) as paragraphs, like the order form.
+  const rows = sections.map(
+    (clauses, i) => `<tr><td>${i + 1}</td><td>${clauses.map((text, j) => `<p><strong>${String.fromCharCode(65 + j)}.</strong> ${text}</p>`).join('')}</td></tr>`,
+  );
+  out.push(`<table><tbody>${rows.join('')}</tbody></table>`);
+  return out.join('');
 }

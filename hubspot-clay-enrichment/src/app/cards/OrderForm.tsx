@@ -578,7 +578,10 @@ function Actions(p: { dirty: boolean; saving: boolean; onSave: () => void }) {
 const plain = (html: string) =>
   html
     .replace(/<br\s*\/?>/g, '\n')
-    .replace(/<\/p>\s*/g, '\n\n')
+    .replace(/<\/(td|th)>(?=\s*<t[dh])/g, '   ')
+    .replace(/<\/(tr|li|h3)>\s*/g, '\n')
+    .replace(/<li>/g, '• ')
+    .replace(/<\/(p|table|ul)>\s*/g, '\n\n')
     .replace(/<[^>]+>/g, '')
     .replace(/&quot;/g, '"')
     .replace(/&lt;/g, '<')

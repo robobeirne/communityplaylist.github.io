@@ -39,10 +39,48 @@ The card fills these quote fields. The template only has to display them; no per
 
 Until legal confirms, the terms start with "DRAFT TERMS: NOT YET APPROVED BY LEGAL".
 
+## Who owns what
+
+**The card owns the content; the template is a styled shell.** Don't rebuild Client Details, Notes, Site Information or the Terms from deal fields: print Comments to buyer and Terms, or every quote shows them twice. The card holds the wording, and each quote keeps the exact text it was created with.
+
+### HTML the card writes (style it by element)
+
+The card only uses plain tags, with no classes and no inline styles: `table`, `thead`, `tbody`, `tr`, `th`, `td`, `h3`, `p`, `ul`, `li`, `strong`, `u`. Style them by element inside the template's Comments and Terms wrappers (for example `.comments table`, `.terms td:first-child`).
+
+**Comments to buyer:**
+```html
+<table>
+  <thead><tr><th>Client Details</th><th>Billing Details</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Legal Entity Name:</strong> …</td><td><strong>Billing Email:</strong> … or TBD</td></tr>
+    <tr><td><strong>Legal Entity Address:</strong> …</td><td><strong>Billing Address:</strong> … or As legal entity address</td></tr>
+    <tr><td><strong>Attn:</strong> …</td><td>(Billing Contact / VAT Number / Purchase Order when set)</td></tr>
+    <tr><td><strong>Contact Email:</strong> …</td><td></td></tr>
+  </tbody>
+</table>
+<h3>Subscription Term</h3><p>12 months from each Site's Deployment Date</p>
+<h3>Notes</h3><ul><li>…edge device…</li><li>…15 Camera Integrations per Site…</li><li>…camera limits…</li></ul>
+<h3>Site Information</h3>
+<table>
+  <thead><tr><th>Site</th><th>Delivery Address</th><th>Camera Integrations</th>(<th>Expected Go-live</th> for staged rollouts)</tr></thead>
+  <tbody><tr><td>Site 1: …</td><td>…</td><td>15</td></tr>…</tbody>
+</table>
+```
+
+**Terms:**
+```html
+(<p><strong>DRAFT TERMS: NOT YET APPROVED BY LEGAL</strong></p> until legal confirms)
+<h3>Terms and Conditions</h3>
+<table><tbody>
+  <tr><td>1</td><td><p><strong>A.</strong> By signing this Order Form…</p><p><strong>B.</strong> Capitalized terms…</p></td></tr>
+  …through section 7 (6 if auto-renewal is off)…
+</tbody></table>
+```
+
 ## Sections to put in the template, top to bottom
 
-1. **Header:** logo, "ORDER FORM", quote date and expiration date.
-2. **Comments to buyer:** Client Details, Billing Details, Subscription Term, Notes and Site Information all come from here.
+1. **Header:** logo, "ORDER FORM", the quote's creation date as the Quote Date, and its expiration date as the Offer Expiry Date. The card sets the expiration to the order form's offer expiry.
+2. **Comments to buyer.**
 3. **Line items**, with these columns to match the current order form:
 
    | Order form column | Line item field |
@@ -54,11 +92,15 @@ Until legal confirms, the terms start with "DRAFT TERMS: NOT YET APPROVED BY LEG
    | Discount | Unit discount / discount % |
    | Annual Line Total | Net price |
 
-   Show the **Discount** column: discounts now sit on each line, at list price, so this column is where they show. **Leave out Description:** product descriptions hold internal notes (the Signal products say "legal + technical review required before quoting").
-4. **Totals:** annual subscription and total contract value. Free rows show as 0.00.
-5. **Terms:** the Terms and Conditions.
+   - **Discount column:** show it, because discounts sit on each line at list price.
+   - **Free rows:** print **Free of Charge** in the fee columns when the **unit price** is 0. Use the unit price, not the net price, so a paid line discounted to zero still shows its price and discount.
+   - **Description:** leave it out. Product descriptions hold internal notes; the Signal products say "legal + technical review required before quoting".
+4. **Totals:** annual subscription and total contract value.
+5. **Terms.**
 6. **Signatures:** e-signature for the client signer and the Protex countersigner.
 7. **Footer:** Protex AI Limited, registered address, VAT # IE3772746SH, "Protex AI Confidential".
+
+Check on the first test quote that HubSpot keeps the tables in Comments to buyer and Terms. If it strips them, tell the card's owner and the card will switch to paragraphs.
 
 ## Lines every new business order form has
 
@@ -67,7 +109,7 @@ On a new business deal, the card adds these automatically, once:
 - **Deployment Services**, one per site;
 - **Standard Support Services**, quantity 1.
 
-All three show at 0.00. They sit with the paid lines: site licences, camera integrations, and optional products such as Operations or On-site Installation.
+All three show as Free of Charge. They sit with the paid lines: site licences, camera integrations, and optional products such as Operations or On-site Installation.
 
 ## Deal properties, if you want tokens
 
