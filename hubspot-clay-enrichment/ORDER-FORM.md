@@ -110,7 +110,7 @@ To move the deal stage the moment a quote is signed, add a HubSpot workflow on t
 - **sent quote:** the card says the client's copy is out of date. Delete or expire the quote in HubSpot, then create the order form again.
 
 **Legal settings** live in `src/app/cards/orderform/legal.ts`:
-- `TERMS_APPROVED` is false until legal approves the wording in `orderform/terms.ts`. Until then, the card warns and every quote's Terms start with "DRAFT TERMS: NOT YET APPROVED BY LEGAL".
+- `TERMS_APPROVED` is `true`: the terms are the current order form wording. Set it to `false` while new wording is being reviewed; the card then warns and every quote's Terms start with "DRAFT TERMS: NOT YET APPROVED BY LEGAL".
 - `PROTEX_ENTITY` is "Protex AI Limited" and `STANDARD_MSA_URL` is "www.protex.ai/legal", both taken from the current order form.
 
 ## MSAs and Juro
@@ -288,7 +288,7 @@ From the `protex-account-intel` folder:
 3. **Reinstall the app.** It now also reads and creates quotes (`crm.objects.quotes.read`, `crm.objects.quotes.write`). Go to **Development > Projects > protex-account-intel > Protex Account Intel > Distribution** and reinstall it.
 4. **Quote template:** build one that shows Comments to buyer, the line items, Terms and e-signature. Name it with "order form" in it so the card picks it by default. [QUOTE-TEMPLATE.md](QUOTE-TEMPLATE.md) lists everything the card fills in and the columns to use.
 5. **Product library:** *Standard Support Services* (SKU 13/SUPPORT, 0, annual) was created on 18 Nov 2026 for the free standard rows.
-6. **Legal:** the terms are the current order form wording. Once legal confirms, set `TERMS_APPROVED` to `true` in `src/app/cards/orderform/legal.ts` and upload again.
+6. **Legal:** the terms are the current order form wording, and `TERMS_APPROVED` is `true`. When legal changes the wording, update `src/app/cards/orderform/terms.ts` and upload again.
 7. **Optional:** a workflow on the quote being signed, to move the deal stage straight away.
 8. **Optional tidy-up:** the first version's per-product pricing properties (`of_safety_units`, `of_safety_unit_fee`, `of_cameras_*`, `of_ops_*`, `of_intel_*`, `of_hardware_*`, `of_implementation_fee`, `of_discount_applied`, `of_discount_type`, `of_discount_value`, `of_*_units_manual`, `of_*_total`) and `of_existing_msa` are no longer used. Archive them in **Settings > Properties**.
 
