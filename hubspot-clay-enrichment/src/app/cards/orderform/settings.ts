@@ -42,6 +42,16 @@ export const DEFAULT_RULES: Rules = {
   approver_legal: 'aoife.harte@protex.ai',
   approver_sales: 'scott.cahill@protex.ai',
   on_signature_close_won: 'yes',
+  on_signature_create_sites: 'yes',
+  countersignature: 'yes',
+  discount_tier2_pct: '',
+  approver_exec: '',
+  deputy_finance: '',
+  deputy_legal: '',
+  deputy_sales: '',
+  deputy_exec: '',
+  product_roles: '{"2281317872": "licence", "2282093038": "camera", "403629398207": "licence", "403344247015": "camera", "414816421078": "licence", "414759343349": "camera", "403783873784": "licence", "414730536132": "inclusion", "427764333792": "deployment", "455664370894": "inclusion", "2282093039": "deployment", "414913570026": "addon"}',
+  packages: '[{"id": "safety", "name": "Safety", "items": [{"productId": "2281317872", "qty": "sites"}, {"productId": "2282093038", "qty": "cameras"}]}, {"id": "operations", "name": "Operations", "items": [{"productId": "403629398207", "qty": "sites"}, {"productId": "403344247015", "qty": "cameras"}]}, {"id": "signal", "name": "Signal", "items": [{"productId": "414816421078", "qty": "sites"}, {"productId": "414759343349", "qty": "cameras"}]}]',
   legal_editors: 'jemima.davison@protex.ai, aoife.harte@protex.ai',
   rules_editors: 'jemima.davison@protex.ai, aoife.harte@protex.ai, scott.cahill@protex.ai, rob.obeirne@protex.ai',
 };
@@ -250,3 +260,43 @@ export function formatClause(text: string): string {
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/__(.+?)__/g, '<u>$1</u>');
 }
+
+/* ---------------- products: roles and packages ---------------- */
+
+/** licence: one per site · camera: one per camera across sites · deployment: one per site · inclusion · addon */
+export type ProductRole = 'licence' | 'camera' | 'deployment' | 'inclusion' | 'addon';
+const parseJson = <T,>(raw: string, fallback: T): T => {
+  try {
+    const v = JSON.parse(raw);
+    return v ?? fallback;
+  } catch {
+    return fallback;
+  }
+};
+export const productRoles = (): Record<string, ProductRole> => parseJson(rule('product_roles'), {} as Record<string, ProductRole>);
+export const productRole = (productId: string | undefined): ProductRole | undefined => (productId ? productRoles()[productId] : undefined);
+
+export interface PackageItem {
+  productId: string;
+  /** "sites", "cameras", or a fixed number. */
+  qty: string | number;
+}
+export interface ProductPackage {
+  id: string;
+  name: string;
+  items: PackageItem[];
+}
+export const packages = (): ProductPackage[] => {
+  const list = parseJson<unknown>(rule('packages'), []);
+  return Array.isArray(list) ? (list as ProductPackage[]).filter((p) => p && p.name && Array.isArray(p.items)) : [];
+};
+
+/** The second discount tier that also needs an Executive, or null when it isn't set. */
+export function discountTier2Pct(): number | null {
+  const raw = rule('discount_tier2_pct').trim();
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+/** People who can decide for an approver (comma-separated emails in the rules). */
+export const deputies = (role: string) => ruleList(`deputy_${role}`);

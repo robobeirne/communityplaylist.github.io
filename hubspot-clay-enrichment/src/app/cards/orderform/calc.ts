@@ -102,6 +102,8 @@ export interface Site {
   cameras: number;
   /** ISO date, or "" */
   goLive: string;
+  /** The Sites record this is (picked from the company's sites, or created at signature). */
+  recordId?: string;
 }
 
 /**
@@ -120,6 +122,7 @@ export function readSites(v: Values): Site[] {
           cameras: num(s?.cameras),
           goLive: String(s?.goLive ?? ''),
           ...(typeof s?.isNew === 'boolean' ? { isNew: s.isNew } : {}),
+          ...(s?.recordId ? { recordId: String(s.recordId) } : {}),
         }));
     } catch {
       /* fall through to the numbered fields */

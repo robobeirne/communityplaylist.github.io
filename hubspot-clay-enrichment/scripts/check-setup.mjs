@@ -65,6 +65,13 @@ for (const [table, key, rows] of [
   else ok(`${table}: published, ${have.size} rows`);
 }
 
+console.log('Sites object');
+{
+  const s = await get('/crm/v3/objects/p24888392_sites?limit=1&properties=site_name');
+  if (!s.ok) bad(`Couldn't read the Sites object (${s.status}: ${s.json.message ?? ''}). The key (and the app) need crm.objects.custom.read and crm.objects.custom.write.`);
+  else ok('Sites records are readable (renewals load them; signature creates them)');
+}
+
 console.log('Products');
 const prods = await get('/crm/v3/objects/products?limit=100&properties=name,hs_status');
 if (!prods.ok) bad(`Couldn't read products (${prods.status}). The key needs e-commerce.`);

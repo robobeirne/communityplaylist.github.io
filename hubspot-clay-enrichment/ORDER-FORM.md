@@ -39,6 +39,46 @@ One card on the deal captures everything the order form needs, for new business,
 - **Save changes** saves what was typed and the line item changes (adds, edits, removals), plus the calculated fields: pricing table, annual subscription, discounts, one-off fees, total contract value, contract end date, site list and site schedule.
 - **Order form quote** panel: **Create order form** stays disabled, showing how many details are left, until nothing required is missing and everything is saved. Then it creates the quote (see below) and shows its status, what to do next and links to it. **Preview the order form text** shows the Comments and Terms the quote will carry.
 
+## The next step, autosave and sending for signature
+
+A **Next step** box at the top always shows the one thing that moves the deal on, with its button:
+
+1. **Fill in N details** → *Show me* opens the tab with the first gap.
+2. **Request approval** → asks the approvers set in the rules (if any type has no approver set, it points at the Approval box to choose one).
+3. **Create the order form** → makes the HubSpot quote (or replaces a quote made elsewhere).
+4. **Update the quote** → the order form changed after the quote was made: replace the draft, or create a new version.
+5. **Send for signature** →
+   - if Protex countersigns (rule `countersignature` = yes, the default), *Open the quote to send it*: in HubSpot, Signature → Add countersigner → Publish. HubSpot's API can't set a countersigner, so this one step happens in HubSpot; the card picks up Sent and Signed on its own.
+   - if not (`countersignature` = no), *Send for signature* publishes the quote from the card. The app refuses if it isn't the deal's order form quote, isn't a draft, needs approval, or the order form changed after it was made.
+6. **Out for signature / Signed** → nothing to do; the card updates itself.
+
+**Autosave**: edits save on their own three seconds after the rep stops typing (one save, not one per keystroke). The box shows *Saving…*, *Unsaved changes* or *All changes saved 14:32*. Products added automatically for new business don't trigger a save on their own.
+
+## Packages and product roles
+
+**Add a package** (Products and pricing) adds a product set in one pick, sized to the sites: *Safety: Site License × 4, Camera Integration × 60*. Products already on the deal are left alone. The packages are the `packages` rule (JSON), editable in Settings:
+
+```json
+[{"id":"safety","name":"Safety","items":[{"productId":"2281317872","qty":"sites"},{"productId":"2282093038","qty":"cameras"}]}]
+```
+
+`qty` is `sites`, `cameras` or a number. Defaults: Safety, Operations and Signal (licence + cameras).
+
+**Product roles** (`product_roles` rule, product id → role) set default quantities and the quantity checks, instead of guessing from the product name: `licence` and `deployment` are one per site, `camera` follows the cameras across sites, `inclusion` and `addon` are one. A product without a role falls back to its name, so a new product still behaves sensibly until it's given one.
+
+## Sites records (Customer Success's Sites object)
+
+- **Renewals and expansions**: *Load the company's sites* brings in the company's Sites records (not Churned or Cancelled) as existing sites. A site already listed with the same name is linked to its record rather than duplicated; linked sites show *Sites record*.
+- **At signature** (rule `on_signature_create_sites`, default yes): every new site becomes a Sites record (name, delivery address, cameras, requested go-live, contract start and term, close date, owner, status Planned), linked to the company as *Parent Company* and to the deal as *Pending Activation*. Existing sites picked from the company are linked to the deal too. The record ids are written back to the order form, so it never creates them twice, and the signed snapshot lists what was created (and any problems).
+- If HubSpot refuses a value (say the status options differ), the record is created without it.
+
+## Tiered approvals, deputies and reminders
+
+- `discount_tier2_pct`: a line discounted at or above it also needs the **Executive** approver (`approver_exec`). Blank (the default) switches the tier off.
+- `deputy_finance`, `deputy_legal`, `deputy_sales`, `deputy_exec`: people who can decide when the approver is away. A deputy's decision is marked *(deputy)*.
+- Approvers' tasks are due a day after the request, with a HubSpot reminder then.
+- When every approver has decided, the rep gets a task: *Order form approved* (create and send it) or *Order form rejected* (with the notes).
+
 ## Pricing: line items, list prices and per-line discounts
 
 The line items on the deal are the pricing. The card doesn't keep a second copy, so the deal's **Line items** card, quotes, HubSpot's own ARR, ACV and TCV, and the order form always agree.
@@ -163,6 +203,9 @@ The approval rules and every clause live in two HubDB tables, **order_form_rules
 - the billing frequencies allowed without approval;
 - who approves auto-renewal being switched off (or that it needs no approval);
 - the approver for Finance, Legal and Sales leadership (now Aoife Harte, Aoife Harte and Scott Cahill), pre-filled when a rep requests approval;
+- a second discount tier that also needs an Executive, the Executive approver, and deputies for each approver;
+- whether signature creates Sites records, and whether Protex countersigns (which decides if reps send from the card or from HubSpot);
+- the packages and product roles (as JSON; the box won't take it until it's valid);
 - the lists of legal editors and rules editors. The panel won't let the last rules editor be removed.
 
 **Terms library (legal editors: Jemima Davison and Aoife Harte).** Legal can:
@@ -216,8 +259,8 @@ The **Change history** lists every amendment, removal, reversion and rejection, 
 
 ## Setup check and live test
 
-- `node scripts/check-setup.mjs` checks every order form property, the HubDB tables and their default rows, and the automatic products. `--fix` creates what's missing. The key needs `crm.schemas.deals.write`, `hubdb.tables.read`, `hubdb.tables.write` and `e-commerce`.
-- `node scripts/live-test.mjs` runs the app's own code against your real HubSpot: test deal and contact, pricing, save with a line item, settings, quote templates, create and replace the order form quote, an approval request with a task, and the sweep. It then deletes what it made (`--keep` to leave it). It prints PASS or FAIL with HubSpot's error for each step. The key needs the same permissions as the app.
+- `node scripts/check-setup.mjs` checks every order form property, the HubDB tables and their default rows, and the automatic products. `--fix` creates what's missing. It also checks the Sites object is readable. The key needs `crm.schemas.deals.write`, `hubdb.tables.read`, `hubdb.tables.write`, `e-commerce` and `crm.objects.custom.read`.
+- `node scripts/live-test.mjs` runs the app's own code against your real HubSpot: test deal and contact, pricing, save with a line item, settings, quote templates, create and replace the order form quote, an approval request with a task (due in a day), the sweep, reading a company's Sites records, and creating a Sites record the way signature does (linked to the deal and company). `--publish` also publishes the test quote from the card's code (HubSpot may email the example.com test contact). It then deletes what it made (`--keep` to leave it). It prints PASS or FAIL with HubSpot's error for each step. The key needs the same permissions as the app.
 
 ## MSAs and Juro
 
@@ -377,7 +420,7 @@ The dropdowns store values like `annually_in_advance` and show labels like "Annu
 
 From the `protex-account-intel` folder:
 
-0. **Quickest way to set up or check any version:** `node scripts/check-setup.mjs --fix`, then upload, then confirm the version at the bottom of the card. v21 adds 4 properties (`of_sent_at`, `of_locked`, `of_lock_log`, `of_signed_snapshot`) and one rule (`on_signature_close_won`).
+0. **Quickest way to set up or check any version:** `node scripts/check-setup.mjs --fix`, then upload, then confirm the version at the bottom of the card. **v22** adds 10 rules (`on_signature_create_sites`, `countersignature`, `discount_tier2_pct`, `approver_exec`, `deputy_finance`/`_legal`/`_sales`/`_exec`, `product_roles`, `packages`; `--fix` adds them to HubDB) and two permissions for the Sites object (`crm.objects.custom.read`, `crm.objects.custom.write`), so **reinstall the app** after uploading; the service key for the setup check and live test needs them too. No new deal properties. v21 adds 4 properties (`of_sent_at`, `of_locked`, `of_lock_log`, `of_signed_snapshot`) and one rule (`on_signature_close_won`).
 0. **For deal amendments and redlines:** run step 1 to create the 2 new properties (`of_amendments`, `of_amendment_summary`), then upload. No new permissions.
 0. **For the settings (rules and Terms library):** create the HubDB tables with a service key that has the `hubdb.tables.read` and `hubdb.tables.write` scopes:
    ```

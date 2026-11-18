@@ -2,7 +2,7 @@
 // The arithmetic mirrors HubSpot's own line item calculation, so the card's totals match the
 // line items' Net price, ARR and TCV.
 
-import { discountApprovalPct } from './settings.ts';
+import { discountApprovalPct, productRole } from './settings.ts';
 
 export type Currency = 'GBP' | 'EUR' | 'USD' | 'CAD';
 
@@ -179,18 +179,28 @@ export function totals(lines: Line[], months: number | null): Totals {
   };
 }
 
-/** Licences are one per site; camera products follow the cameras across sites. */
-export function defaultQuantity(product: Pick<Product, 'name' | 'sku'>, siteCount: number, siteCameras: number): number {
+const ROLE_RULE: Record<string, QuantityRule> = { licence: 'sites', camera: 'cameras', deployment: 'deployment', inclusion: null, addon: null };
+
+/**
+ * Licences and deployment are one per site; camera products follow the cameras across sites. The
+ * product's role comes from the order form rules (product_roles); products without one fall back
+ * to their name.
+ */
+export function defaultQuantity(product: Pick<Product, 'name' | 'sku'> & { id?: string }, siteCount: number, siteCameras: number): number {
+  const rule = quantityRule({ name: product.name, sku: product.sku, productId: product.id });
+  if (rule === 'cameras') return siteCameras || 1;
+  if (rule === 'sites' || rule === 'deployment') return siteCount || 1;
+  if (product.id && productRole(product.id)) return 1;
   const label = `${product.name} ${product.sku}`.toLowerCase();
-  if (/camera/.test(label)) return siteCameras || 1;
-  if (/deployment|installation/.test(label)) return siteCount || 1;
   if (/licen[cs]e/.test(label) && !/intelligence \(free\)/.test(label)) return siteCount || 1;
   return 1;
 }
 
 /** sites: one licence per site; cameras: the cameras across sites; deployment: one deployment per site. */
 export type QuantityRule = 'sites' | 'cameras' | 'deployment' | null;
-export function quantityRule(line: Pick<Line, 'name' | 'sku'>): QuantityRule {
+export function quantityRule(line: Pick<Line, 'name' | 'sku'> & { productId?: string }): QuantityRule {
+  const role = productRole(line.productId);
+  if (role) return ROLE_RULE[role] ?? null;
   const label = `${line.name} ${line.sku}`.toLowerCase();
   if (/camera/.test(label)) return 'cameras';
   if (/deployment|installation/.test(label)) return 'deployment';

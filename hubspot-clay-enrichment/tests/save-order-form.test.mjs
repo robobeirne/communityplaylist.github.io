@@ -514,7 +514,7 @@ test('identity: when HubSpot names the signed-in user, the card cannot claim to 
   stub([['POST', /users\/search/, { results: [{ properties: { hs_email: 'cfo@protex.ai' } }] }]]);
   const who = await main({ userId: 69128949, parameters: { action: 'whoami' } });
   assert.deepEqual(who.body.session, { email: 'cfo@protex.ai', id: '69128949', source: 'user id' }, 'a user id is looked up');
-  assert.equal(who.body.version, 'v21');
+  assert.equal(who.body.version, 'v22');
 });
 
 test('locking: sent quotes lock the order form; saves are refused until unlocked with a reason', async () => {
@@ -579,4 +579,142 @@ test('sweep: checks recent deals with a quote out and syncs the ones that change
   assert.equal(res.body.changed[0].properties.of_status, 'sent');
   assert.equal(res.body.changed[0].properties.of_locked, 'true');
   assert.ok(res.body.changed[0].properties.of_sent_at);
+});
+
+test('company_sites: the company\'s live Sites records, for renewals', async () => {
+  stub([
+    ['GET', /v4\/objects\/deals\/77\/associations\/companies/, { results: [{ toObjectId: 55 }] }],
+    ['GET', /v4\/objects\/companies\/55\/associations\/p24888392_sites/, { results: [{ toObjectId: 1 }, { toObjectId: 2 }, { toObjectId: 3 }] }],
+    [
+      'POST',
+      /p24888392_sites\/batch\/read/,
+      {
+        results: [
+          { id: '1', properties: { site_name: 'Leeds DC', address: '1 Road, Leeds', cameras__purchased: '12', live_status_: 'Live' } },
+          { id: '2', properties: { site_name: 'Amesbury', device_ship_to_address: '2 Lane', camera_licenses: '8', live_status_: 'Implementation' } },
+          { id: '3', properties: { site_name: 'Old site', live_status_: 'Churned' } },
+        ],
+      },
+    ],
+  ]);
+  const res = await main({ parameters: { action: 'company_sites', dealId: '77' } });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(
+    res.body.sites.map((s) => [s.recordId, s.name, s.address, s.cameras]),
+    [
+      ['2', 'Amesbury', '2 Lane', 8],
+      ['1', 'Leeds DC', '1 Road, Leeds', 12],
+    ],
+    'churned sites are left out; sorted by name',
+  );
+  stub([['GET', /associations\/companies/, { results: [] }]]);
+  const none = await main({ parameters: { action: 'company_sites', dealId: '77' } });
+  assert.deepEqual(none.body.sites, []);
+  assert.match(none.body.message, /no company/);
+});
+
+test('publish_quote: publishes the current draft only when approved and unchanged', async () => {
+  let state = 'DRAFT';
+  const deal = { of_quote_id: '901', of_changed_after_quote: 'false', of_approval_status: 'approved' };
+  const sent = stub([
+    ['GET', /objects\/deals\/77\?properties=of_quote_id,of_changed/, () => ({ properties: deal })],
+    ['GET', /objects\/deals\/77\?properties=of_quote_id,of_status/, () => ({ properties: { of_quote_id: '901', of_status: 'ready_to_send' } })],
+    ['GET', /v4\/objects\/deals\/77\/associations\/quotes/, { results: [{ toObjectId: 901 }] }],
+    ['POST', /quotes\/batch\/read/, () => ({ results: [Q('901', { hs_status: state, hs_quote_link: 'https://q/901' })] })],
+    ['PATCH', /objects\/quotes\/901$/, () => ((state = 'APPROVAL_NOT_NEEDED'), {})],
+    ['GET', /hubdb/, { results: [] }],
+    ['PATCH', /objects\/deals\/77$/, {}],
+  ]);
+  const res = await main({ parameters: { action: 'publish_quote', dealId: '77', quoteId: '901' } });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(sent.find((x) => x.method === 'PATCH' && /quotes\/901/.test(x.url)).body, { properties: { hs_status: 'APPROVAL_NOT_NEEDED' } });
+  assert.equal(res.body.properties.of_status, 'sent');
+  assert.equal(res.body.properties.of_locked, 'true');
+
+  state = 'APPROVAL_NOT_NEEDED';
+  assert.equal((await main({ parameters: { action: 'publish_quote', dealId: '77', quoteId: '901' } })).statusCode, 409, 'already sent');
+  state = 'DRAFT';
+  assert.equal((await main({ parameters: { action: 'publish_quote', dealId: '77', quoteId: '902' } })).statusCode, 409, 'not the order form quote');
+  deal.of_approval_status = 'pending';
+  assert.equal((await main({ parameters: { action: 'publish_quote', dealId: '77', quoteId: '901' } })).statusCode, 409, 'approval outstanding');
+  deal.of_approval_status = 'not_needed';
+  deal.of_changed_after_quote = 'true';
+  assert.match((await main({ parameters: { action: 'publish_quote', dealId: '77', quoteId: '901' } })).body.message, /Replace the quote/);
+});
+
+test('signature: new sites become Sites records linked to the deal and company; existing ones are linked', async () => {
+  const sites = [
+    { name: 'Leeds DC', address: '1 Road', cameras: 12, goLive: '', isNew: false, recordId: '1' },
+    { name: 'York', address: '3 Street', cameras: 5, goLive: '2027-03-01', isNew: true },
+  ];
+  const sent = stub([
+    ['GET', /objects\/deals\/77\?properties=of_quote_id/, { properties: { of_quote_id: '901', of_status: 'sent', of_sites: JSON.stringify(sites), of_order_type: 'renewal', contract_start_date: '2027-01-01', term_year_length: '36 months' } }],
+    ['GET', /v4\/objects\/deals\/77\/associations\/quotes/, { results: [{ toObjectId: 901 }] }],
+    ['GET', /v4\/objects\/deals\/77\/associations\/companies/, { results: [{ toObjectId: 55 }] }],
+    ['POST', /quotes\/batch\/read/, { results: [Q('901', { hs_status: 'APPROVAL_NOT_NEEDED', hs_esign_date: '1795000000000' })] }],
+    ['GET', /objects\/quotes\/901\?properties/, { properties: { hs_title: 'Order form' } }],
+    ['GET', /v4\/objects\/quotes\/901\/associations\/line_items/, { results: [] }],
+    ['GET', /v4\/associations\/p24888392_sites\/deals\/labels/, { results: [{ category: 'USER_DEFINED', typeId: 130, label: 'Activated' }, { category: 'USER_DEFINED', typeId: 128, label: 'Pending Activation' }] }],
+    ['GET', /v4\/associations\/p24888392_sites\/companies\/labels/, { results: [{ category: 'USER_DEFINED', typeId: 134, label: 'Parent Company' }] }],
+    ['POST', /objects\/p24888392_sites$/, (url, opts) => (JSON.parse(opts.body).properties.live_status_ ? { __status: 400, message: 'Property values were not valid', errors: [{ name: 'live_status_' }] } : { id: '88' })],
+    ['PUT', /v4\/objects\/p24888392_sites\/\d+\/associations/, {}],
+    ['GET', /hubdb/, { results: [] }],
+    ['GET', /pipelines/, { stages: [] }],
+    ['GET', /objects\/quote_template/, { results: [] }],
+    ['PATCH', /objects\/deals\/77$/, {}],
+  ]);
+  await main({ parameters: { action: 'quote', dealId: '77' } });
+  const creates = sent.filter((x) => x.method === 'POST' && /p24888392_sites$/.test(x.url));
+  assert.equal(creates.length, 2, 'retried without the value HubSpot refused');
+  assert.equal(creates[1].body.properties.site_name, 'York');
+  assert.equal(creates[1].body.properties.cameras__purchased, '5');
+  assert.equal(creates[1].body.properties.contract_term_months, '36');
+  assert.equal(creates[1].body.properties.live_status_, undefined);
+  const links = sent.filter((x) => x.method === 'PUT').map((x) => [x.url.replace(/.*p24888392_sites\//, ''), x.body?.[0]?.associationTypeId]);
+  assert.deepEqual(links, [
+    ['1/associations/deals/77', 128],
+    ['88/associations/companies/55', 134],
+    ['88/associations/deals/77', 128],
+  ]);
+  const props = sent.filter((x) => x.method === 'PATCH').map((x) => x.body.properties).find((p) => p.of_signed_snapshot);
+  assert.deepEqual(JSON.parse(props.of_sites).map((s) => s.recordId), ['1', '88']);
+  assert.deepEqual(JSON.parse(props.of_signed_snapshot).sitesCreated, [{ recordId: '88', name: 'York' }]);
+});
+
+test('approvals: a deputy can decide; the rep gets a task once it is decided; approver tasks are due in a day', async () => {
+  const record = {
+    fingerprint: 'fp',
+    reasons: [],
+    requestedByEmail: 'rep@protex.ai',
+    roles: { exec: { approver: { id: '1', email: 'ceo@protex.ai', name: 'Cee Eo' }, status: 'pending', taskId: '9001' } },
+  };
+  const sent = stub([
+    ['GET', /hubdb\/tables\/order_form_rules\/rows/, { results: [{ id: '1', values: { key: 'deputy_exec', value: 'coo@protex.ai' } }] }],
+    ['GET', /hubdb\/tables\/order_form_terms\/rows/, { results: [] }],
+    ['GET', /objects\/deals\/77\?properties=of_approval/, { properties: { of_approval: JSON.stringify(record) } }],
+    ['GET', /objects\/deals\/77\?properties=dealname/, { properties: { dealname: 'Lennox' } }],
+    ['GET', /owners\/\?email=rep/, { results: [{ id: '700' }] }],
+    ['POST', /objects\/tasks$/, { id: '9100' }],
+    ['PATCH', /objects\/(deals\/77|tasks\/9001)$/, {}],
+  ]);
+  assert.equal((await main({ parameters: { action: 'decide_approval', dealId: '77', role: 'exec', decision: 'approved', user: { email: 'rep@protex.ai' } } })).statusCode, 403);
+  const res = await main({ parameters: { action: 'decide_approval', dealId: '77', role: 'exec', decision: 'approved', user: { email: 'coo@protex.ai', name: 'Coo' } } });
+  assert.equal(res.statusCode, 200);
+  const saved = JSON.parse(res.body.properties.of_approval);
+  assert.equal(saved.roles.exec.deputy, true);
+  assert.equal(saved.repTaskId, '9100');
+  const task = sent.find((x) => x.method === 'POST' && /tasks$/.test(x.url)).body.properties;
+  assert.equal(task.hubspot_owner_id, '700');
+  assert.equal(task.hs_task_subject, 'Order form approved: Lennox');
+
+  const sent2 = stub([
+    ['GET', /objects\/deals\/77\?properties=dealname/, { properties: { dealname: 'Lennox' } }],
+    ['POST', /objects\/tasks$/, { id: '1' }],
+    ['PATCH', /objects\/deals\/77$/, {}],
+  ]);
+  const before = Date.now();
+  await main({ parameters: { action: 'request_approval', dealId: '77', requestedBy: 'Rep', request: { fingerprint: 'f', reasons: [{ key: 'discount:1:35', label: 'x', role: 'exec' }], approvers: { exec: { email: 'ceo@protex.ai' } } } } });
+  const p = sent2.find((x) => x.method === 'POST' && /tasks$/.test(x.url)).body.properties;
+  assert.ok(Date.parse(p.hs_timestamp) >= before + 23 * 3600e3, 'due in a day');
+  assert.equal(p.hs_task_reminders, String(Date.parse(p.hs_timestamp)));
 });

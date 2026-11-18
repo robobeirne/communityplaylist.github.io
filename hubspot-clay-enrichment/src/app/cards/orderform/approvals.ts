@@ -1,7 +1,8 @@
 // Which parts of an order form need approval, by whom, and whether that approval is current.
 //
 // Approval is needed for: a line discounted at or above the threshold (Sales leadership), payment
-// terms and billing frequencies not on the allowed lists (Finance), auto-renewal switched off (the
+// terms and billing frequencies not on the allowed lists (Finance), a discount at or above the
+// second tier (if set) also needs an Executive, auto-renewal switched off (the
 // role set in the rules), and any ticked special term that names an approver. The thresholds and
 // lists are the order form rules (settings.ts / HubDB), which leadership edits on the card. Each reason has a key
 // that includes its value, so changing anything approved (say Net 60 to Net 90) makes the approval
@@ -9,11 +10,11 @@
 
 import type { Values } from './calc.ts';
 import type { Line } from './lines.ts';
-import { discountApprovalPct, rule, ruleList } from './settings.ts';
-import { activeTerms, ROLE_LABEL, type Role } from './specialterms.ts';
+import { discountApprovalPct, discountTier2Pct, rule, ruleList } from './settings.ts';
+import { activeTerms, ROLE_LABEL, ROLES, type Role } from './specialterms.ts';
 import { readAmendments, shortHash } from './amendments.ts';
 
-export { ROLE_LABEL, type Role };
+export { ROLE_LABEL, ROLES, type Role };
 
 export interface ApprovalReason {
   key: string;
@@ -33,6 +34,11 @@ export function approvalReasons(v: Values, lines: Line[]): ApprovalReason[] {
   const out: ApprovalReason[] = [];
   for (const l of lines.filter((x) => !x.removed && x.discountPct >= discountApprovalPct()))
     out.push({ key: `discount:${l.productId || l.name}:${l.discountPct}`, label: `${l.name}: ${l.discountPct}% discount`, role: 'sales' });
+  // A second, higher tier also needs an Executive (off until leadership sets it).
+  const tier2 = discountTier2Pct();
+  if (tier2 !== null)
+    for (const l of lines.filter((x) => !x.removed && x.discountPct >= tier2))
+      out.push({ key: `discount_exec:${l.productId || l.name}:${l.discountPct}`, label: `${l.name}: ${l.discountPct}% discount (over ${tier2}%)`, role: 'exec' });
   const pay = String(v.of_payment_terms ?? '');
   if (pay && !ruleList('payment_terms_allowed').includes(pay)) out.push({ key: `payment:${pay}`, label: `Payment terms: ${PAYMENT_LABEL[pay] ?? pay}`, role: 'finance' });
   const bill = String(v.of_billing_frequency ?? '');

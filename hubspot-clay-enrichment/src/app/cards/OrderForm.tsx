@@ -79,10 +79,12 @@ import {
 import { dealClauses, orderComments, orderTerms } from './orderform/terms.ts';
 import { amend, logRound, openRound, readAmendments, rejectChange, resolveRound, revert, type AmendmentRecord } from './orderform/amendments.ts';
 import { isInclusion, missingInclusions } from './orderform/inclusions.ts';
-import { approvalState, fingerprint, ROLE_LABEL, type Role } from './orderform/approvals.ts';
+import { approvalState, fingerprint, ROLE_LABEL, ROLES, type Role } from './orderform/approvals.ts';
 import {
+  deputies,
   discountApprovalPct,
   getLibrary,
+  packages as productPackages,
   getRules,
   isLegalEditor,
   isRulesEditor,
@@ -111,6 +113,8 @@ hubspot.extend<'crm.record.tab'>(({ actions, context }) => (
 ));
 
 const FN = 'save_order_form';
+/** Edits save on their own this long after the rep stops typing. */
+const AUTOSAVE_MS = 3000;
 let swept = false;
 type Def = { name: string; label: string; options?: { label: string; value: string }[] };
 const DEFS = Object.fromEntries((ORDER_FORM_PROPERTIES as Def[]).map((d) => [d.name, d]));
@@ -260,6 +264,11 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
   const [quoteError, setQuoteError] = React.useState('');
   const [templateId, setTemplateId] = React.useState('');
   const [creating, setCreating] = React.useState(false);
+  const [publishing, setPublishing] = React.useState(false);
+  /** Autosave: set when the rep edits something; a save follows a few seconds after they stop. */
+  const userEdited = React.useRef(false);
+  const saveRef = React.useRef<(() => Promise<boolean>) | null>(null);
+  const [lastSaved, setLastSaved] = React.useState<Date | null>(null);
 
   const call = React.useCallback(async (parameters: Record<string, unknown>) => {
     const res = await hubspot.serverless(FN, { parameters: parameters as never });
@@ -341,6 +350,17 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
     setEdits((e) => ({ ...e, of_standard_inclusions_added: 'true' }));
   }, [props, pricing, saved, edits]);
 
+  React.useEffect(() => {
+    if (!userEdited.current || saving) return;
+    if (!Object.keys(edits).length && !added.length && !Object.keys(lineEdits).length) return;
+    const timer = setTimeout(() => {
+      if (!userEdited.current) return;
+      userEdited.current = false;
+      void saveRef.current?.();
+    }, AUTOSAVE_MS);
+    return () => clearTimeout(timer);
+  }, [edits, lineEdits, added, saving]);
+
   if (loading) return <LoadingSpinner label="Loading the order form" layout="centered" />;
   if (error || !props) {
     return (
@@ -352,7 +372,10 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
 
   const v: Values = { ...props, ...saved, ...edits };
   if (!v.of_order_type) v.of_order_type = orderTypeFromPipeline(v.pipeline);
-  const set: Setter = (key, value) => setEdits((e) => ({ ...e, [key]: value }));
+  const set: Setter = (key, value) => {
+    userEdited.current = true;
+    setEdits((e) => ({ ...e, [key]: value }));
+  };
   const currency = String(v.deal_currency_code || '');
   const products = pricing?.products ?? [];
 
@@ -373,6 +396,7 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
   const status = normaliseStatus(v.of_status);
   const current = quoteInfo?.current ?? null;
   const liveQuote = current && ['draft', 'awaiting_approval', 'sent', 'signed'].includes(current.state) ? current : null;
+  const locked = v.of_locked === 'true';
 
   // Recurring lines bill for the contract term from the billing start, so HubSpot's own ARR and TCV
   // on the line items agree with the order form. Saving brings them into line.
@@ -391,6 +415,7 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
   const people = { contacts: contacts ?? [], loading: contacts === null, error: partiesError };
 
   const editLine = (id: string, change: LineEdit) => {
+    userEdited.current = true;
     if (id.startsWith(NEW_PREFIX) && change.remove) {
       setAdded((a) => a.filter((x) => x.id !== id));
       setLineEdits(({ [id]: _, ...rest }) => rest);
@@ -398,13 +423,39 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
     }
     setLineEdits((e) => ({ ...e, [id]: { ...e[id], ...change } }));
   };
-  const undoLine = (id: string) => setLineEdits(({ [id]: _, ...rest }) => rest);
-  const addProduct = (productId: string) => {
+  const undoLine = (id: string) => {
+    userEdited.current = true;
+    setLineEdits(({ [id]: _, ...rest }) => rest);
+  };
+  const addProduct = (productId: string, quantity?: number) => {
     const p = products.find((x) => x.id === productId);
     if (!p) return;
+    userEdited.current = true;
     const id = `${NEW_PREFIX}${nextId.current++}`;
     setAdded((a) => [...a, { id, productId }]);
-    setLineEdits((e) => ({ ...e, [id]: { quantity: defaultQuantity(p, sum.siteCount, sum.siteCameras) } }));
+    setLineEdits((e) => ({ ...e, [id]: { quantity: quantity ?? defaultQuantity(p, sum.siteCount, sum.siteCameras) } }));
+  };
+  /** Add a package's products, with quantities from the sites; products already on the deal are left as they are. */
+  const addPackage = (packageId: string) => {
+    const pkg = productPackages().find((x) => x.id === packageId);
+    if (!pkg) return;
+    const onDeal = new Set(lines.filter((l) => !l.removed).map((l) => l.productId));
+    const skipped: string[] = [];
+    for (const item of pkg.items) {
+      const product = products.find((x) => x.id === item.productId);
+      if (!product || product.prices[currency as 'GBP'] === undefined) {
+        skipped.push(product ? `${product.name} (no ${currency} price)` : `product ${item.productId} (not in the library)`);
+        continue;
+      }
+      if (onDeal.has(item.productId)) continue;
+      const qty = item.qty === 'sites' ? sum.siteCount || 1 : item.qty === 'cameras' ? sum.siteCameras || 1 : Math.max(1, Number(item.qty) || 1);
+      addProduct(item.productId, qty);
+    }
+    if (skipped.length) actions.addAlert({ type: 'warning', message: `${pkg.name}: left out ${skipped.join(', ')}.` });
+  };
+  const loadCompanySites = async () => {
+    const b = (await call({ action: 'company_sites', dealId })) as Body & { sites?: (Site & { recordId: string })[] };
+    return { sites: b.sites ?? [], message: b.message ?? '' };
   };
 
   const lineChanges = () => {
@@ -427,6 +478,7 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
   };
 
   const save = async (extra: Values = {}) => {
+    userEdited.current = false;
     setSaving(true);
     const sent = { ...edits };
     const sentLines = { ...lineEdits };
@@ -461,6 +513,7 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
         return false;
       }
       actions.refreshObjectProperties();
+      setLastSaved(new Date());
       return true;
     } catch (e) {
       actions.addAlert({ type: 'danger', message: `Couldn't save: ${(e as Error).message}` });
@@ -469,13 +522,14 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
       setSaving(false);
     }
   };
+  saveRef.current = locked ? null : () => save();
 
   const templates = quoteInfo?.templates ?? [];
   const chosenTemplate = templateId || (templates.find((x) => /order form/i.test(x.name)) ?? templates[0])?.id || '';
   const approval = approvalState(v, lines);
   // The approver set in the rules for each type, as a HubSpot user.
   const ruleApprovers = Object.fromEntries(
-    (['finance', 'legal', 'sales'] as Role[]).flatMap((r) => {
+    ROLES.flatMap((r) => {
       const u = (signers ?? []).find((x) => x.email.toLowerCase() === rule(`approver_${r}`).toLowerCase());
       return u ? [[r, u]] : [];
     }),
@@ -502,7 +556,8 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
         action: 'request_approval',
         dealId,
         request: { fingerprint: fingerprint(approval.reasons), reasons: approval.reasons, approvers },
-        requestedBy: user.email,
+        requestedBy: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email,
+        user: { email: user.email, name: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email },
       });
       setSaved((x) => ({ ...x, ...(b.properties ?? {}) }));
       actions.addAlert({ type: 'success', message: 'Approval requested. Each approver has a HubSpot task linking to this deal.' });
@@ -556,8 +611,22 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
     }
   };
 
-  // Locked while the quote is out for signature or signed: no edits until someone allowed unlocks it.
-  const locked = v.of_locked === 'true';
+  const publishQuote = async (quoteId: string) => {
+    setPublishing(true);
+    try {
+      const b = (await call({ action: 'publish_quote', dealId, quoteId })) as Body & { link?: string };
+      setSaved((s) => ({ ...s, ...(b.properties ?? {}) }));
+      actions.addAlert({ type: 'success', message: 'Sent for signature. HubSpot emails the client a link to sign, and the card updates when they do.' });
+      loadQuote();
+    } catch (e) {
+      actions.addAlert({ type: 'danger', message: `Couldn't send it: ${(e as Error).message}` });
+      loadQuote();
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  // Locked while the quote is out for signature or signed: no edits until someone allowed unlocks it (locked is worked out above).
   const canUnlock = isLegalEditor(user.email) || isRulesEditor(user.email) || rule('approver_finance').toLowerCase() === user.email.toLowerCase();
   const doUnlock = async () => {
     setUnlocking(true);
@@ -692,7 +761,34 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
         </Alert>
       )}
 
-      {!locked && <Actions dirty={dirty} saving={saving} onSave={() => save()} />}
+      <NextStep
+        step={nextStep({
+          locked,
+          status,
+          missing: r.missing,
+          dirty,
+          approval,
+          suggested: { ...lastApprovers, ...ruleApprovers },
+          me: user.email,
+          info: quoteInfo,
+          current,
+          changed: v.of_changed_after_quote === 'true',
+          canPublish: rule('countersignature') === 'no',
+          signer: String(v.of_protex_signer_name || 'the Protex signatory'),
+          templateId: chosenTemplate,
+        })}
+        busy={saving || creating || publishing || approving}
+        saving={saving}
+        dirty={dirty}
+        lastSaved={lastSaved}
+        portalId={portalId}
+        onSave={() => void save()}
+        onReveal={reveal}
+        onRequest={requestApproval}
+        onCreate={createQuote}
+        onPublish={publishQuote}
+        onRefresh={loadQuote}
+      />
 
       {!locked && approval.status !== 'not_needed' && (
         <ApprovalPanel
@@ -719,6 +815,8 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
         templateId={chosenTemplate}
         onTemplate={setTemplateId}
         onCreate={createQuote}
+        onPublish={publishQuote}
+        publishing={publishing}
         onRefresh={loadQuote}
         locked={locked}
       />
@@ -743,7 +841,7 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
                 {t.key === 'scope' && (
                   <>
                     <SubHead>Sites and rollout</SubHead>
-                    <SitesSection {...shared} />
+                    <SitesSection {...shared} onLoadCompanySites={loadCompanySites} />
                     <Divider />
                     <SubHead>Products and pricing</SubHead>
                 <ProductsSection
@@ -756,6 +854,7 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
                       onEdit={editLine}
                       onUndo={undoLine}
                       onAdd={addProduct}
+                      onAddPackage={addPackage}
                       termFixes={termFixes.length}
                       amount={{ next: newAmount, current: Number.isFinite(currentAmount) ? currentAmount : null, stale: amountStale }}
                       canSync={!dirty && !saving}
@@ -771,9 +870,7 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
       </Tabs>
       )}
 
-      {dirty && (
-        <Actions dirty={dirty} saving={saving} onSave={() => save()} />
-      )}
+      {dirty && !locked && <Actions dirty={dirty} saving={saving} onSave={() => save()} />}
 
       {(isRulesEditor(user.email) || isLegalEditor(user.email)) && (
         <SettingsPanel key={settingsInfo.n} me={user.email} users={signers ?? []} source={settingsInfo.source} error={settingsInfo.error} onSave={saveSettings} system={system} />
@@ -792,8 +889,151 @@ function Actions(p: { dirty: boolean; saving: boolean; onSave: () => void }) {
       <LoadingButton variant="primary" loading={p.saving} disabled={!p.dirty} onClick={p.onSave}>
         {p.dirty ? 'Save changes' : 'Saved'}
       </LoadingButton>
-      {p.dirty && <Text variant="microcopy">Unsaved changes</Text>}
+      {p.dirty && <Text variant="microcopy">Unsaved changes: they save on their own a few seconds after you stop typing.</Text>}
     </Flex>
+  );
+}
+
+/* ---------------- the next step: one button that moves the deal on ---------------- */
+
+type Step =
+  | { kind: 'done'; title: string; text: string }
+  | { kind: 'wait'; title: string; text: string }
+  | { kind: 'hint'; title: string; text: string }
+  | { kind: 'loading' }
+  | { kind: 'fill'; title: string; text: string; section: Section }
+  | { kind: 'save'; title: string; text: string }
+  | { kind: 'request'; title: string; text: string; approvers: Partial<Record<Role, Signer>> }
+  | { kind: 'create'; title: string; text: string; label: string; replaceId?: string }
+  | { kind: 'send'; title: string; text: string; quoteId: string; publish: boolean };
+
+export function nextStep(x: {
+  locked: boolean;
+  status: string;
+  missing: Gap[];
+  dirty: boolean;
+  approval: ReturnType<typeof approvalState>;
+  suggested: Partial<Record<Role, Signer>>;
+  me: string;
+  info: QuoteInfo | null;
+  current: Quote | null;
+  changed: boolean;
+  canPublish: boolean;
+  signer: string;
+  templateId: string;
+}): Step {
+  const { approval } = x;
+  if (x.status === 'signed' || x.current?.state === 'signed') return { kind: 'done', title: 'Signed', text: 'Nothing more to do here. New sites become Sites records for Customer Success.' };
+  if (x.locked) return { kind: 'wait', title: 'Out for signature', text: 'Waiting for the client to sign. The card updates on its own when they do.' };
+  if (x.missing.length) {
+    const first = x.missing[0];
+    return { kind: 'fill', title: `Fill in ${x.missing.length} detail${x.missing.length === 1 ? '' : 's'}`, text: `Next: ${first.label}.`, section: first.section };
+  }
+  if (x.dirty) return { kind: 'save', title: 'Saving your changes', text: 'Changes save on their own a few seconds after you stop typing.' };
+  if (approval.status === 'needed' || approval.status === 'rejected') {
+    const missingRole = approval.roles.find((r) => !x.suggested[r]);
+    const names = approval.roles.map((r) => x.suggested[r]?.name).filter(Boolean).join(', ');
+    const lead = approval.status === 'rejected' ? 'Rejected. Change what was rejected (see the Approval box), then ask again.' : `${approval.reasons.length} thing${approval.reasons.length === 1 ? ' is' : 's are'} outside the standard order form.`;
+    if (missingRole) return { kind: 'hint', title: 'Request approval', text: `${lead} Choose the ${ROLE_LABEL[missingRole]} approver in the Approval box below.` };
+    return { kind: 'request', title: 'Request approval', text: `${lead} ${names} get a HubSpot task, due in a day.`, approvers: Object.fromEntries(approval.roles.map((r) => [r, x.suggested[r]!])) };
+  }
+  if (approval.status === 'pending') {
+    const me = x.me.toLowerCase();
+    const waiting = approval.roles.map((r) => ({ r, e: approval.record?.roles[r] })).filter(({ e }) => e?.status === 'pending');
+    if (waiting.some(({ r, e }) => e!.approver.email.toLowerCase() === me || deputies(r).map((d) => d.toLowerCase()).includes(me)))
+      return { kind: 'hint', title: 'Your approval is needed', text: 'Approve or reject in the Approval box below.' };
+    return { kind: 'wait', title: 'Waiting for approval', text: `Waiting for ${waiting.map(({ e }) => e!.approver.name).join(', ')}. You'll get a HubSpot task when it's decided.` };
+  }
+  if (!x.info) return { kind: 'loading' };
+  const ours = x.current && x.info.live.some((q) => q.id === x.current!.id) ? x.current : null;
+  if (!ours) {
+    const other = x.info.live[0];
+    if (other?.state === 'signed') return { kind: 'hint', title: 'Already signed', text: 'This deal has a signed quote, so a new order form needs a new deal (an expansion or amendment).' };
+    if (!x.templateId) return { kind: 'hint', title: 'Create the order form', text: 'Set up a quote template first (Settings > Objects > Quotes > Templates).' };
+    return { kind: 'create', title: 'Create the order form', text: 'Makes the HubSpot quote from these details, with e-signature on, for you to check.', label: other ? (other.state === 'draft' ? 'Replace the other quote with the order form' : 'Create the order form instead') : 'Create order form', replaceId: other?.id };
+  }
+  if (x.changed) return { kind: 'create', title: 'Update the quote', text: `The order form changed after ${ours.title} was made.`, label: ours.state === 'draft' ? 'Replace the draft quote' : 'Create a new version', replaceId: ours.id };
+  if (ours.state === 'draft')
+    return x.canPublish
+      ? { kind: 'send', title: 'Send for signature', text: `Check ${ours.title} (Preview below or open it), then send it. HubSpot emails the signer a link.`, quoteId: ours.id, publish: true }
+      : { kind: 'send', title: 'Send for signature', text: `Open the quote, add ${x.signer} as the countersigner, then publish it. HubSpot emails the signer a link and the card updates on its own.`, quoteId: ours.id, publish: false };
+  if (ours.state === 'awaiting_approval') return { kind: 'wait', title: 'Waiting for approval in HubSpot', text: 'The quote is waiting for HubSpot quote approval.' };
+  return { kind: 'wait', title: 'Out for signature', text: 'Waiting for the client to sign. The card updates on its own when they do.' };
+}
+
+function NextStep(p: {
+  step: Step;
+  busy: boolean;
+  saving: boolean;
+  dirty: boolean;
+  lastSaved: Date | null;
+  portalId: string;
+  onSave: () => void;
+  onReveal: (s: Section) => void;
+  onRequest: (approvers: Partial<Record<Role, Signer>>) => void;
+  onCreate: (replaceId?: string) => void;
+  onPublish: (quoteId: string) => void;
+  onRefresh: () => void;
+}) {
+  const { step } = p;
+  if (step.kind === 'loading') return null;
+  const saveNote = p.saving ? 'Saving…' : p.dirty ? 'Unsaved changes' : p.lastSaved ? `All changes saved ${p.lastSaved.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : '';
+  let button: React.ReactNode = null;
+  if (step.kind === 'fill')
+    button = (
+      <Button variant="primary" onClick={() => p.onReveal(step.section)}>
+        Show me
+      </Button>
+    );
+  if (step.kind === 'save')
+    button = (
+      <LoadingButton variant="secondary" loading={p.saving} onClick={p.onSave}>
+        Save now
+      </LoadingButton>
+    );
+  if (step.kind === 'request')
+    button = (
+      <LoadingButton variant="primary" loading={p.busy} onClick={() => p.onRequest(step.approvers)}>
+        Request approval
+      </LoadingButton>
+    );
+  if (step.kind === 'create')
+    button = (
+      <LoadingButton variant="primary" loading={p.busy} onClick={() => p.onCreate(step.replaceId)}>
+        {step.label}
+      </LoadingButton>
+    );
+  if (step.kind === 'send')
+    button = step.publish ? (
+      <LoadingButton variant="primary" loading={p.busy} onClick={() => p.onPublish(step.quoteId)}>
+        Send for signature
+      </LoadingButton>
+    ) : (
+      <Button variant="primary" href={{ url: `https://app.hubspot.com/quotes/${p.portalId}/details/${step.quoteId}`, external: true }}>
+        Open the quote to send it
+      </Button>
+    );
+  return (
+    <Tile>
+      <Flex direction="row" justify="between" align="center" wrap="wrap" gap="sm">
+        <Flex direction="column" gap="xs">
+          <Text format={{ fontWeight: 'demibold' }}>{`Next step: ${step.title}`}</Text>
+          <Text>{step.text}</Text>
+          {step.kind === 'send' && !step.publish && (
+            <Text variant="microcopy">In the quote: Signature → Add countersigner → Publish. Then come back here; nothing else to update.</Text>
+          )}
+        </Flex>
+        <Flex direction="row" gap="sm" align="center" wrap="wrap">
+          {saveNote && <Text variant="microcopy">{saveNote}</Text>}
+          {(step.kind === 'wait' || (step.kind === 'send' && !step.publish)) && (
+            <Link href="#" preventDefault onClick={p.onRefresh}>
+              Refresh status
+            </Link>
+          )}
+          {button}
+        </Flex>
+      </Flex>
+    </Tile>
   );
 }
 
@@ -825,6 +1065,8 @@ function QuotePanel(p: {
   templateId: string;
   onTemplate: (id: string) => void;
   onCreate: (replaceQuoteId?: string) => void;
+  onPublish: (quoteId: string) => void;
+  publishing: boolean;
   onRefresh: () => void;
   locked?: boolean;
 }) {
@@ -859,13 +1101,22 @@ function QuotePanel(p: {
         </Flex>
         <Text>
           {ours.state === 'draft'
-            ? `Next: open the quote, check it, add ${signer} as the countersigner, then publish it and send it for e-signature.`
+            ? rule('countersignature') === 'no'
+              ? 'Next: check it, then send it for signature from here.'
+              : `Next: open the quote, check it, add ${signer} as the countersigner, then publish it and send it for e-signature.`
             : ours.state === 'awaiting_approval'
               ? 'Waiting for approval in HubSpot.'
               : ours.state === 'sent'
                 ? 'Sent to the client for e-signature.'
                 : `Signed${ours.signedAt ? ` ${shortDate(new Date(ours.signedAt))}` : ''}.`}
         </Text>
+        {ours.state === 'draft' && rule('countersignature') === 'no' && (
+          <Flex direction="row">
+            <LoadingButton size="sm" variant="primary" loading={p.publishing} disabled={changed || p.dirty || p.busy} onClick={() => p.onPublish(ours.id)}>
+              Send for signature
+            </LoadingButton>
+          </Flex>
+        )}
         <Flex direction="row" gap="md" wrap="wrap">
           <Link href={quoteUrl(ours.id)}>Open the quote in HubSpot</Link>
           {ours.link && <Link href={ours.link}>The client's view</Link>}
@@ -1179,6 +1430,7 @@ function ProductsSection(p: Shared & {
   onEdit: (id: string, change: LineEdit) => void;
   onUndo: (id: string) => void;
   onAdd: (productId: string) => void;
+  onAddPackage: (packageId: string) => void;
   termFixes: number;
   amount: { next: number | null; current: number | null; stale: boolean };
   canSync: boolean;
@@ -1217,6 +1469,19 @@ function ProductsSection(p: Shared & {
           onUndo={p.onUndo}
         />
       ))}
+      {currency && productPackages().length > 0 && (
+        <Select
+          name="add-package"
+          label="Add a package"
+          placeholder="A product set, sized to the sites"
+          value=""
+          options={productPackages().map((x) => ({
+            label: `${x.name}: ${x.items.map((i) => `${products.find((pr) => pr.id === i.productId)?.name ?? i.productId}${i.qty === 'sites' ? ` × ${sum.siteCount || 1}` : i.qty === 'cameras' ? ` × ${sum.siteCameras || 1}` : ` × ${i.qty}`}`).join(', ')}`,
+            value: x.id,
+          }))}
+          onChange={(id) => id && p.onAddPackage(String(id))}
+        />
+      )}
       {currency && (
         <Select
           name="add-product"
@@ -1380,8 +1645,10 @@ function LineRow({ l, currency, sum, edited, issues, onEdit, onUndo, inclusion }
 
 /* ---------------- sites ---------------- */
 
-function SitesSection({ v, set, sum }: Shared) {
+function SitesSection({ v, set, sum, onLoadCompanySites }: Shared & { onLoadCompanySites: () => Promise<{ sites: Site[]; message: string }> }) {
   const [paste, setPaste] = React.useState<string | null>(null);
+  const [loadingSites, setLoadingSites] = React.useState(false);
+  const [sitesNote, setSitesNote] = React.useState('');
   const staged = v.of_rollout === 'staged_rollout';
   const sites = sum.sites;
   const write = (list: Site[]) => set('of_sites', JSON.stringify(list));
@@ -1390,6 +1657,30 @@ function SitesSection({ v, set, sum }: Shared) {
   // Renewals and expansions can mix sites the client already has with ones added on this order.
   const askNew = v.of_order_type === 'renewal' || v.of_order_type === 'expansion';
   const newCount = sites.filter((x) => isNewSite(x, v.of_order_type)).length;
+  /** Bring in the company's Sites records as existing sites; ones already listed (same record or name) are linked, not duplicated. */
+  const loadSites = async () => {
+    setLoadingSites(true);
+    try {
+      const res = await onLoadCompanySites();
+      const key = (x: string) => x.trim().toLowerCase();
+      const next = [...sites];
+      let added = 0;
+      for (const cs of res.sites) {
+        const at = next.findIndex((x) => (x.recordId && x.recordId === cs.recordId) || key(x.name) === key(cs.name));
+        if (at >= 0) next[at] = { ...next[at], recordId: cs.recordId };
+        else {
+          next.push({ name: cs.name, address: cs.address, cameras: cs.cameras, goLive: '', isNew: false, recordId: cs.recordId });
+          added++;
+        }
+      }
+      if (res.sites.length) write(next);
+      setSitesNote(res.message || (res.sites.length ? `${res.sites.length} site${res.sites.length === 1 ? '' : 's'} on the company: ${added} added as existing sites${res.sites.length - added ? `, ${res.sites.length - added} already listed` : ''}. Check the camera counts for this renewal.` : 'The company has no live Sites records.'));
+    } catch (e) {
+      setSitesNote(`Couldn't load the company's sites: ${(e as Error).message}`);
+    } finally {
+      setLoadingSites(false);
+    }
+  };
   return (
     <Flex direction="column" gap="sm">
       <SelectField v={v} set={set} name="of_rollout" required />
@@ -1419,9 +1710,15 @@ function SitesSection({ v, set, sum }: Shared) {
           <Button size="sm" variant="transparent" onClick={() => write(sites.filter((_, j) => j !== i))}>
             Remove
           </Button>
+          {s.recordId && <Text variant="microcopy">Sites record</Text>}
         </Flex>
       ))}
       <Flex direction="row" gap="sm" wrap="wrap">
+        {askNew && (
+          <LoadingButton size="sm" variant="secondary" loading={loadingSites} onClick={loadSites}>
+            Load the company's sites
+          </LoadingButton>
+        )}
         <Button size="sm" variant="secondary" onClick={() => write([...sites, { name: '', address: '', cameras: 0, goLive: '' }])}>
           Add a site
         </Button>
@@ -1429,6 +1726,7 @@ function SitesSection({ v, set, sum }: Shared) {
           {paste === null ? 'Paste a list of sites' : 'Close the paste box'}
         </Button>
       </Flex>
+      {sitesNote && <Text variant="microcopy">{sitesNote}</Text>}
       {paste !== null && (
         <Flex direction="column" gap="xs">
           <TextArea
@@ -1659,7 +1957,8 @@ function ApprovalPanel(p: {
         <Text variant="microcopy">These are outside the standard order form, so they need sign-off before the order form can be created.</Text>
         {state.roles.map((role) => {
           const entry = current ? state.record?.roles[role] : undefined;
-          const mine = entry && entry.status === 'pending' && entry.approver.email.toLowerCase() === p.me.toLowerCase();
+          const me = p.me.toLowerCase();
+          const mine = entry && entry.status === 'pending' && (entry.approver.email.toLowerCase() === me || deputies(role).map((x) => x.toLowerCase()).includes(me));
           return (
             <Flex key={role} direction="column" gap="xs">
               <Text format={{ fontWeight: 'demibold' }}>{ROLE_LABEL[role]}</Text>
@@ -1671,8 +1970,8 @@ function ApprovalPanel(p: {
               {entry && (
                 <Text variant="microcopy">
                   {entry.status === 'pending'
-                    ? `Waiting for ${entry.approver.name}.`
-                    : `${entry.status === 'approved' ? 'Approved' : 'Rejected'} by ${entry.by ?? entry.approver.name}${entry.at ? ` on ${shortDate(new Date(entry.at))}` : ''}${entry.note ? `: "${entry.note}"` : '.'}`}
+                    ? `Waiting for ${entry.approver.name}${deputies(role).length ? ` (or ${deputies(role).join(', ')})` : ''}. Their task is due a day after the request.`
+                    : `${entry.status === 'approved' ? 'Approved' : 'Rejected'} by ${entry.by ?? entry.approver.name}${(entry as { deputy?: boolean }).deputy ? ' (deputy)' : ''}${entry.at ? ` on ${shortDate(new Date(entry.at))}` : ''}${entry.note ? `: "${entry.note}"` : '.'}`}
                 </Text>
               )}
               {canAsk && (
@@ -1717,12 +2016,50 @@ function ApprovalPanel(p: {
   );
 }
 
+/** A rule holding JSON: edited as text, saved only when it parses and passes the check. */
+function JsonRule(p: { name: string; label: string; description: string; value: string; check: (x: any) => boolean; onChange: (x: string) => void }) {
+  const [text, setText] = React.useState(() => {
+    try {
+      return JSON.stringify(JSON.parse(p.value || 'null'), null, 1) ?? '';
+    } catch {
+      return p.value;
+    }
+  });
+  let error = '';
+  try {
+    if (text.trim() && !p.check(JSON.parse(text))) error = "That isn't in the expected shape.";
+  } catch {
+    error = "That isn't valid JSON yet.";
+  }
+  return (
+    <TextArea
+      name={p.name}
+      label={p.label}
+      description={p.description}
+      rows={5}
+      value={text}
+      error={!!error}
+      validationMessage={error || undefined}
+      onChange={(x) => {
+        setText(x);
+        try {
+          const parsed = JSON.parse(x);
+          if (p.check(parsed)) p.onChange(JSON.stringify(parsed));
+        } catch {
+          /* keep typing */
+        }
+      }}
+    />
+  );
+}
+
 /* ---------------- settings: rules (leadership) and Terms library (legal) ---------------- */
 
 const ROLE_OPTIONS = [
   { label: 'Finance', value: 'finance' },
   { label: 'Legal', value: 'legal' },
   { label: 'Sales leadership', value: 'sales' },
+  { label: 'Executive', value: 'exec' },
   { label: 'No approval', value: 'none' },
 ];
 const CONDITION_LABEL: Record<string, string> = { renewal: 'renewals', not_renewal: 'not renewals', ships_devices: 'when devices ship', auto_renew: 'when auto-renewing' };
@@ -1809,7 +2146,35 @@ function SettingsPanel(p: {
                   ]}
                   onChange={(x) => setRule('on_signature_close_won', String(x ?? 'yes'))}
                 />
-                {(['finance', 'legal', 'sales'] as Role[]).map((r) => (
+                <NumberInput
+                  name="rule-discount-tier2"
+                  label="Discount also needing an Executive (% or more; blank = off)"
+                  min={1}
+                  max={100}
+                  value={Number(rules.discount_tier2_pct) || undefined}
+                  onChange={(n) => setRule('discount_tier2_pct', Number.isFinite(n) && n > 0 ? String(n) : '')}
+                />
+                <Select
+                  name="rule-sites"
+                  label="On signature, create Sites records for new sites"
+                  value={rules.on_signature_create_sites === 'no' ? 'no' : 'yes'}
+                  options={[
+                    { label: 'Yes', value: 'yes' },
+                    { label: 'No', value: 'no' },
+                  ]}
+                  onChange={(x) => setRule('on_signature_create_sites', String(x ?? 'yes'))}
+                />
+                <Select
+                  name="rule-countersign"
+                  label="Protex countersigns order forms"
+                  value={rules.countersignature === 'no' ? 'no' : 'yes'}
+                  options={[
+                    { label: 'Yes: the rep adds the countersigner and publishes in HubSpot', value: 'yes' },
+                    { label: 'No: the rep sends it straight from the card', value: 'no' },
+                  ]}
+                  onChange={(x) => setRule('countersignature', String(x ?? 'yes'))}
+                />
+                {ROLES.map((r) => (
                   <Select
                     key={r}
                     name={`rule-approver-${r}`}
@@ -1819,7 +2184,32 @@ function SettingsPanel(p: {
                     onChange={(x) => setRule(`approver_${r}`, String(x ?? ''))}
                   />
                 ))}
+                {ROLES.map((r) => (
+                  <Input
+                    key={`d-${r}`}
+                    name={`rule-deputy-${r}`}
+                    label={`${ROLE_LABEL[r]} deputies (emails)`}
+                    value={rules[`deputy_${r}`] ?? ''}
+                    onChange={(x) => setRule(`deputy_${r}`, x)}
+                  />
+                ))}
               </Grid>
+              <JsonRule
+                name="rule-packages"
+                label="Packages reps can add in one go"
+                description='A list like [{"id":"safety","name":"Safety","items":[{"productId":"2281317872","qty":"sites"},{"productId":"2282093038","qty":"cameras"}]}]. qty is "sites", "cameras" or a number.'
+                value={rules.packages ?? ''}
+                check={(x) => Array.isArray(x) && x.every((p) => p && typeof p.name === 'string' && Array.isArray(p.items))}
+                onChange={(x) => setRule('packages', x)}
+              />
+              <JsonRule
+                name="rule-product-roles"
+                label="Product roles (product id: role)"
+                description="Sets each product's default quantity: licence and deployment are one per site, camera follows the cameras across sites, inclusion and addon are one. Products without a role fall back to their name."
+                value={rules.product_roles ?? ''}
+                check={(x) => !!x && typeof x === 'object' && !Array.isArray(x) && Object.values(x).every((r) => ['licence', 'camera', 'deployment', 'inclusion', 'addon'].includes(String(r)))}
+                onChange={(x) => setRule('product_roles', x)}
+              />
               <ToggleGroup
                 name="rule-payment"
                 label="Payment terms allowed without approval"

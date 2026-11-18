@@ -31,7 +31,7 @@ const LINE = (id: string, productId: string, quantity: number, extra: Record<str
   };
 };
 let dealLines: ReturnType<typeof LINE>[] = [];
-let functionVersion = 'v21';
+let functionVersion = 'v22';
 let asUser = { email: 'rep@protex.ai', firstName: 'Rob', lastName: 'Rep' };
 let currentApproval = '';
 const approvalAfterDecision = (p: any) => {
@@ -48,6 +48,7 @@ const INCLUSIONS = [
 ];
 type Q = { id: string; title: string; state: string; expires: string; link: string };
 let dealQuotes: Q[] = [];
+let settingsRules: Record<string, string> = {};
 let quoteId = '';
 const g = globalThis as Record<string, unknown>;
 g.self ??= globalThis; // the extension worker's global, which hubspot.serverless() reads
@@ -73,7 +74,13 @@ g.serverless = async (name: string, opts: { parameters: Record<string, any> }) =
   if (opts.parameters.action === 'whoami') return { statusCode: 200, body: { ok: true, version: functionVersion, session: { email: '', id: '', source: '' }, contextKeys: ['accountId'] } };
   if (opts.parameters.action === 'sweep') return { statusCode: 200, body: { ok: true, checked: 0, changed: [] } };
   if (opts.parameters.action === 'unlock') return { statusCode: 200, body: { ok: true, properties: { of_locked: 'false', of_changed_after_quote: 'true' } } };
-  if (opts.parameters.action === 'settings') return { statusCode: 200, body: { ok: true, source: 'hubdb', rules: {}, library: [] } };
+  if (opts.parameters.action === 'settings') return { statusCode: 200, body: { ok: true, source: 'hubdb', rules: settingsRules, library: [] } };
+  if (opts.parameters.action === 'company_sites')
+    return { statusCode: 200, body: { ok: true, sites: [{ recordId: '1', name: 'Leeds DC', address: '1 Road', cameras: 12 }, { recordId: '4', name: 'Hull', address: '4 Quay', cameras: 6 }] } };
+  if (opts.parameters.action === 'publish_quote') {
+    dealQuotes = dealQuotes.map((q) => (q.id === opts.parameters.quoteId ? { ...q, state: 'sent' } : q));
+    return { statusCode: 200, body: { ok: true, properties: { of_status: 'sent', of_quote_status: 'sent', of_locked: 'true' } } };
+  }
   if (opts.parameters.action === 'save_settings') return { statusCode: 200, body: { ok: true, source: 'hubdb', rules: opts.parameters.rules ?? {}, library: opts.parameters.clauses ?? [] } };
   if (opts.parameters.action === 'request_approval') {
     const { request, requestedBy } = opts.parameters;
@@ -157,7 +164,7 @@ select(r, 'pick-Fill from a deal contact').trigger('onChange', '501' as never);
 await r.waitFor(() => assert.equal(field(r, 'of_client_contact_name').props.value, 'Alex Kim'));
 assert.equal(field(r, 'of_client_legal_name').props.value, 'Northbridge Logistics Ltd');
 assert.equal(field(r, 'of_client_legal_address').props.value, '1 Dock Road, Leeds, LS1 1AA, United Kingdom');
-r.find(LoadingButton).trigger('onClick');
+button(r, 'Save changes')!.trigger('onClick');
 await r.waitFor(() => assert.ok(calls.some((c) => c.parameters.action === 'save')));
 let saved = lastSave();
 assert.equal(saved.of_client_legal_name, 'Northbridge Logistics Ltd');
@@ -409,7 +416,7 @@ await r.waitFor(() => assert.ok([...calls].reverse().find((c) => c.parameters.ac
 const req = [...calls].reverse().find((c) => c.parameters.action === 'request_approval')!.parameters;
 assert.deepEqual(req.request.reasons.map((x: any) => x.label), ['Payment terms: Net 60']);
 assert.equal(req.request.approvers.finance.email, 'jesse@protex.ai');
-await r.waitFor(() => assert.ok(texts(r).includes('Waiting for Jesse Maggs.')));
+await r.waitFor(() => assert.ok(texts(r).some((t) => t.startsWith('Waiting for Jesse Maggs.'))));
 assert.equal(button(r, 'Approve'), undefined, 'only the approver sees Approve');
 
 // The approver opens the card and approves.
@@ -491,11 +498,11 @@ console.log('contract wording: reps amend (Legal approval), client redline round
 
 // Version footer, and a warning if the app function didn't deploy with the card.
 r = await renderWith({ ...complete }, COMPLETE_LINES);
-assert.ok(texts(r).includes('Order form card v21'));
+assert.ok(texts(r).includes('Order form card v22'));
 functionVersion = 'v20';
 r = await renderWith({ ...complete }, COMPLETE_LINES);
-await r.waitFor(() => assert.ok(texts(r).some((t) => t.startsWith("Order form card v21 · app function v20: the two don't match"))));
-functionVersion = 'v21';
+await r.waitFor(() => assert.ok(texts(r).some((t) => t.startsWith("Order form card v22 · app function v20: the two don't match"))));
+functionVersion = 'v22';
 
 // Locked while the quote is out: no editing; legal can unlock with a reason.
 const SENT_Q = { id: '950', title: 'Northbridge | Order form', state: 'sent', expires: '', link: '' };
@@ -548,4 +555,62 @@ assert.equal(field(r, 'site-0-address'), undefined, 'no address box for an exist
 select(r, 'site-0-new').trigger('onChange', 'new' as never);
 await r.waitFor(() => assert.ok(field(r, 'site-0-address')));
 console.log('renewal deals show the renewal fields');
+
+// Step 2: one next step that moves the deal on.
+const nextTitle = (r: R) => texts(r).find((t) => t.startsWith('Next step: '));
+r = await renderWith({ ...complete }, COMPLETE_LINES);
+assert.equal(nextTitle(r), 'Next step: Create the order form');
+button(r, 'Create order form')!.trigger('onClick');
+await r.waitFor(() => assert.equal(nextTitle(r), 'Next step: Send for signature'));
+const openQuote = r.findAll(Button).find((b) => b.text === 'Open the quote to send it');
+assert.equal((openQuote!.props.href as { url: string }).url, 'https://app.hubspot.com/quotes/24888392/details/950', 'countersigned: the rep adds the countersigner in HubSpot');
+r = await renderWith({ ...complete, of_client_legal_name: '' }, COMPLETE_LINES);
+assert.ok(nextTitle(r)!.startsWith('Next step: Fill in 1 detail'));
+r.find(Tabs).trigger('onSelectedChange', 'legal' as never);
+await r.waitFor(() => assert.equal(selectedTab(r), 'legal'));
+button(r, 'Show me')!.trigger('onClick');
+await r.waitFor(() => assert.equal(selectedTab(r), 'deal'));
+
+// Without countersignature, the card sends it.
+settingsRules = { countersignature: 'no' };
+r = await renderWith({ ...complete, of_quote_id: '950', of_status: 'ready_to_send' }, COMPLETE_LINES, [{ ...DRAFT_Q }]);
+await r.waitFor(() => assert.equal(nextTitle(r), 'Next step: Send for signature'));
+button(r, 'Send for signature')!.trigger('onClick');
+await r.waitFor(() => assert.ok(calls.some((c) => c.parameters.action === 'publish_quote' && c.parameters.quoteId === '950')));
+await r.waitFor(() => assert.equal(nextTitle(r), 'Next step: Out for signature'));
+assert.equal(r.findAll(Tabs).length, 0, 'locked once sent');
+settingsRules = {};
+console.log('next step: create, then send (countersign in HubSpot, or straight from the card), and Show me jumps to what is missing');
+
+// Autosave: edits save on their own a few seconds after the rep stops.
+r = await renderWith({ ...complete }, COMPLETE_LINES);
+const savesBefore = calls.filter((c) => c.parameters.action === 'save').length;
+field(r, 'of_legal_notes').trigger('onChange', 'Autosaved note' as never);
+await new Promise((res) => setTimeout(res, 3600));
+await r.waitFor(() => assert.equal(lastSave().of_legal_notes, 'Autosaved note'));
+assert.equal(calls.filter((c) => c.parameters.action === 'save').length, savesBefore + 1, 'one save, not one per keystroke');
+console.log('autosave after the rep stops typing');
+
+// Packages: one pick adds the licence and cameras, sized to the sites.
+r = await renderWith({ ...complete }, []);
+select(r, 'add-package').trigger('onChange', 'safety' as never);
+await r.waitFor(() => assert.equal(num(r, 'qty-new-1')?.props.value, 3));
+assert.equal(num(r, 'qty-new-2').props.value, 30, 'cameras across the sites');
+console.log('packages add their products sized to the sites');
+
+// Renewals load the company's Sites records as existing sites.
+r = await renderWith({ ...complete, pipeline: '497851373', of_order_type: 'renewal', pro_rata_renewal: 'No' }, COMPLETE_LINES);
+button(r, "Load the company's sites")!.trigger('onClick');
+await r.waitFor(() => assert.equal(field(r, 'site-3-name')?.props.value, 'Hull'));
+assert.equal(select(r, 'site-3-new').props.value, 'existing');
+assert.equal(texts(r).filter((t) => t === 'Sites record').length, 2, 'Leeds DC linked to its record, Hull added');
+console.log("renewals load the company's sites; matching names are linked, not duplicated");
+
+// A second discount tier also needs an Executive.
+settingsRules = { discount_tier2_pct: '30' };
+r = await renderWith({ ...complete, of_discount_reason: 'Strategic' }, [LINE('501', '2281317872', 3, { hs_discount_percentage: '35' }), LINE('502', '2282093038', 30), LINE('503', '2282093039', 3)]);
+await r.waitFor(() => assert.ok(texts(r).includes('Executive')));
+assert.ok(texts(r).includes('Sales leadership'));
+settingsRules = {};
+console.log('a discount over the second tier also needs an Executive');
 console.log('ok');

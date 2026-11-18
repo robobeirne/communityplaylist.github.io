@@ -124,3 +124,18 @@ test('recurring lines follow the contract term and billing start', () => {
   assert.equal(termUpdate(line({ recurringbillingfrequency: '' }), 36, '2027-01-01'), null, 'one-off lines are left alone');
   assert.equal(termUpdate(raw, null, ''), null);
 });
+
+test('product roles from the rules decide quantities, ahead of the product name', async () => {
+  const { setSettings, packages } = await import('./settings.ts');
+  // Defaults: the real product library ids.
+  assert.equal(quantityRule({ name: 'Anything', sku: '', productId: '403344247015' }), 'cameras', 'Camera License - Operations');
+  assert.equal(quantityRule({ name: 'Anything', sku: '', productId: '427764333792' }), 'deployment');
+  assert.equal(defaultQuantity({ id: '414730536132', name: 'Protex AI Licence - Intelligence (Free)', sku: '' }, 4, 40), 1, 'inclusions are one');
+  setSettings({ rules: { product_roles: JSON.stringify({ '99': 'camera' }) } });
+  assert.equal(defaultQuantity({ id: '99', name: 'Oddly named thing', sku: '' }, 4, 40), 40);
+  assert.equal(quantityRule({ name: 'Site licence - Safety', sku: '', productId: '2281317872' }), 'sites', 'no role in the rules: falls back to the name');
+  setSettings({ rules: { packages: 'not json' } });
+  assert.deepEqual(packages(), [], 'a broken packages rule means no packages, not a crash');
+  setSettings({ rules: {} });
+  assert.deepEqual(packages().map((p) => p.name), ['Safety', 'Operations', 'Signal']);
+});

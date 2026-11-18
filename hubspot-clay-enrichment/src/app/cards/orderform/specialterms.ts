@@ -7,8 +7,9 @@
 import type { Values } from './calc.ts';
 import { formatClause, getLibrary } from './settings.ts';
 
-export type Role = 'finance' | 'legal' | 'sales';
-export const ROLE_LABEL: Record<Role, string> = { finance: 'Finance', legal: 'Legal', sales: 'Sales leadership' };
+export type Role = 'finance' | 'legal' | 'sales' | 'exec';
+export const ROLE_LABEL: Record<Role, string> = { finance: 'Finance', legal: 'Legal', sales: 'Sales leadership', exec: 'Executive' };
+export const ROLES: Role[] = ['finance', 'legal', 'sales', 'exec'];
 
 type OrderType = 'new_business' | 'renewal' | 'expansion';
 

@@ -68,3 +68,18 @@ test('special terms: available by order type, need their blank, and print after 
   const renewal = orderTerms({ ...v, of_order_type: 'renewal' });
   assert.ok(!renewal.includes('Pilot exit'), 'terms not available on renewals are left out');
 });
+
+test('a second discount tier also needs an Executive, only once leadership sets it', async () => {
+  const { setSettings } = await import('./settings.ts');
+  assert.deepEqual(approvalReasons(base, [line('35')]).map((x) => x.role), ['sales'], 'off by default');
+  setSettings({ rules: { discount_tier2_pct: '30' } });
+  assert.deepEqual(
+    approvalReasons(base, [line('35')]).map((x) => [x.role, x.label]),
+    [
+      ['sales', 'Licence: 35% discount'],
+      ['exec', 'Licence: 35% discount (over 30%)'],
+    ],
+  );
+  assert.deepEqual(approvalReasons(base, [line('25')]).map((x) => x.role), ['sales'], 'under the second tier');
+  setSettings({ rules: {} });
+});

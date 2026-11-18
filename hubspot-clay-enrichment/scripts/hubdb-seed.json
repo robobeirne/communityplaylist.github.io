@@ -33,6 +33,46 @@
       "value": "yes"
     },
     {
+      "key": "on_signature_create_sites",
+      "value": "yes"
+    },
+    {
+      "key": "countersignature",
+      "value": "yes"
+    },
+    {
+      "key": "discount_tier2_pct",
+      "value": ""
+    },
+    {
+      "key": "approver_exec",
+      "value": ""
+    },
+    {
+      "key": "deputy_finance",
+      "value": ""
+    },
+    {
+      "key": "deputy_legal",
+      "value": ""
+    },
+    {
+      "key": "deputy_sales",
+      "value": ""
+    },
+    {
+      "key": "deputy_exec",
+      "value": ""
+    },
+    {
+      "key": "product_roles",
+      "value": "{\"2281317872\": \"licence\", \"2282093038\": \"camera\", \"403629398207\": \"licence\", \"403344247015\": \"camera\", \"414816421078\": \"licence\", \"414759343349\": \"camera\", \"403783873784\": \"licence\", \"414730536132\": \"inclusion\", \"427764333792\": \"deployment\", \"455664370894\": \"inclusion\", \"2282093039\": \"deployment\", \"414913570026\": \"addon\"}"
+    },
+    {
+      "key": "packages",
+      "value": "[{\"id\": \"safety\", \"name\": \"Safety\", \"items\": [{\"productId\": \"2281317872\", \"qty\": \"sites\"}, {\"productId\": \"2282093038\", \"qty\": \"cameras\"}]}, {\"id\": \"operations\", \"name\": \"Operations\", \"items\": [{\"productId\": \"403629398207\", \"qty\": \"sites\"}, {\"productId\": \"403344247015\", \"qty\": \"cameras\"}]}, {\"id\": \"signal\", \"name\": \"Signal\", \"items\": [{\"productId\": \"414816421078\", \"qty\": \"sites\"}, {\"productId\": \"414759343349\", \"qty\": \"cameras\"}]}]"
+    },
+    {
       "key": "legal_editors",
       "value": "jemima.davison@protex.ai, aoife.harte@protex.ai"
     },

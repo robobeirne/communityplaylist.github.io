@@ -22,7 +22,9 @@
         "crm.objects.owners.read",
         "crm.objects.contacts.write",
         "hubdb.tables.read",
-        "hubdb.tables.write"
+        "hubdb.tables.write",
+        "crm.objects.custom.read",
+        "crm.objects.custom.write"
       ],
       "optionalScopes": [],
       "conditionallyRequiredScopes": []

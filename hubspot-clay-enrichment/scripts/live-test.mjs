@@ -2,15 +2,17 @@
 // Runs the order form app function's own code against your real HubSpot, end to end, and cleans
 // up after itself. It creates a test deal and contact, prices a licence, saves the order form,
 // reads the settings, creates the order form quote (with the template, line items and
-// e-signature), replaces it, asks for an approval (which creates a task), then deletes everything.
+// e-signature), replaces it, asks for an approval (which creates a task), reads the company's Sites
+// records and creates one the way signature does, then deletes everything.
 // Each step prints PASS or FAIL with HubSpot's own error, which is what to send back if one fails.
 //
 //   HUBSPOT_TOKEN=... node scripts/live-test.mjs          # add --keep to leave the test records
+//   add --publish to also publish the test quote (HubSpot may email the example.com test contact)
 //
 // The service key needs the same permissions as the app: crm.objects.deals.read/write,
 // crm.objects.contacts.read/write, crm.objects.companies.read, crm.objects.users.read, e-commerce,
 // crm.objects.line_items.read/write, crm.objects.quotes.read/write, crm.objects.owners.read,
-// hubdb.tables.read.
+// hubdb.tables.read, crm.objects.custom.read/write (the Sites object).
 
 import { createRequire } from 'node:module';
 
@@ -21,8 +23,9 @@ if (!TOKEN) {
 }
 process.env.PRIVATE_APP_ACCESS_TOKEN = TOKEN;
 const KEEP = process.argv.includes('--keep');
+const PUBLISH = process.argv.includes('--publish');
 const require = createRequire(import.meta.url);
-const { main } = require('../src/app/functions/save-order-form.js');
+const { main, createSiteRecords } = require('../src/app/functions/save-order-form.js');
 
 const api = async (method, path, body) => {
   const res = await fetch(`https://api.hubapi.com${path}`, { method, headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
@@ -48,7 +51,7 @@ const step = async (name, f) => {
   }
 };
 
-const made = { deal: '', contact: '', quotes: new Set(), tasks: new Set() };
+const made = { deal: '', contact: '', company: '', sites: new Set(), quotes: new Set(), tasks: new Set() };
 const stamp = Date.now();
 let product = null;
 let templateId = '';
@@ -119,7 +122,31 @@ if (made.deal) {
       const b = await fn({ ...quoteParams(), replaceQuoteId: quoteId });
       made.quotes.delete(quoteId);
       made.quotes.add(b.quote.id);
+      quoteId = b.quote.id;
       return `new quote ${b.quote.id}, title "${b.quote.title}"`;
+    });
+  if (quoteId && PUBLISH)
+    await step('publish the quote for e-signature', async () => {
+      const b = await fn({ action: 'publish_quote', dealId: made.deal, quoteId });
+      return `quote ${b.current?.state ?? '?'}, deal status ${b.properties?.of_status ?? 'unchanged'}, locked ${b.properties?.of_locked ?? '?'}${b.link ? `, link ${b.link}` : ''}`;
+    });
+  await step("company sites: read the company's Sites records", async () => {
+    const company = await api('POST', '/crm/v3/objects/companies', { properties: { name: `ZZ Order form live test ${stamp} (delete me)` } });
+    made.company = String(company.id);
+    await api('PUT', `/crm/v4/objects/deals/${made.deal}/associations/default/companies/${made.company}`);
+    const b = await fn({ action: 'company_sites', dealId: made.deal });
+    if (b.message) throw new Error(b.message);
+    return `${b.sites.length} site(s) on the test company`;
+  });
+  if (made.company)
+    await step('Sites records at signature (creates a test site linked to the deal and company)', async () => {
+      const res = await createSiteRecords(made.deal, { of_sites: JSON.stringify([{ name: `ZZ live test site ${stamp}`, address: '1 Test Road', cameras: 2, isNew: true }]), of_order_type: 'new_business', term_year_length: '12 months' });
+      for (const c of res.created) made.sites.add(c.recordId);
+      if (!res.created.length) throw new Error(res.problems.join('; ') || 'no site created');
+      const back = await fn({ action: 'company_sites', dealId: made.deal });
+      const linked = back.sites.some((x) => made.sites.has(x.recordId));
+      if (res.problems.length || !linked) throw new Error(`created ${res.created[0].recordId} but: ${[...res.problems, linked ? '' : 'not found on the company'].filter(Boolean).join('; ')}`);
+      return `site ${res.created[0].recordId} created and linked to the deal and company`;
     });
   await step('request approval (creates a HubSpot task)', async () => {
     const owners = await api('GET', '/crm/v3/owners/?limit=1');
@@ -143,6 +170,8 @@ if (!KEEP) {
   console.log('\nCleaning up');
   for (const id of made.quotes) await api('DELETE', `/crm/v3/objects/quotes/${id}`).catch((e) => console.log(`  couldn't delete quote ${id}: ${e.message}`));
   for (const id of made.tasks) await api('DELETE', `/crm/v3/objects/tasks/${id}`).catch((e) => console.log(`  couldn't delete task ${id}: ${e.message}`));
+  for (const id of made.sites) await api('DELETE', `/crm/v3/objects/p24888392_sites/${id}`).catch((e) => console.log(`  couldn't delete site ${id}: ${e.message}`));
+  if (made.company) await api('DELETE', `/crm/v3/objects/companies/${made.company}`).catch((e) => console.log(`  couldn't delete company: ${e.message}`));
   if (made.deal) {
     const lines = await api('GET', `/crm/v4/objects/deals/${made.deal}/associations/line_items`).catch(() => ({ results: [] }));
     for (const l of lines.results || []) await api('DELETE', `/crm/v3/objects/line_items/${l.toObjectId}`).catch(() => {});
@@ -150,7 +179,7 @@ if (!KEEP) {
   }
   if (made.contact) await api('DELETE', `/crm/v3/objects/contacts/${made.contact}`).catch(() => {});
   console.log('  done');
-} else console.log(`\nKept: deal ${made.deal}, contact ${made.contact}, quotes ${[...made.quotes].join(', ')}`);
+} else console.log(`\nKept: deal ${made.deal}, contact ${made.contact}, company ${made.company}, sites ${[...made.sites].join(', ')}, quotes ${[...made.quotes].join(', ')}`);
 
 console.log(failed ? `\n${failed} step(s) failed. Send the FAIL lines back.` : '\nEverything passed against your real HubSpot.');
 process.exit(failed ? 1 : 0);
