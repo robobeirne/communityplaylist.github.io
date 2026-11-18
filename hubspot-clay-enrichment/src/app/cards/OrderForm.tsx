@@ -20,14 +20,10 @@ import {
   Statistics,
   StatisticsItem,
   StatusTag,
-  Tab,
   Table,
   TableBody,
   TableCell,
-  TableHead,
-  TableHeader,
   TableRow,
-  Tabs,
   Tag,
   Text,
   TextArea,
@@ -140,7 +136,12 @@ const QUOTE_VARIANT: Record<string, 'default' | 'info' | 'warning' | 'success' |
   expired: 'danger',
   rejected: 'danger',
 };
-const TAB_TITLE: Record<Section, string> = { order: 'Order & term', client: 'Client', sites: 'Sites', pricing: 'Products', legal: 'Legal & signing' };
+/** "3. Sites and rollout · still needed: Rollout, Site 3: go-live date", or "· complete". */
+function sectionTitle(i: number, title: string, gaps: Gap[]): string {
+  if (!gaps.length) return `${i + 1}. ${title} · complete`;
+  const names = gaps.slice(0, 2).map((g) => g.label);
+  return `${i + 1}. ${title} · still needed: ${names.join(', ')}${gaps.length > 2 ? ` and ${gaps.length - 2} more` : ''}`;
+}
 /** Fields laid out several to a row, wrapping on narrow screens. */
 const Grid = ({ children }: { children: React.ReactNode }) => (
   <AutoGrid columnWidth={200} gap="sm" flexible>
@@ -213,9 +214,8 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
   const [saving, setSaving] = React.useState(false);
   const [signers, setSigners] = React.useState<Signer[] | null>(null);
   const [signersError, setSignersError] = React.useState('');
-  const [tab, setTab] = React.useState<Section | null>(null);
-  /** The tab to start on, fixed once the data has loaded so the card never switches tabs by itself. */
-  const startTab = React.useRef<Section | null>(null);
+  /** Open sections: all closed to start, and only the rep (or a still-needed link) opens or closes them. */
+  const [openSections, setOpenSections] = React.useState<Section[]>([]);
   const [pricing, setPricing] = React.useState<Pricing | null>(null);
   const [pricingError, setPricingError] = React.useState('');
   const [contacts, setContacts] = React.useState<Person[] | null>(null);
@@ -454,11 +454,8 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
   };
 
   const missingIn = (s: Section) => r.missing.filter((g) => g.section === s);
-  // Start on the first tab with something to fill, worked out once the line items have loaded.
-  // After that only the rep changes tabs: filling the last field never moves them on.
-  if (!startTab.current && (pricing || pricingError)) startTab.current = SECTIONS.find((s) => missingIn(s.key).length)?.key ?? 'order';
-  const currentTab: Section = tab ?? startTab.current ?? 'order';
-  const reveal = (k: Section) => setTab(k);
+  const toggle = (k: Section) => setOpenSections((o) => (o.includes(k) ? o.filter((x) => x !== k) : [...o, k]));
+  const reveal = (k: Section) => setOpenSections((o) => (o.includes(k) ? o : [...o, k]));
   const done = r.required - r.missing.length;
   const shared = { v, set, currency, sum };
   const t = sum.totals;
@@ -538,39 +535,37 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
         onRefresh={loadQuote}
       />
 
-      <Tabs variant="enclosed" selected={currentTab} onSelectedChange={(id: string | number) => setTab(String(id) as Section)}>
-        {SECTIONS.map((s) => {
-          const left = missingIn(s.key).length;
-          return (
-            <Tab key={s.key} tabId={s.key} title={`${TAB_TITLE[s.key]}${left ? ` · ${left} to fill` : ' ✓'}`}>
+      {SECTIONS.map((s, i) => {
+        const gaps = missingIn(s.key);
+        return (
+          <Accordion key={s.key} title={sectionTitle(i, s.title, gaps)} open={openSections.includes(s.key)} onClick={() => toggle(s.key)} size="sm">
               <Flex direction="column" gap="sm">
-                {s.key === 'client' && <ClientSection {...shared} people={people} company={company} />}
-                {s.key === 'order' && <OrderSection {...shared} />}
-                {s.key === 'pricing' && (
-                  <ProductsSection
-                    {...shared}
-                    lines={lines}
-                    products={products}
-                    loaded={!!pricing}
-                    loadError={pricingError}
-                    edits={lineEdits}
-                    onEdit={editLine}
-                    onUndo={undoLine}
-                    onAdd={addProduct}
-                    termFixes={termFixes.length}
-                    amount={{ next: newAmount, current: Number.isFinite(currentAmount) ? currentAmount : null, stale: amountStale }}
-                    canSync={!dirty && !saving}
-                    onSync={() => save()}
-                  />
-                )}
-                {s.key === 'sites' && <SitesSection {...shared} />}
-                {s.key === 'legal' && <LegalSection {...shared} people={people} signers={signers} signersError={signersError} />}
-                <Missing gaps={missingIn(s.key)} />
-              </Flex>
-            </Tab>
-          );
-        })}
-      </Tabs>
+              {s.key === 'client' && <ClientSection {...shared} people={people} company={company} />}
+              {s.key === 'order' && <OrderSection {...shared} />}
+              {s.key === 'pricing' && (
+                <ProductsSection
+                  {...shared}
+                  lines={lines}
+                  products={products}
+                  loaded={!!pricing}
+                  loadError={pricingError}
+                  edits={lineEdits}
+                  onEdit={editLine}
+                  onUndo={undoLine}
+                  onAdd={addProduct}
+                  termFixes={termFixes.length}
+                  amount={{ next: newAmount, current: Number.isFinite(currentAmount) ? currentAmount : null, stale: amountStale }}
+                  canSync={!dirty && !saving}
+                  onSync={() => save()}
+                />
+              )}
+              {s.key === 'sites' && <SitesSection {...shared} />}
+              {s.key === 'legal' && <LegalSection {...shared} people={people} signers={signers} signersError={signersError} />}
+              <Missing gaps={missingIn(s.key)} />
+            </Flex>
+          </Accordion>
+        );
+      })}
 
       {dirty && (
         <Actions dirty={dirty} saving={saving} onSave={() => save()} />
@@ -973,38 +968,19 @@ function ProductsSection(p: Shared & {
     <Flex direction="column" gap="sm">
       {!currency && <Text variant="microcopy">Set the currency in Order and term first: products are priced from the product library in the deal's currency.</Text>}
       {lines.length === 0 && <Text variant="microcopy">No products on this deal yet. Add the platform licence first; its quantity defaults to the number of sites.</Text>}
-      {lines.length > 0 && (
-        <Table bordered flush>
-          <TableHead>
-            <TableRow>
-              <TableHeader>Product</TableHeader>
-              <TableHeader width={90}>Qty</TableHeader>
-              <TableHeader width={110}>Unit price</TableHeader>
-              <TableHeader width={200}>Discount</TableHeader>
-              <TableHeader width={110}>Net / unit</TableHeader>
-              <TableHeader width={130} align="right">
-                Line total
-              </TableHeader>
-              <TableHeader width="min"> </TableHeader>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {lines.map((l) => (
-              <LineRow
-                key={l.id}
-                inclusion={isInclusion(l.productId, products)}
-                l={l}
-                currency={currency}
-                sum={sum}
-                edited={!!p.edits[l.id] && !l.id.startsWith(NEW_PREFIX)}
-                issues={issues.filter((i) => i.lineId === l.id)}
-                onEdit={p.onEdit}
-                onUndo={p.onUndo}
-              />
-            ))}
-          </TableBody>
-        </Table>
-      )}
+      {lines.map((l) => (
+        <LineRow
+          key={l.id}
+          inclusion={isInclusion(l.productId, products)}
+          l={l}
+          currency={currency}
+          sum={sum}
+          edited={!!p.edits[l.id] && !l.id.startsWith(NEW_PREFIX)}
+          issues={issues.filter((i) => i.lineId === l.id)}
+          onEdit={p.onEdit}
+          onUndo={p.onUndo}
+        />
+      ))}
       {currency && (
         <Select
           name="add-product"
@@ -1073,17 +1049,13 @@ function LineRow({ l, currency, sum, edited, issues, onEdit, onUndo, inclusion }
   const isNew = l.id.startsWith(NEW_PREFIX);
   if (l.removed) {
     return (
-      <TableRow>
-        <TableCell colSpan={7}>
-          <Flex direction="row" gap="sm" align="center" wrap="wrap">
-            <Text format={{ lineDecoration: 'strikethrough' }}>{l.name}</Text>
-            <Tag variant="error">Removed when you save</Tag>
-            <Link href="#" preventDefault onClick={() => onUndo(l.id)}>
-              Undo
-            </Link>
-          </Flex>
-        </TableCell>
-      </TableRow>
+      <Flex direction="row" gap="sm" align="center" wrap="wrap">
+        <Text format={{ lineDecoration: 'strikethrough' }}>{l.name}</Text>
+        <Tag variant="error">Removed when you save</Tag>
+        <Link href="#" preventDefault onClick={() => onUndo(l.id)}>
+          Undo
+        </Link>
+      </Flex>
     );
   }
   const rule = quantityRule(l);
@@ -1092,82 +1064,81 @@ function LineRow({ l, currency, sum, edited, issues, onEdit, onUndo, inclusion }
   const offList = l.listPrice !== null && Math.abs(l.price - l.listPrice) > 0.005;
   const wrongCurrency = !!currency && !!l.currency && l.currency !== currency;
   const needsApproval = l.discountPct >= DISCOUNT_APPROVAL_PCT;
-  const fixes = (issues.length > 0 || edited) && (
-    <Flex direction="row" gap="sm" wrap="wrap" align="center">
-      {rule && target > 0 && l.quantity !== target && (
-        <Link href="#" preventDefault onClick={() => onEdit(l.id, { quantity: target })}>
-          {`Match the ${rule === 'cameras' ? 'cameras' : 'sites'} (${target})`}
-        </Link>
-      )}
-      {offList && !wrongCurrency && (
-        <Link href="#" preventDefault onClick={() => onEdit(l.id, resetToList(l))}>
-          {`Reset to list (${money(l.listPrice!, currency)})${l.discount === 0 && l.price < l.listPrice! ? ' and show the difference as a discount' : ''}`}
-        </Link>
-      )}
-      {wrongCurrency && l.listPrice !== null && (
-        <Link href="#" preventDefault onClick={() => onEdit(l.id, { resetPrice: true })}>
-          {`Reprice at the ${currency} list price`}
-        </Link>
-      )}
-      {edited && (
-        <Link href="#" preventDefault onClick={() => onUndo(l.id)}>
-          Undo changes
-        </Link>
-      )}
-    </Flex>
-  );
   return (
-    <TableRow>
-      <TableCell>
-        <Flex direction="column" gap="xs">
-          <Text format={{ fontWeight: 'demibold' }}>{l.name}</Text>
-          <Flex direction="row" gap="xs" wrap="wrap">
+    <Tile compact>
+      <Flex direction="column" gap="xs">
+        <Flex direction="row" justify="between" align="center" wrap="wrap" gap="sm">
+          <Flex direction="row" gap="xs" align="center" wrap="wrap">
+            <Text format={{ fontWeight: 'demibold' }}>{l.name}</Text>
             {l.sku && <Tag variant="default">{`SKU ${l.sku}`}</Tag>}
             <Tag variant={l.recurring ? 'info' : 'default'}>{l.recurring ? FREQUENCY[l.frequency] ?? l.frequency : 'One-off'}</Tag>
             {inclusion && <Tag variant="default">Standard inclusion</Tag>}
             {isNew && <Tag variant="success">New</Tag>}
             {needsApproval && <Tag variant="warning">Needs approval</Tag>}
           </Flex>
-          {fixes}
+          <Text format={{ fontWeight: 'demibold' }}>{l.recurring ? `${money(l.annualNet, currency)} / year` : money(l.net, currency)}</Text>
         </Flex>
-      </TableCell>
-      <TableCell>
-        <NumberInput name={`qty-${l.id}`} label="" min={0} value={l.quantity} onChange={(n) => onEdit(l.id, { quantity: Number.isFinite(n) ? n : 0 })} />
-      </TableCell>
-      <TableCell>
-        <Text>{money(l.price, l.currency || currency)}</Text>
-      </TableCell>
-      <TableCell>
-        <Flex direction="row" gap="xs">
+        <Flex direction="row" gap="sm" wrap="wrap" align="end">
+          <NumberInput
+            name={`qty-${l.id}`}
+            label="Quantity"
+            min={0}
+            value={l.quantity}
+            onChange={(n) => onEdit(l.id, { quantity: Number.isFinite(n) ? n : 0 })}
+          />
+          <Flex direction="column" gap="flush">
+            <Text variant="microcopy">Unit price</Text>
+            <Text>{money(l.price, l.currency || currency)}</Text>
+          </Flex>
           <Select
             name={`dmode-${l.id}`}
+            label="Discount"
             value={l.discountMode}
             options={DISCOUNT_MODES}
             onChange={(x) => onEdit(l.id, { discountMode: x === 'amount' ? 'amount' : 'percent', discountValue: 0 })}
           />
           <NumberInput
             name={`dval-${l.id}`}
-            label=""
-            placeholder={l.discountMode === 'percent' ? '%' : currency || l.currency}
+            label={l.discountMode === 'percent' ? 'Percent off' : `Off each unit (${currency || l.currency})`}
             min={0}
             max={l.discountMode === 'percent' ? 100 : l.price}
             value={l.discountValue || undefined}
             onChange={(n) => onEdit(l.id, { discountMode: l.discountMode, discountValue: Number.isFinite(n) ? n : 0 })}
           />
+          <Flex direction="column" gap="flush">
+            <Text variant="microcopy">Net per unit</Text>
+            <Text>{money(Math.round(unitNet * 100) / 100, l.currency || currency)}</Text>
+          </Flex>
+          <Button size="sm" variant="transparent" onClick={() => onEdit(l.id, { remove: true })}>
+            Remove
+          </Button>
         </Flex>
-      </TableCell>
-      <TableCell>
-        <Text>{money(Math.round(unitNet * 100) / 100, l.currency || currency)}</Text>
-      </TableCell>
-      <TableCell align="right">
-        <Text format={{ fontWeight: 'demibold' }}>{l.recurring ? `${money(l.annualNet, currency)} / yr` : money(l.net, currency)}</Text>
-      </TableCell>
-      <TableCell>
-        <Button size="sm" variant="transparent" onClick={() => onEdit(l.id, { remove: true })}>
-          Remove
-        </Button>
-      </TableCell>
-    </TableRow>
+        {(issues.length > 0 || edited) && (
+          <Flex direction="row" gap="sm" wrap="wrap" align="center">
+            {rule && target > 0 && l.quantity !== target && (
+              <Link href="#" preventDefault onClick={() => onEdit(l.id, { quantity: target })}>
+                {`Match the ${rule === 'cameras' ? 'cameras' : 'sites'} (${target})`}
+              </Link>
+            )}
+            {offList && !wrongCurrency && (
+              <Link href="#" preventDefault onClick={() => onEdit(l.id, resetToList(l))}>
+                {`Reset to list (${money(l.listPrice!, currency)})${l.discount === 0 && l.price < l.listPrice! ? ' and show the difference as a discount' : ''}`}
+              </Link>
+            )}
+            {wrongCurrency && l.listPrice !== null && (
+              <Link href="#" preventDefault onClick={() => onEdit(l.id, { resetPrice: true })}>
+                {`Reprice at the ${currency} list price`}
+              </Link>
+            )}
+            {edited && (
+              <Link href="#" preventDefault onClick={() => onUndo(l.id)}>
+                Undo changes
+              </Link>
+            )}
+          </Flex>
+        )}
+      </Flex>
+    </Tile>
   );
 }
 
@@ -1183,50 +1154,20 @@ function SitesSection({ v, set, sum }: Shared) {
   return (
     <Flex direction="column" gap="sm">
       <SelectField v={v} set={set} name="of_rollout" required />
-      {sites.length === 0 ? (
-        <Text variant="microcopy">No sites yet. Add them one at a time, or paste a list.</Text>
-      ) : (
-        <Table bordered flush>
-          <TableHead>
-            <TableRow>
-              <TableHeader width={40}>#</TableHeader>
-              <TableHeader>Site name</TableHeader>
-              <TableHeader>Delivery address</TableHeader>
-              <TableHeader width={110}>Cameras</TableHeader>
-              {staged && <TableHeader width={170}>Go-live date</TableHeader>}
-              <TableHeader width="min"> </TableHeader>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {sites.map((s, i) => (
-              <TableRow key={i}>
-                <TableCell>
-                  <Text>{String(i + 1)}</Text>
-                </TableCell>
-                <TableCell>
-                  <Input name={`site-${i}-name`} label="" placeholder="Site name" required value={s.name} onChange={(x) => change(i, { name: x })} />
-                </TableCell>
-                <TableCell>
-                  <Input name={`site-${i}-address`} label="" placeholder="Where the device ships" value={s.address} onChange={(x) => change(i, { address: x })} />
-                </TableCell>
-                <TableCell>
-                  <NumberInput name={`site-${i}-cameras`} label="" min={0} value={s.cameras} onChange={(n) => change(i, { cameras: Number.isFinite(n) ? n : 0 })} />
-                </TableCell>
-                {staged && (
-                  <TableCell>
-                    <DateInput name={`site-${i}-go-live`} label="" required format="ll" value={toBase(s.goLive)} onChange={(d) => change(i, { goLive: fromBase(d) })} />
-                  </TableCell>
-                )}
-                <TableCell>
-                  <Button size="sm" variant="transparent" onClick={() => write(sites.filter((_, j) => j !== i))}>
-                    Remove
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+      {sites.length === 0 && <Text variant="microcopy">No sites yet. Add them one at a time, or paste a list.</Text>}
+      {sites.map((s, i) => (
+        <Flex key={i} direction="row" gap="sm" wrap="wrap" align="end">
+          <Input name={`site-${i}-name`} label={`Site ${i + 1} name`} required value={s.name} onChange={(x) => change(i, { name: x })} />
+          <Input name={`site-${i}-address`} label="Delivery address" value={s.address} onChange={(x) => change(i, { address: x })} />
+          <NumberInput name={`site-${i}-cameras`} label="Cameras" min={0} value={s.cameras} onChange={(n) => change(i, { cameras: Number.isFinite(n) ? n : 0 })} />
+          {staged && (
+            <DateInput name={`site-${i}-go-live`} label="Go-live date" required format="ll" value={toBase(s.goLive)} onChange={(d) => change(i, { goLive: fromBase(d) })} />
+          )}
+          <Button size="sm" variant="transparent" onClick={() => write(sites.filter((_, j) => j !== i))}>
+            Remove
+          </Button>
+        </Flex>
+      ))}
       <Flex direction="row" gap="sm" wrap="wrap">
         <Button size="sm" variant="secondary" onClick={() => write([...sites, { name: '', address: '', cameras: 0, goLive: '' }])}>
           Add a site

@@ -5,7 +5,7 @@ One card on the deal captures everything the order form needs, for new business,
 ## What reps see
 
 - **Summary:** order type, status (Draft, Ready to send, Sent or Signed), annual subscription, total contract value, overall discount, number of sites, and a "Ready to send" bar counting the required details.
-- **Still needed before sending:** every missing item, listed under its section. Each section name is a link that opens its tab. **Check these** flags anything that looks wrong:
+- **Still needed before sending:** every missing item, listed under its section. Each section name is a link that opens that section. **Check these** flags anything that looks wrong:
   - the offer expires before the quote date;
   - the target signature date is after the offer expires;
   - an email address isn't valid;
@@ -14,7 +14,7 @@ One card on the deal captures everything the order form needs, for new business,
   - a line is discounted 20% or more (needs approval);
   - a site goes live before the contract starts;
   - more than 20 sites (see below).
-- **Five tabs** (Order & term, Client, Sites, Products, Legal & signing), each titled with what's left to fill or a ✓. The card opens on the first tab with gaps and never switches tabs by itself, so filling a section's last field doesn't move you on. Fields sit several to a row; sites and products are tables with one header row:
+- **Five sections**, all closed to start. They only open or close when you click them (or a "Still needed" link), so filling a section's last field never closes it. Each title says what's still needed ("3. Sites and rollout · still needed: Rollout, Site 3: go-live date") or "complete". Most fields sit several to a row; products and sites keep a label on every field:
   1. **Order and term.**
      - Order type, currency, quote date, offer expiry and target signature date.
      - Subscription term. For new business and expansions the order form states it as *N months from each Site's Deployment Date*, so a start date is optional (expected first Deployment Date, for forecasting). Renewals need a contract start date, and the end date is calculated.
