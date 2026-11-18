@@ -60,7 +60,6 @@ import {
   type Values,
 } from './orderform/calc.ts';
 import {
-  DISCOUNT_APPROVAL_PCT,
   NEW_PREFIX,
   defaultQuantity,
   lineIssues,
@@ -79,6 +78,17 @@ import {
 import { orderComments, orderTerms } from './orderform/terms.ts';
 import { isInclusion, missingInclusions } from './orderform/inclusions.ts';
 import { approvalState, fingerprint, ROLE_LABEL, type Role } from './orderform/approvals.ts';
+import {
+  discountApprovalPct,
+  getLibrary,
+  getRules,
+  isLegalEditor,
+  isRulesEditor,
+  rule,
+  setSettings,
+  type Clause,
+  type Rules,
+} from './orderform/settings.ts';
 import { readSpecialTerms, termsFor, type ChosenTerm } from './orderform/specialterms.ts';
 import { PROTEX_ENTITY, STANDARD_MSA_URL } from './orderform/legal.ts';
 
@@ -225,6 +235,8 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
   const [signers, setSigners] = React.useState<Signer[] | null>(null);
   const [lastApprovers, setLastApprovers] = React.useState<Partial<Record<Role, Signer>>>({});
   const [approving, setApproving] = React.useState(false);
+  /** Where the rules and Terms library came from (HubDB, or the built-in defaults), and a counter so a change re-renders. */
+  const [settingsInfo, setSettingsInfo] = React.useState<{ source: string; error?: string; n: number }>({ source: 'loading', n: 0 });
   const [signersError, setSignersError] = React.useState('');
   /** The open tab. Only the rep (or a still-needed link) changes it: filling a field never moves them on. */
   const [tab, setTab] = React.useState<TabKey>('deal');
@@ -267,6 +279,13 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
         setLastApprovers(b.lastApprovers ?? {});
       })
       .catch((e: Error) => setSignersError(e.message));
+    call({ action: 'settings' })
+      .then((b) => {
+        const body = b as Body & { source?: string; rules?: Rules; library?: Clause[]; error?: string };
+        setSettings({ rules: body.rules, library: body.library });
+        setSettingsInfo((x) => ({ source: body.source ?? 'defaults', error: body.error, n: x.n + 1 }));
+      })
+      .catch((e: Error) => setSettingsInfo((x) => ({ source: 'defaults', error: e.message, n: x.n + 1 })));
     call({ action: 'pricing', dealId })
       .then((b) => setPricing({ lines: b.lines ?? [], products: b.products ?? [] }))
       .catch((e: Error) => setPricingError(e.message));
@@ -439,6 +458,28 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
   const templates = quoteInfo?.templates ?? [];
   const chosenTemplate = templateId || (templates.find((x) => /order form/i.test(x.name)) ?? templates[0])?.id || '';
   const approval = approvalState(v, lines);
+  // The approver set in the rules for each type, as a HubSpot user.
+  const ruleApprovers = Object.fromEntries(
+    (['finance', 'legal', 'sales'] as Role[]).flatMap((r) => {
+      const u = (signers ?? []).find((x) => x.email.toLowerCase() === rule(`approver_${r}`).toLowerCase());
+      return u ? [[r, u]] : [];
+    }),
+  ) as Partial<Record<Role, Signer>>;
+  const saveSettings = async (payload: { rules?: Rules; clauses?: Clause[] }) => {
+    try {
+      const b = (await call({ action: 'save_settings', ...payload, user: { email: user.email, name: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email } })) as Body & {
+        rules?: Rules;
+        library?: Clause[];
+      };
+      setSettings({ rules: b.rules, library: b.library });
+      setSettingsInfo((x) => ({ source: 'hubdb', n: x.n + 1 }));
+      actions.addAlert({ type: 'success', message: 'Saved and published. Every order form card uses it now.' });
+      return true;
+    } catch (e) {
+      actions.addAlert({ type: 'danger', message: `Couldn't save: ${(e as Error).message}` });
+      return false;
+    }
+  };
   const requestApproval = async (approvers: Partial<Record<Role, Signer>>) => {
     setApproving(true);
     try {
@@ -577,7 +618,7 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
         <ApprovalPanel
           state={approval}
           users={signers}
-          suggested={lastApprovers}
+          suggested={{ ...lastApprovers, ...ruleApprovers }}
           me={user.email}
           dirty={dirty}
           busy={approving || saving}
@@ -649,6 +690,10 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
 
       {dirty && (
         <Actions dirty={dirty} saving={saving} onSave={() => save()} />
+      )}
+
+      {(isRulesEditor(user.email) || isLegalEditor(user.email)) && (
+        <SettingsPanel key={settingsInfo.n} me={user.email} users={signers ?? []} source={settingsInfo.source} error={settingsInfo.error} onSave={saveSettings} />
       )}
     </Flex>
   );
@@ -1133,7 +1178,7 @@ function ProductsSection(p: Shared & {
         </Flex>
       )}
       <Text variant="microcopy">
-        {`Unit prices come from the product library. Discount on the line, as a % or an amount off each unit, rather than changing the price, so every discount is visible. A line discounted ${DISCOUNT_APPROVAL_PCT}% or more is flagged for approval.`}
+        {`Unit prices come from the product library. Discount on the line, as a % or an amount off each unit, rather than changing the price, so every discount is visible. A line discounted ${discountApprovalPct()}% or more is flagged for approval.`}
       </Text>
     </Flex>
   );
@@ -1166,7 +1211,7 @@ function LineRow({ l, currency, sum, edited, issues, onEdit, onUndo, inclusion }
   const unitNet = l.discountMode === 'percent' ? l.price * (1 - Math.min(l.discountValue, 100) / 100) : l.price - Math.min(l.discountValue, l.price);
   const offList = l.listPrice !== null && Math.abs(l.price - l.listPrice) > 0.005;
   const wrongCurrency = !!currency && !!l.currency && l.currency !== currency;
-  const needsApproval = l.discountPct >= DISCOUNT_APPROVAL_PCT;
+  const needsApproval = l.discountPct >= discountApprovalPct();
   return (
     <Tile compact>
       <Flex direction="column" gap="xs">
@@ -1578,6 +1623,212 @@ function ApprovalPanel(p: {
           </Flex>
         )}
       </Flex>
+    </Tile>
+  );
+}
+
+/* ---------------- settings: rules (leadership) and Terms library (legal) ---------------- */
+
+const ROLE_OPTIONS = [
+  { label: 'Finance', value: 'finance' },
+  { label: 'Legal', value: 'legal' },
+  { label: 'Sales leadership', value: 'sales' },
+  { label: 'No approval', value: 'none' },
+];
+const CONDITION_LABEL: Record<string, string> = { renewal: 'renewals', not_renewal: 'not renewals', ships_devices: 'when devices ship', auto_renew: 'when auto-renewing' };
+const clauseLabel = (c: Clause) =>
+  c.kind === 'special'
+    ? `Special term: ${c.title || c.id}${c.enabled === false ? ' (off)' : ''}`
+    : `Terms ${c.section}${String.fromCharCode(64 + (c.position ?? 1))}${c.condition ? ` (${CONDITION_LABEL[c.condition] ?? c.condition})` : ''}`;
+
+function SettingsPanel(p: { me: string; users: Signer[]; source: string; error?: string; onSave: (x: { rules?: Rules; clauses?: Clause[] }) => Promise<boolean> }) {
+  const [open, setOpen] = React.useState(false);
+  const [rules, setRules] = React.useState<Rules>({ ...getRules() });
+  const [savingRules, setSavingRules] = React.useState(false);
+  const [clauseId, setClauseId] = React.useState('');
+  const [draft, setDraft] = React.useState<Clause | null>(null);
+  const [savingClause, setSavingClause] = React.useState(false);
+  const library = getLibrary();
+  const canRules = isRulesEditor(p.me);
+  const canTerms = isLegalEditor(p.me);
+  const setRule = (k: string, val: string) => setRules((r) => ({ ...r, [k]: val }));
+  const list = (k: string) => String(rules[k] ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+  const changedRules = Object.fromEntries(Object.entries(rules).filter(([k, val]) => val !== getRules()[k]));
+  const pick = (id: string) => {
+    setClauseId(id);
+    const c = library.find((x) => x.id === id);
+    setDraft(c ? { ...c } : null);
+  };
+  const edit = (patch: Partial<Clause>) => setDraft((d) => (d ? { ...d, ...patch } : d));
+  const userOptions = p.users.map((u) => ({ label: u.name, value: u.email }));
+  return (
+    <Tile>
+      <Accordion title="Order form settings (rules and Terms library)" size="sm" open={open} onClick={() => setOpen(!open)}>
+        <Flex direction="column" gap="md">
+          {p.source !== 'hubdb' && (
+            <Alert title="Using the built-in defaults" variant="warning">
+              <Text>{`The HubDB settings tables aren't set up${p.error ? ` (${p.error})` : ''}. Run the HubDB setup script, then reinstall the app so it can read HubDB. Until then, changes can't be saved.`}</Text>
+            </Alert>
+          )}
+          {canRules && (
+            <Flex direction="column" gap="sm">
+              <SubHead>Rules (leadership)</SubHead>
+              <Grid>
+                <NumberInput
+                  name="rule-discount"
+                  label="Discount needing approval (% or more)"
+                  min={1}
+                  max={100}
+                  value={Number(rules.discount_approval_pct) || undefined}
+                  onChange={(n) => setRule('discount_approval_pct', Number.isFinite(n) ? String(n) : '')}
+                />
+                <Select
+                  name="rule-autorenew"
+                  label="Auto-renewal off is approved by"
+                  value={rules.auto_renew_off_role || 'legal'}
+                  options={ROLE_OPTIONS}
+                  onChange={(x) => setRule('auto_renew_off_role', String(x ?? ''))}
+                />
+                {(['finance', 'legal', 'sales'] as Role[]).map((r) => (
+                  <Select
+                    key={r}
+                    name={`rule-approver-${r}`}
+                    label={`${ROLE_LABEL[r]} approver`}
+                    value={rules[`approver_${r}`] ?? ''}
+                    options={userOptions}
+                    onChange={(x) => setRule(`approver_${r}`, String(x ?? ''))}
+                  />
+                ))}
+              </Grid>
+              <ToggleGroup
+                name="rule-payment"
+                label="Payment terms allowed without approval"
+                toggleType="checkboxList"
+                inline
+                value={list('payment_terms_allowed')}
+                options={options('of_payment_terms')}
+                onChange={(x) => setRule('payment_terms_allowed', ((x as string[] | undefined) ?? []).join(', '))}
+              />
+              <ToggleGroup
+                name="rule-billing"
+                label="Billing allowed without approval"
+                toggleType="checkboxList"
+                inline
+                value={list('billing_allowed')}
+                options={options('of_billing_frequency')}
+                onChange={(x) => setRule('billing_allowed', ((x as string[] | undefined) ?? []).join(', '))}
+              />
+              <Input name="rule-legal-editors" label="Legal editors (emails, comma-separated): edit the Terms library" value={rules.legal_editors ?? ''} onChange={(x) => setRule('legal_editors', x)} />
+              <Input name="rule-rules-editors" label="Rules editors (emails, comma-separated): change these rules" value={rules.rules_editors ?? ''} onChange={(x) => setRule('rules_editors', x)} />
+              <Flex direction="row" gap="sm" align="center" wrap="wrap">
+                <LoadingButton
+                  variant="primary"
+                  loading={savingRules}
+                  disabled={!Object.keys(changedRules).length || p.source !== 'hubdb'}
+                  onClick={async () => {
+                    setSavingRules(true);
+                    await p.onSave({ rules: changedRules });
+                    setSavingRules(false);
+                  }}
+                >
+                  Save rules
+                </LoadingButton>
+                <Text variant="microcopy">Applies to every deal straight away. Approvals already given stay valid; new requests use the new rules.</Text>
+              </Flex>
+            </Flex>
+          )}
+          {canRules && canTerms && <Divider />}
+          {canTerms && (
+            <Flex direction="column" gap="sm">
+              <SubHead>Terms library (legal)</SubHead>
+              <Flex direction="row" gap="sm" align="end" wrap="wrap">
+                <Select
+                  name="clause-pick"
+                  label="Clause"
+                  placeholder="Choose a clause to edit"
+                  value={clauseId}
+                  options={library.map((c) => ({ label: clauseLabel(c), value: c.id }))}
+                  onChange={(x) => pick(String(x ?? ''))}
+                />
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    const id = `custom_${Date.now().toString(36)}`;
+                    setClauseId(id);
+                    setDraft({ id, kind: 'special', title: '', summary: '', body: '', role: 'legal', enabled: true });
+                  }}
+                >
+                  Add a special term
+                </Button>
+              </Flex>
+              {draft && (
+                <Flex direction="column" gap="sm">
+                  {draft.kind === 'special' && (
+                    <Grid>
+                      <Input name="clause-title" label="Title" required value={draft.title ?? ''} onChange={(x) => edit({ title: x })} />
+                      <Select name="clause-role" label="Approved by" value={draft.role || 'none'} options={ROLE_OPTIONS} onChange={(x) => edit({ role: x === 'none' ? '' : String(x ?? '') })} />
+                      <Select
+                        name="clause-enabled"
+                        label="Reps can add it"
+                        value={draft.enabled === false ? 'off' : 'on'}
+                        options={[
+                          { label: 'Yes', value: 'on' },
+                          { label: 'No (switched off)', value: 'off' },
+                        ]}
+                        onChange={(x) => edit({ enabled: x !== 'off' })}
+                      />
+                      <Select
+                        name="clause-input"
+                        label="Rep fills in"
+                        value={draft.input_kind || 'none'}
+                        options={[
+                          { label: 'Nothing', value: 'none' },
+                          { label: 'A percentage', value: 'percent' },
+                          { label: 'Months', value: 'months' },
+                          { label: 'Days', value: 'days' },
+                          { label: 'A choice', value: 'choice' },
+                          { label: 'Free text', value: 'text' },
+                        ]}
+                        onChange={(x) => edit({ input_kind: x === 'none' ? '' : String(x ?? '') })}
+                      />
+                      {draft.input_kind && <Input name="clause-input-label" label="What the rep fills in" value={draft.input_label ?? ''} onChange={(x) => edit({ input_label: x })} />}
+                      {draft.input_kind === 'choice' && (
+                        <Input name="clause-input-options" label="Choices (comma-separated)" value={draft.input_options ?? ''} onChange={(x) => edit({ input_options: x })} />
+                      )}
+                    </Grid>
+                  )}
+                  {draft.kind === 'special' && (
+                    <TextArea name="clause-summary" label="Summary reps see next to the tickbox" rows={2} value={draft.summary ?? ''} onChange={(x) => edit({ summary: x })} />
+                  )}
+                  <TextArea name="clause-body" label="Wording" required rows={8} value={draft.body} onChange={(x) => edit({ body: x })} />
+                  <Text variant="microcopy">
+                    {draft.kind === 'special'
+                      ? 'Use {{value}} where the rep\'s entry goes. **bold** and __underline__ work.'
+                      : '**bold** and __underline__ work. Filled in per deal: {{entity}}, {{msa_link}}, {{billing}}, {{payment}}, {{from_start}}.'}
+                  </Text>
+                  {draft.version ? <Text variant="microcopy">{`Version ${draft.version}${draft.updated_by ? `, last changed by ${draft.updated_by}` : ''}${draft.updated_at ? ` on ${shortDate(new Date(draft.updated_at))}` : ''}.`}</Text> : null}
+                  <Flex direction="row" gap="sm" align="center" wrap="wrap">
+                    <LoadingButton
+                      variant="primary"
+                      loading={savingClause}
+                      disabled={!draft.body.trim() || (draft.kind === 'special' && !String(draft.title ?? '').trim()) || p.source !== 'hubdb'}
+                      onClick={async () => {
+                        setSavingClause(true);
+                        await p.onSave({ clauses: [draft] });
+                        setSavingClause(false);
+                      }}
+                    >
+                      Save and publish
+                    </LoadingButton>
+                    <Text variant="microcopy">New quotes use it straight away. Quotes already created keep the wording they were made with.</Text>
+                  </Flex>
+                </Flex>
+              )}
+            </Flex>
+          )}
+        </Flex>
+      </Accordion>
     </Tile>
   );
 }

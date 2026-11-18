@@ -102,6 +102,7 @@ src/app/cards/
   orderform/inclusions.ts         free rows added to new business deals
   orderform/specialterms.ts       optional special terms: wording, blanks, who approves
   orderform/approvals.ts          what needs approval and whether it's current (unit tested)
+  orderform/settings.ts           rules and Terms library defaults; loaded from HubDB at runtime
   orderform/properties.json       order form deal properties (generated)
 src/app/functions/
   save-discovery.js               saves industry and level corrections from the Discovery card
@@ -116,6 +117,8 @@ scripts/build-discovery.py        regenerates discovery data from the sheet
 scripts/deal-properties.json      deal property definitions (generated)
 scripts/create-deal-properties.mjs creates the deal properties
 scripts/build-order-form-properties.py regenerates the order form properties
+scripts/create-hubdb-tables.mjs   creates the HubDB settings tables (rules, Terms library)
+scripts/build-hubdb-seed.ts       regenerates scripts/hubdb-seed.json from settings.ts
 ```
 
 ## Notes

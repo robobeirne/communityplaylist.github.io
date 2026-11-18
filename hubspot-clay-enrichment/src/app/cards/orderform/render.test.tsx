@@ -3,7 +3,7 @@
 import React from 'react';
 import assert from 'node:assert/strict';
 import { createRenderer } from '@hubspot/ui-extensions/testing';
-import { Alert, Tab, Tabs, ToggleGroup, Button, Heading, Input, Link, LoadingButton, NumberInput, Select, StatisticsItem, StatusTag, Tag, Text, TextArea } from '@hubspot/ui-extensions';
+import { Accordion, Alert, Tab, Tabs, ToggleGroup, Button, Heading, Input, Link, LoadingButton, NumberInput, Select, StatisticsItem, StatusTag, Tag, Text, TextArea } from '@hubspot/ui-extensions';
 import { OrderForm } from '../OrderForm.tsx';
 
 const calls: { name: string; parameters: Record<string, any> }[] = [];
@@ -31,6 +31,7 @@ const LINE = (id: string, productId: string, quantity: number, extra: Record<str
   };
 };
 let dealLines: ReturnType<typeof LINE>[] = [];
+let asUser = { email: 'rep@protex.ai', firstName: 'Rob', lastName: 'Rep' };
 let currentApproval = '';
 const approvalAfterDecision = (p: any) => {
   const rec = JSON.parse(currentApproval);
@@ -68,6 +69,8 @@ g.serverless = async (name: string, opts: { parameters: Record<string, any> }) =
       },
     };
   }
+  if (opts.parameters.action === 'settings') return { statusCode: 200, body: { ok: true, source: 'hubdb', rules: {}, library: [] } };
+  if (opts.parameters.action === 'save_settings') return { statusCode: 200, body: { ok: true, source: 'hubdb', rules: opts.parameters.rules ?? {}, library: opts.parameters.clauses ?? [] } };
   if (opts.parameters.action === 'request_approval') {
     const { request, requestedBy } = opts.parameters;
     const roles = Object.fromEntries(Object.entries(request.approvers).map(([r, a]: [string, any]) => [r, { approver: a, status: 'pending' }]));
@@ -104,7 +107,7 @@ async function renderWith(props: Record<string, string>, lines: ReturnType<typeo
   r.mocks.actions.onCrmPropertiesUpdate.willCall(() => {});
   r.mocks.actions.refreshObjectProperties.willCall(() => {});
   r.mocks.actions.addAlert.willCall(() => {});
-  r.render(<OrderForm actions={r.mocks.actions as never} dealId="77" portalId="24888392" user={{ email: 'rep@protex.ai', firstName: 'Rob', lastName: 'Rep' }} />);
+  r.render(<OrderForm actions={r.mocks.actions as never} dealId="77" portalId="24888392" user={asUser} />);
   await r.waitFor(() => assert.ok(r.maybeFind(Heading)));
   await r.waitFor(() => assert.ok(!texts(r).join(' ').includes('Line items (loading)')));
   await r.waitFor(() => assert.ok(button(r, 'Fill from the company')));
@@ -425,6 +428,36 @@ await r.waitFor(() => assert.ok(select(r, 'term-data_residency')));
 select(r, 'term-data_residency').trigger('onChange', 'European Union' as never);
 await r.waitFor(() => assert.ok(texts(r).includes('• Special term: Data residency (European Union)')));
 console.log('special terms are ticked, filled in, and trigger the right approval');
+
+// Settings: only rules and legal editors see the panel; leadership saves rules, legal edits clauses.
+const lastSettings = () => [...calls].reverse().find((c) => c.parameters.action === 'save_settings')?.parameters;
+const settingsPanel = (r: R) => r.findAll(Accordion).find((a) => String(a.props.title).startsWith('Order form settings'));
+r = await renderWith({ ...complete }, COMPLETE_LINES);
+assert.equal(settingsPanel(r), undefined, 'reps do not see the settings');
+asUser = { email: 'scott.cahill@protex.ai', firstName: 'Scott', lastName: 'Cahill' };
+r = await renderWith({ ...complete }, COMPLETE_LINES);
+settingsPanel(r)!.trigger('onClick');
+await r.waitFor(() => assert.ok(num(r, 'rule-discount')));
+assert.equal(field(r, 'clause-body'), undefined, 'Scott is not a legal editor');
+num(r, 'rule-discount').trigger('onChange', 15 as never);
+r.findAll(ToggleGroup).find((t) => t.props.name === 'rule-payment')!.trigger('onChange', ['net_30', 'net_60'] as never);
+await r.waitFor(() => assert.equal(button(r, 'Save rules')?.props.disabled, false));
+button(r, 'Save rules')!.trigger('onClick');
+await r.waitFor(() => assert.ok(lastSettings()));
+assert.deepEqual(lastSettings()!.rules, { discount_approval_pct: '15', payment_terms_allowed: 'net_30, net_60' });
+assert.equal(lastSettings()!.user.email, 'scott.cahill@protex.ai');
+asUser = { email: 'jemima.davison@protex.ai', firstName: 'Jemima', lastName: 'Davison' };
+r = await renderWith({ ...complete }, COMPLETE_LINES);
+settingsPanel(r)!.trigger('onClick');
+await r.waitFor(() => assert.ok(select(r, 'clause-pick')));
+assert.ok(num(r, 'rule-discount'), 'Jemima is a rules editor and a legal editor by default, so she sees both');
+select(r, 'clause-pick').trigger('onChange', 'tc_3d' as never);
+await r.waitFor(() => assert.equal(field(r, 'clause-body')?.props.value, '{{payment}}'));
+field(r, 'clause-body').trigger('onChange', '{{payment}} Late payments accrue interest.' as never);
+button(r, 'Save and publish')!.trigger('onClick');
+await r.waitFor(() => assert.equal(lastSettings()?.clauses?.[0]?.body, '{{payment}} Late payments accrue interest.'));
+asUser = { email: 'rep@protex.ai', firstName: 'Rob', lastName: 'Rep' };
+console.log('settings: reps never see them; leadership saves rules; legal edits and publishes clauses');
 
 // New business: the free standard rows are added once, never for renewals, never again once recorded.
 extraProducts = INCLUSIONS;

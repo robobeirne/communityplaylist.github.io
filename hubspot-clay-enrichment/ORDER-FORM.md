@@ -153,6 +153,28 @@ The **Approval** box lists each item under the type of approver. **Create order 
 
 Approval covers exactly what was approved. Changing an approved item (for example Net 60 to Net 90) makes it **Needed** again.
 
+## Settings: rules and Terms library (no code changes)
+
+The approval rules and every clause live in two HubDB tables, **order_form_rules** and **order_form_terms**. They're edited from an **Order form settings** panel at the bottom of the card, which only the named editors see. A save publishes straight away, and every card uses the change.
+
+**Rules (rules editors).** Who's a rules editor is itself a rule. To start with it's Jemima Davison, Aoife Harte, Scott Cahill and Rob O'Beirne. They can change:
+- the discount % that needs approval;
+- the payment terms allowed without approval (e.g. Net 30 and Net 60);
+- the billing frequencies allowed without approval;
+- who approves auto-renewal being switched off (or that it needs no approval);
+- the approver for Finance, Legal and Sales leadership (now Aoife Harte, Aoife Harte and Scott Cahill), pre-filled when a rep requests approval;
+- the lists of legal editors and rules editors. The panel won't let the last rules editor be removed.
+
+**Terms library (legal editors: Jemima Davison and Aoife Harte).** Legal can:
+- pick any clause (Terms 1A–7B, or a special term) and edit its wording, using `**bold**` and `__underline__`;
+- use the placeholders filled in per deal: `{{entity}}`, `{{msa_link}}`, `{{billing}}`, `{{payment}}`, `{{from_start}}`, and `{{value}}` for a special term's blank;
+- for special terms, change the title, summary, approver, blank, and whether reps can add it;
+- **Add a special term** for a new one.
+
+Each save bumps the clause's version and records who changed it and when. Quotes already created keep the wording they were made with.
+
+Until the HubDB tables exist, or if the app can't read them, the card uses the built-in defaults in `src/app/cards/orderform/settings.ts` and says so in the panel.
+
 ## MSAs and Juro
 
 - **Existing MSA:** the order form is governed by it. Enter its date.
@@ -311,6 +333,14 @@ The dropdowns store values like `annually_in_advance` and show labels like "Annu
 
 From the `protex-account-intel` folder:
 
+0. **For the settings (rules and Terms library):** create the HubDB tables with a service key that has the `hubdb` scope:
+   ```
+   read -s HUBSPOT_TOKEN
+   export HUBSPOT_TOKEN
+   node scripts/create-hubdb-tables.mjs
+   unset HUBSPOT_TOKEN
+   ```
+   It creates and publishes `order_form_rules` (9 rules) and `order_form_terms` (23 clauses), and is safe to re-run. Then upload and **reinstall the app**, which now also needs `hubdb`. If the defaults in `settings.ts` change, regenerate the seed with `node --experimental-strip-types scripts/build-hubdb-seed.ts`.
 0. **For special terms and approval (this version):** run step 1 to create the 5 approval properties, upload, then **reinstall the app**. It now also reads HubSpot owners and creates tasks (`crm.objects.owners.read`, `crm.objects.contacts.write`).
 1. **Create the new properties and update the changed ones.** Make a temporary HubSpot **service key** with `crm.schemas.deals.write`, then:
    ```

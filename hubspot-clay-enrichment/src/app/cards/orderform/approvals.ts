@@ -1,13 +1,15 @@
 // Which parts of an order form need approval, by whom, and whether that approval is current.
 //
 // Approval is needed for: a line discounted at or above the threshold (Sales leadership), payment
-// terms other than Net 30 and billing other than annually in advance (Finance), auto-renewal
-// switched off (Legal), and any ticked special term that names an approver. Each reason has a key
+// terms and billing frequencies not on the allowed lists (Finance), auto-renewal switched off (the
+// role set in the rules), and any ticked special term that names an approver. The thresholds and
+// lists are the order form rules (settings.ts / HubDB), which leadership edits on the card. Each reason has a key
 // that includes its value, so changing anything approved (say Net 60 to Net 90) makes the approval
 // out of date and it has to be asked for again.
 
 import type { Values } from './calc.ts';
-import { DISCOUNT_APPROVAL_PCT, type Line } from './lines.ts';
+import type { Line } from './lines.ts';
+import { discountApprovalPct, rule, ruleList } from './settings.ts';
 import { activeTerms, ROLE_LABEL, type Role } from './specialterms.ts';
 
 export { ROLE_LABEL, type Role };
@@ -18,8 +20,9 @@ export interface ApprovalReason {
   role: Role;
 }
 
-const PAYMENT_LABEL: Record<string, string> = { net_45: 'Net 45', net_60: 'Net 60', net_90: 'Net 90', due_on_receipt: 'Due on receipt' };
+const PAYMENT_LABEL: Record<string, string> = { net_30: 'Net 30', net_45: 'Net 45', net_60: 'Net 60', net_90: 'Net 90', due_on_receipt: 'Due on receipt' };
 const BILLING_LABEL: Record<string, string> = {
+  annually_in_advance: 'annually in advance',
   quarterly_in_advance: 'quarterly in advance',
   monthly_in_advance: 'monthly in advance',
   upfront_for_the_full_term: 'upfront for the full term',
@@ -27,13 +30,15 @@ const BILLING_LABEL: Record<string, string> = {
 
 export function approvalReasons(v: Values, lines: Line[]): ApprovalReason[] {
   const out: ApprovalReason[] = [];
-  for (const l of lines.filter((x) => !x.removed && x.discountPct >= DISCOUNT_APPROVAL_PCT))
+  for (const l of lines.filter((x) => !x.removed && x.discountPct >= discountApprovalPct()))
     out.push({ key: `discount:${l.productId || l.name}:${l.discountPct}`, label: `${l.name}: ${l.discountPct}% discount`, role: 'sales' });
   const pay = String(v.of_payment_terms ?? '');
-  if (pay && pay !== 'net_30') out.push({ key: `payment:${pay}`, label: `Payment terms: ${PAYMENT_LABEL[pay] ?? pay}`, role: 'finance' });
+  if (pay && !ruleList('payment_terms_allowed').includes(pay)) out.push({ key: `payment:${pay}`, label: `Payment terms: ${PAYMENT_LABEL[pay] ?? pay}`, role: 'finance' });
   const bill = String(v.of_billing_frequency ?? '');
-  if (bill && bill !== 'annually_in_advance') out.push({ key: `billing:${bill}`, label: `Billing ${BILLING_LABEL[bill] ?? bill}`, role: 'finance' });
-  if (v.of_auto_renew === 'false') out.push({ key: 'auto_renew:off', label: 'Auto-renewal switched off', role: 'legal' });
+  if (bill && !ruleList('billing_allowed').includes(bill)) out.push({ key: `billing:${bill}`, label: `Billing ${BILLING_LABEL[bill] ?? bill}`, role: 'finance' });
+  const autoRole = rule('auto_renew_off_role') as Role | 'none';
+  if (v.of_auto_renew === 'false' && autoRole !== 'none' && ROLE_LABEL[autoRole as Role])
+    out.push({ key: 'auto_renew:off', label: 'Auto-renewal switched off', role: autoRole as Role });
   for (const { term, value } of activeTerms(v))
     if (term.role) out.push({ key: `term:${term.id}:${value}`, label: `Special term: ${term.title}${value && term.input?.kind !== 'text' ? ` (${value}${term.input?.kind === 'percent' ? '%' : ''})` : ''}`, role: term.role });
   return out;

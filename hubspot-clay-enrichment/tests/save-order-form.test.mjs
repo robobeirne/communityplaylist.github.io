@@ -433,3 +433,64 @@ test('decide_approval: only the named approver decides; all approved completes i
   const rejected = await main({ parameters: { action: 'decide_approval', dealId: '77', role: 'finance', decision: 'rejected', user: { email: 'cfo@protex.ai' } } });
   assert.equal(rejected.body.properties.of_approval_status, 'rejected');
 });
+
+const RULE_ROWS = {
+  results: [
+    { id: '11', values: { key: 'rules_editors', value: 'scott.cahill@protex.ai' } },
+    { id: '12', values: { key: 'legal_editors', value: 'jemima.davison@protex.ai' } },
+    { id: '13', values: { key: 'payment_terms_allowed', value: 'net_30' } },
+  ],
+};
+const TERM_ROWS = { results: [{ id: '21', values: { clause_id: 'tc_3d', kind: 'standard', section: 3, position: 4, body: '{{payment}}', enabled: 1, version: 2 } }] };
+
+test('settings reads the rules and Terms library from HubDB, or falls back to defaults', async () => {
+  stub([
+    ['GET', /hubdb\/tables\/order_form_rules\/rows/, RULE_ROWS],
+    ['GET', /hubdb\/tables\/order_form_terms\/rows/, TERM_ROWS],
+  ]);
+  const res = await main({ parameters: { action: 'settings' } });
+  assert.equal(res.body.source, 'hubdb');
+  assert.equal(res.body.rules.payment_terms_allowed, 'net_30');
+  assert.deepEqual(res.body.library, [{ id: 'tc_3d', kind: 'standard', section: 3, position: 4, body: '{{payment}}', enabled: true, version: 2 }]);
+
+  stub([['GET', /hubdb/, { __status: 404, message: 'Table not found' }]]);
+  const none = await main({ parameters: { action: 'settings' } });
+  assert.equal(none.body.source, 'defaults');
+  assert.match(none.body.error, /Table not found/);
+});
+
+test('save_settings: only rules editors change rules, only legal editors change clauses; publishes', async () => {
+  const routes = () => [
+    ['GET', /hubdb\/tables\/order_form_rules\/rows/, RULE_ROWS],
+    ['GET', /hubdb\/tables\/order_form_terms\/rows/, TERM_ROWS],
+    ['PATCH', /hubdb\/tables\/.*\/rows\/\d+\/draft$/, {}],
+    ['POST', /hubdb\/tables\/.*\/rows$/, {}],
+    ['POST', /hubdb\/tables\/.*\/draft\/publish$/, {}],
+  ];
+  let sent = stub(routes());
+  const denied = await main({ parameters: { action: 'save_settings', rules: { payment_terms_allowed: 'net_30, net_60' }, user: { email: 'jemima.davison@protex.ai' } } });
+  assert.equal(denied.statusCode, 403, 'legal editor is not a rules editor');
+
+  sent = stub(routes());
+  const ok = await main({ parameters: { action: 'save_settings', rules: { payment_terms_allowed: 'net_30, net_60', approver_sales: 'scott.cahill@protex.ai' }, user: { email: 'Scott.Cahill@protex.ai', name: 'Scott Cahill' } } });
+  assert.equal(ok.statusCode, 200);
+  const patch = sent.find((s) => s.method === 'PATCH' && /order_form_rules\/rows\/13\/draft$/.test(s.url));
+  assert.equal(patch.body.values.value, 'net_30, net_60');
+  assert.equal(patch.body.values.updated_by, 'Scott Cahill');
+  assert.ok(sent.some((s) => s.method === 'POST' && /order_form_rules\/rows$/.test(s.url) && s.body.values.key === 'approver_sales'), 'a new rule row is added');
+  assert.ok(sent.some((s) => /order_form_rules\/draft\/publish$/.test(s.url)));
+
+  stub(routes());
+  const lockout = await main({ parameters: { action: 'save_settings', rules: { rules_editors: ' ' }, user: { email: 'scott.cahill@protex.ai' } } });
+  assert.equal(lockout.statusCode, 400, "can't remove every rules editor");
+
+  sent = stub(routes());
+  const clause = await main({ parameters: { action: 'save_settings', clauses: [{ id: 'tc_3d', kind: 'standard', body: '{{payment}} Interest applies.' }], user: { email: 'jemima.davison@protex.ai', name: 'Jemima Davison' } } });
+  assert.equal(clause.statusCode, 200);
+  const cpatch = sent.find((s) => s.method === 'PATCH' && /order_form_terms\/rows\/21\/draft$/.test(s.url));
+  assert.equal(cpatch.body.values.body, '{{payment}} Interest applies.');
+  assert.equal(cpatch.body.values.version, 3, 'version goes up');
+  assert.ok(sent.some((s) => /order_form_terms\/draft\/publish$/.test(s.url)));
+  stub(routes());
+  assert.equal((await main({ parameters: { action: 'save_settings', clauses: [{ id: 'tc_3d', body: 'x' }], user: { email: 'scott.cahill@protex.ai' } } })).statusCode, 403);
+});

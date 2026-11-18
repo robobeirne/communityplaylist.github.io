@@ -2,8 +2,7 @@
 // The arithmetic mirrors HubSpot's own line item calculation, so the card's totals match the
 // line items' Net price, ARR and TCV.
 
-/** Discounts at or above this share of list price are flagged as needing approval. */
-export const DISCOUNT_APPROVAL_PCT = 20;
+import { discountApprovalPct } from './settings.ts';
 
 export type Currency = 'GBP' | 'EUR' | 'USD' | 'CAD';
 
@@ -220,8 +219,8 @@ export function lineIssues(lines: Line[], dealCurrency: string, siteCount: numbe
         kind: 'check',
         label: `${l.name}: the unit price (${fmt(l.price, dealCurrency)}) isn't the list price (${fmt(l.listPrice, dealCurrency)}). Reset it to list so any discount is visible`,
       });
-    if (l.discountPct >= DISCOUNT_APPROVAL_PCT)
-      out.push({ lineId: l.id, kind: 'check', label: `${l.name}: ${l.discountPct}% discount is at or above the ${DISCOUNT_APPROVAL_PCT}% approval threshold` });
+    if (l.discountPct >= discountApprovalPct())
+      out.push({ lineId: l.id, kind: 'check', label: `${l.name}: ${l.discountPct}% discount is at or above the ${discountApprovalPct()}% approval threshold` });
     const rule = quantityRule(l);
     if (rule === 'sites' && siteCount > 0 && l.quantity !== siteCount)
       out.push({ lineId: l.id, kind: 'check', label: `${l.name}: ${l.quantity} licences for ${siteCount} sites` });

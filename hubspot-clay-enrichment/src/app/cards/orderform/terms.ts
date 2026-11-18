@@ -9,6 +9,7 @@
 import { isNewSite, parseDate, readSites, termEnd, termMonths, type Site, type Values } from './calc.ts';
 import { PROTEX_ENTITY, STANDARD_MSA_URL } from './legal.ts';
 import { activeTerms } from './specialterms.ts';
+import { formatClause, getLibrary } from './settings.ts';
 
 export { PROTEX_ENTITY, STANDARD_MSA_URL };
 
@@ -127,44 +128,27 @@ export function orderTerms(v: Values): string {
   const net = NET[String(v.of_payment_terms)];
   const payment = net ? `Payment terms Net ${net} days from invoice date. Fees to be paid by bank transfer.` : 'Payment is due on receipt of invoice. Fees to be paid by bank transfer.';
   const msaLink = STANDARD_MSA_URL ? `the Protex AI Master Services Agreement available at ${esc(STANDARD_MSA_URL)}` : 'the Protex AI Master Services Agreement';
-  const sections: string[][] = [
-    [
-      `By signing this Order Form ("<strong>Order Form</strong>"), issuing a purchase order referencing this Order Form or accessing the Protex AI Offering, Client's use is subject to the Master Services Agreement or similar agreement separately executed between Client and ${esc(PROTEX_ENTITY)}, if such an agreement is in effect; or, if no such executed agreement exists, then ${msaLink} ("<strong>MSA</strong>").`,
-      'Capitalized terms not otherwise defined in this Order Form shall have the meanings ascribed to them in the MSA.',
-    ],
-    [
-      v.of_order_type === 'renewal'
-        ? `Unless otherwise agreed in writing, the duration of the Subscription Term set out in this Order Form is a fixed-term minimum commitment${has(v.contract_start_date) ? ` from ${longDate(v.contract_start_date)}` : ''}.`
-        : 'Unless otherwise agreed in writing, the duration of the Subscription Term set out in this Order Form is a fixed-term minimum commitment from each Site\'s relevant Deployment Date. The "<strong>Deployment Date</strong>" is the date on which the first camera has been connected to the Device at a Site, and the first snapshot from the first camera is captured. Each Site will have its own Deployment Date.',
-    ],
-    [
-      'Fees exclude applicable sales tax, goods and services tax, withholding tax or VAT. If Client requires any withholding, then Fees will be grossed up to cover this deduction.',
-      'Unless expressly stated otherwise, Subscription Fees shown above are annual amounts payable for each year of the Subscription Term, subject to any applicable fee adjustments under the Agreement.',
-      `Fees are ${billing}, with the first invoice being issued on or around the Order Form Effective Date. The "<strong>Order Form Effective Date</strong>" is the earlier of (i) the date of the last party signature below, and (ii) Protex AI's receipt of a purchase order.`,
-      payment,
-      ...(shipsDevices
-        ? [
-            'Devices will be delivered DAP to the agreed Site delivery address (Incoterms® 2020). Client is responsible for import clearance, import duties and taxes, and unloading. Shipping charges and lead times will be confirmed upon order confirmation. Protex AI may invoice Client separately for any pre-approved reasonably incurred travel and accommodation expenses.',
-          ]
-        : []),
-    ],
-  ];
-  if (autoRenews(v))
-    sections.push([
-      '<u>Auto-Renewal</u>. Upon expiry of the initial Subscription Term for each Site, the Subscription Term shall automatically renew for successive periods of twelve (12) months (each, a "<strong>Renewal Term</strong>") at the then-current rates, as adjusted in accordance with the MSA, unless either party provides written notice of non-renewal at least sixty (60) days prior to the end of the then-current Subscription Term. Client must send any notice of non-renewal to accounts@protex.ai. Fees for each Renewal Term shall be invoiced annually in advance. For clarity, each Site\'s Subscription Term renews independently based on its respective Deployment Date.',
-    ]);
-  sections.push(
-    [
-      '<u>Purchase Order Details</u>. If Client requires a purchase order number to be quoted on their invoices, this must be sent at the Order Form Effective Date by email to accounts@protex.ai and be for the full contract value. If it is not received, Protex AI shall be entitled to invoice without it.',
-      '<u>Billing Details</u>. (i) Protex AI shall invoice the Client using the Billing Details set out at the top of this Order Form. (ii) If the Client is unable to provide each of the Billing Details (Billing Address, Billing Email, EU VAT Number (if applicable) at the Order Form Effective Date, these should be sent by email to accounts@protex.ai as soon as reasonably possible. (iii) If the Client fails to provide Billing Details or Billing Details are inaccurate or unclear, Protex AI shall retain the right to suspend Client\'s access to Offering pending receipt.',
-    ],
-    [
-      'Acceptance of this Order Form is limited to the terms of Protex AI\'s offer. Once accepted, these terms are the complete and exclusive statement of the agreement. Any modifications are expressly rejected by Protex AI and shall not become part of the agreement absent written acceptance.',
-    ],
-    [
-      'This Order Form may be executed in any number and separate counterparts. Each counterpart when so executed shall be deemed to be an original and all of which together shall constitute one agreement. Transmission of the executed counterpart of this Order Form by email (in PDF, JPEG or other agreed format) shall take effect as delivery of an executed counterpart of this order form.',
-      'By signing below or issuing a purchase order which references this Order Form, the person doing so on behalf of Client represents and warrants that they have the full authority to bind the Client to this Order Form, which constitutes a binding contract between Client and Protex AI.',
-    ],
+  const tokens: Record<string, string> = {
+    entity: esc(PROTEX_ENTITY),
+    msa_link: msaLink,
+    billing: esc(billing),
+    payment: esc(payment),
+    from_start: has(v.contract_start_date) ? ` from ${esc(longDate(v.contract_start_date))}` : '',
+  };
+  const applies = (condition = '') =>
+    !condition ||
+    (condition === 'renewal' && v.of_order_type === 'renewal') ||
+    (condition === 'not_renewal' && v.of_order_type !== 'renewal') ||
+    (condition === 'ships_devices' && shipsDevices) ||
+    (condition === 'auto_renew' && autoRenews(v));
+  // The standard clauses from the Terms library, grouped into numbered sections. Sections with no
+  // clause that applies (e.g. auto-renewal switched off) drop out, and the rest renumber.
+  const clauses = getLibrary()
+    .filter((c) => c.kind === 'standard' && c.enabled !== false && applies(c.condition))
+    .sort((a, b) => (a.section ?? 0) - (b.section ?? 0) || (a.position ?? 0) - (b.position ?? 0));
+  const sectionIds = [...new Set(clauses.map((c) => c.section ?? 0))];
+  const sections: string[][] = sectionIds.map((id) =>
+    clauses.filter((c) => (c.section ?? 0) === id).map((c) => formatClause(c.body).replace(/\{\{(\w+)\}\}/g, (_, k) => tokens[k] ?? '')),
   );
   const out: string[] = [];
   out.push('<h3>Terms and Conditions</h3>');
@@ -179,7 +163,7 @@ export function orderTerms(v: Values): string {
     out.push('<h3>Special Terms</h3>');
     out.push('<p>The following special terms form part of this Order Form and prevail over the Terms and Conditions above and the MSA to the extent of any conflict.</p>');
     out.push(
-      `<table><tbody>${special.map(({ term, value }, i) => `<tr><td>S${i + 1}</td><td><p><strong>${esc(term.title)}.</strong> ${esc(term.clause(value))}</p></td></tr>`).join('')}</tbody></table>`,
+      `<table><tbody>${special.map(({ term, value }, i) => `<tr><td>S${i + 1}</td><td><p><strong>${esc(term.title)}.</strong> ${term.clause(value)}</p></td></tr>`).join('')}</tbody></table>`,
     );
   }
   return out.join('');

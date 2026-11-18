@@ -9,6 +9,8 @@
  *   { action: 'create_quote', dealId, ... }          create the order form quote from the deal (see createQuote)
  *   { action: 'request_approval', dealId, ... }      ask the chosen approvers to approve non-standard price/terms (see requestApproval)
  *   { action: 'decide_approval', dealId, role, decision, note, user }  an approver approves or rejects
+ *   { action: 'settings' }                           the order form rules and Terms library from HubDB
+ *   { action: 'save_settings', rules?, clauses?, user }  leadership saves rules / legal saves clauses (HubDB, published)
  *
  * Only order form properties (of_*) and the existing deal fields the card reuses can be written,
  * including Amount, which the card sets from the line items.
@@ -642,6 +644,104 @@ async function lastApprovers() {
   return out;
 }
 
+/* ---------------- settings: rules and Terms library (HubDB) ---------------- */
+
+const RULES_TABLE = 'order_form_rules';
+const TERMS_TABLE = 'order_form_terms';
+const CLAUSE_FIELDS = ['kind', 'section', 'position', 'condition', 'title', 'summary', 'input_kind', 'input_label', 'input_options', 'role', 'order_types', 'enabled', 'body', 'version', 'updated_by', 'updated_at'];
+const NUMBER_FIELDS = new Set(['section', 'position', 'version']);
+
+async function hubdbRows(table) {
+  const rows = [];
+  let after;
+  do {
+    const page = await call('GET', `/cms/v3/hubdb/tables/${table}/rows?limit=1000${after ? `&after=${after}` : ''}`);
+    rows.push(...(page.results || []));
+    after = page.paging?.next?.after;
+  } while (after);
+  return rows;
+}
+
+const asText = (x) => (x === null || x === undefined ? '' : typeof x === 'object' ? String(x.name ?? x.label ?? x.value ?? '') : String(x));
+
+async function readSettings() {
+  const [ruleRows, termRows] = await Promise.all([hubdbRows(RULES_TABLE), hubdbRows(TERMS_TABLE)]);
+  const rules = {};
+  for (const r of ruleRows) if (r.values?.key) rules[asText(r.values.key)] = asText(r.values.value);
+  const library = termRows
+    .filter((r) => r.values?.clause_id)
+    .map((r) => {
+      const c = { id: asText(r.values.clause_id) };
+      for (const f of CLAUSE_FIELDS) {
+        const val = r.values[f];
+        if (val === undefined || val === null || val === '') continue;
+        c[f] = f === 'enabled' ? val === true || val === 1 || val === '1' || val === 'true' : NUMBER_FIELDS.has(f) ? Number(val) : asText(val);
+      }
+      return c;
+    });
+  return { rules, library, rowIds: { rules: Object.fromEntries(ruleRows.map((r) => [asText(r.values?.key), String(r.id)])), terms: Object.fromEntries(termRows.map((r) => [asText(r.values?.clause_id), { id: String(r.id), version: Number(r.values?.version) || 0 }])) } };
+}
+
+async function settings() {
+  try {
+    const { rules, library } = await readSettings();
+    return { statusCode: 200, body: { ok: true, source: 'hubdb', rules, library } };
+  } catch (e) {
+    // Not set up yet, or no hubdb permission: the card uses its built-in defaults.
+    return { statusCode: 200, body: { ok: true, source: 'defaults', rules: {}, library: [], error: e.message } };
+  }
+}
+
+const listHas = (list, email) =>
+  String(list || '')
+    .split(',')
+    .map((x) => x.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(String(email || '').toLowerCase());
+
+/**
+ * { rules?: { key: value }, clauses?: [{ id, ...fields }], user: { email, name } }
+ * Rules need a rules editor; clauses need a legal editor (both lists are themselves rules).
+ * Writes the HubDB drafts and publishes, so every card picks the change up straight away.
+ */
+async function saveSettings({ rules = null, clauses = null, user = {} }) {
+  let current;
+  try {
+    current = await readSettings();
+  } catch (e) {
+    return fail(e.status || 500, `The order form settings tables aren't set up in HubDB (${e.message}). Run the HubDB setup script.`);
+  }
+  const editors = (key, fallback) => current.rules[key] ?? fallback;
+  const who = String(user.name || user.email || '');
+  const now = new Date().toISOString();
+  if (rules && Object.keys(rules).length) {
+    if (!listHas(editors('rules_editors', ''), user.email)) return fail(403, 'Only the people listed as rules editors can change the order form rules.');
+    if ('rules_editors' in rules && !String(rules.rules_editors || '').trim()) return fail(400, 'Keep at least one rules editor, or nobody can change the rules.');
+    for (const [key, value] of Object.entries(rules)) {
+      const values = { key, value: String(value ?? ''), updated_by: who, updated_at: now };
+      const id = current.rowIds.rules[key];
+      if (id) await call('PATCH', `/cms/v3/hubdb/tables/${RULES_TABLE}/rows/${id}/draft`, { values });
+      else await call('POST', `/cms/v3/hubdb/tables/${RULES_TABLE}/rows`, { values });
+    }
+    await call('POST', `/cms/v3/hubdb/tables/${RULES_TABLE}/draft/publish`);
+  }
+  if (clauses && clauses.length) {
+    if (!listHas(editors('legal_editors', ''), user.email)) return fail(403, 'Only the people listed as legal editors can change the Terms library.');
+    for (const c of clauses) {
+      if (!/^[a-z0-9_]+$/.test(String(c.id || ''))) return fail(400, `Bad clause id ${c.id}`);
+      const existing = current.rowIds.terms[c.id];
+      const values = { clause_id: c.id };
+      for (const f of CLAUSE_FIELDS) if (c[f] !== undefined && !['version', 'updated_by', 'updated_at'].includes(f)) values[f] = NUMBER_FIELDS.has(f) ? Number(c[f]) : f === 'enabled' ? !!c[f] : String(c[f]);
+      Object.assign(values, { version: (existing?.version || 0) + 1, updated_by: who, updated_at: now });
+      if (existing) await call('PATCH', `/cms/v3/hubdb/tables/${TERMS_TABLE}/rows/${existing.id}/draft`, { values });
+      else await call('POST', `/cms/v3/hubdb/tables/${TERMS_TABLE}/rows`, { values });
+    }
+    await call('POST', `/cms/v3/hubdb/tables/${TERMS_TABLE}/draft/publish`);
+  }
+  const fresh = await readSettings();
+  return { statusCode: 200, body: { ok: true, source: 'hubdb', rules: fresh.rules, library: fresh.library } };
+}
+
 exports.main = async (context) => {
   const params = context.parameters || {};
   try {
@@ -653,6 +753,8 @@ exports.main = async (context) => {
     if (params.action === 'create_quote') return await createQuote(params);
     if (params.action === 'request_approval') return await requestApproval(params);
     if (params.action === 'decide_approval') return await decideApproval(params);
+    if (params.action === 'settings') return await settings();
+    if (params.action === 'save_settings') return await saveSettings(params);
     return fail(400, 'Unknown action');
   } catch (e) {
     return fail(e.status || 500, e.message || 'Something went wrong');
