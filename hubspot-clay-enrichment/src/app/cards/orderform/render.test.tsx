@@ -338,9 +338,20 @@ r = await renderWith({ ...complete, of_status: 'signed', of_quote_id: '950' }, C
 assert.equal(button(r, 'Create a new version'), undefined);
 assert.ok(texts(r).some((t) => t.startsWith("Signed order forms can't be replaced.")));
 r = await renderWith({ ...complete }, COMPLETE_LINES, [{ id: '777', title: 'Manual quote', state: 'draft', expires: '', link: '' }]);
-assert.ok(texts(r).some((t) => t.startsWith("This deal already has a live quote, so the order form can't be created: Manual quote")));
-assert.equal(button(r, 'Create order form'), undefined);
-console.log("a sent quote gets a new version, a signed one can't be replaced, and another live quote blocks creating one");
+assert.ok(texts(r).some((t) => t.startsWith("This deal already has a quote that wasn't made from the order form.")));
+button(r, 'Replace it with the order form')!.trigger('onClick');
+await r.waitFor(() => assert.equal(lastCreate()?.replaceQuoteId, '777'), 'a quote made elsewhere can be swapped for the order form');
+r = await renderWith({ ...complete }, COMPLETE_LINES, [{ id: '778', title: 'Manual quote', state: 'sent', expires: '', link: '' }]);
+assert.ok(button(r, 'Create the order form instead'));
+
+// The old "Ready for Juro" (or any status without a live quote) can be set back to Draft.
+r = await renderWith({ ...complete, of_status: 'ready_for_juro' }, COMPLETE_LINES);
+assert.ok(r.findAll(StatusTag).some((t) => t.text === 'Ready to send'));
+r.findAll(Link).find((l) => l.text === 'Set back to Draft')!.trigger('onClick');
+await r.waitFor(() => assert.equal(lastSave().of_status, 'draft'));
+r = await renderWith({ ...complete, of_status: 'ready_to_send', of_quote_id: '950' }, COMPLETE_LINES, [DRAFT_Q]);
+assert.equal(r.findAll(Link).find((l) => l.text === 'Set back to Draft'), undefined, 'not while a live order form quote drives the status');
+console.log("a sent quote gets a new version, a signed one can't be replaced, a quote made elsewhere can be swapped, and status can be set back to Draft");
 
 // MSA negotiating in Juro blocks the order form until it's signed.
 r = await renderWith({ ...complete, of_msa_status: 'negotiating_in_juro' }, COMPLETE_LINES);

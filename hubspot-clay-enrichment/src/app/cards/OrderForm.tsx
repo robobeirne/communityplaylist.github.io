@@ -474,9 +474,16 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
               <Tag variant="info">{optionLabel('of_order_type', v.of_order_type)}</Tag>
               <StatusTag variant={STATUS_VARIANT[status] ?? 'default'}>{STATUS_LABEL[status]}</StatusTag>
             </Flex>
-            {v.of_ready_at && (
-              <Text variant="microcopy">{`Order form created ${shortDate(parseDate(v.of_ready_at))}${v.of_ready_by ? ` by ${v.of_ready_by}` : ''}`}</Text>
-            )}
+            <Flex direction="row" gap="sm" align="center" wrap="wrap">
+              {v.of_ready_at && liveQuote && (
+                <Text variant="microcopy">{`Order form created ${shortDate(parseDate(v.of_ready_at))}${v.of_ready_by ? ` by ${v.of_ready_by}` : ''}`}</Text>
+              )}
+              {status !== 'draft' && !liveQuote && quoteInfo && (
+                <Link href="#" preventDefault onClick={() => void save({ of_status: 'draft', of_quote_status: '', of_ready_at: '', of_ready_by: '' })}>
+                  Set back to Draft
+                </Link>
+              )}
+            </Flex>
           </Flex>
           <Statistics>
             <StatisticsItem label="Annual subscription" number={money(t.annual, currency)} />
@@ -703,18 +710,38 @@ function QuotePanel(p: {
       </Flex>
     );
   } else if (others.length) {
+    // A quote made outside the card (e.g. HubSpot's own Create quote). Offer to swap it for the order form.
+    const q = others[0];
+    const signed = q.state === 'signed';
     body = (
       <Flex direction="column" gap="xs">
-        <Text>{`This deal already has a live quote, so the order form can't be created: ${others.map((q) => `${q.title} (${QUOTE_LABEL[q.state] ?? q.state})`).join(', ')}.`}</Text>
-        <Flex direction="row" gap="md" wrap="wrap">
-          {others.map((q) => (
-            <Link key={q.id} href={quoteUrl(q.id)}>{`Open ${q.title}`}</Link>
-          ))}
-          <Link href="#" preventDefault onClick={p.onRefresh}>
-            Refresh
-          </Link>
+        <Flex direction="row" gap="sm" align="center" wrap="wrap">
+          <Text format={{ fontWeight: 'demibold' }}>{q.title}</Text>
+          <StatusTag variant={QUOTE_VARIANT[q.state] ?? 'default'}>{QUOTE_LABEL[q.state] ?? q.state}</StatusTag>
+          <Link href={quoteUrl(q.id)}>Open it</Link>
         </Flex>
-        <Text variant="microcopy">Delete it or let it expire in HubSpot, then come back and create the order form.</Text>
+        <Text>
+          {signed
+            ? 'This deal already has a signed quote, so a new order form needs a new deal (an expansion or amendment).'
+            : `This deal already has a quote that wasn't made from the order form. ${q.state === 'draft' ? 'Replace it with the order form: the draft is deleted.' : 'Create the order form instead: that quote is expired and kept on the deal as a record.'}`}
+        </Text>
+        {!signed && (
+          <Flex direction="row" gap="sm" align="center" wrap="wrap">
+            {(info?.templates.length ?? 0) > 0 && (
+              <Select
+                name="quote-template"
+                label="Quote template"
+                value={p.templateId}
+                options={info!.templates.map((x) => ({ label: x.name, value: x.id }))}
+                onChange={(x) => p.onTemplate(String(x ?? ''))}
+              />
+            )}
+            <LoadingButton variant="primary" loading={p.busy} disabled={!canCreate} onClick={() => p.onCreate(q.id)}>
+              {p.missing ? `Create order form · ${p.missing} to fill` : p.dirty ? 'Save, then create the order form' : q.state === 'draft' ? 'Replace it with the order form' : 'Create the order form instead'}
+            </LoadingButton>
+          </Flex>
+        )}
+        {others.length > 1 && <Text variant="microcopy">{`${others.length - 1} more live quote${others.length > 2 ? 's' : ''} on this deal. Delete or expire them in HubSpot first.`}</Text>}
       </Flex>
     );
   } else {

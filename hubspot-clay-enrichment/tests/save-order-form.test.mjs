@@ -354,3 +354,17 @@ test('save skips deal properties that do not exist yet instead of failing', asyn
   const other = await main({ parameters: { action: 'save', dealId: '77', properties: { of_client_legal_name: 'Lennox' } } });
   assert.equal(other.statusCode, 400, 'other errors still fail');
 });
+
+test('quote: forgets an order form quote that was deleted in HubSpot', async () => {
+  const sent = stub([
+    ['GET', /objects\/deals\/77\?properties=of_quote_id/, { properties: { of_quote_id: '451620461755', of_status: 'ready_for_juro', of_quote_status: 'sent' } }],
+    ['GET', /v4\/objects\/deals\/77\/associations\/quotes/, { results: [{ toObjectId: 451645967574 }] }],
+    ['POST', /quotes\/batch\/read/, { results: [Q('451645967574', { hs_title: 'Allnex Global - FY-27 Renewal', hs_status: 'DRAFT' })] }],
+    ['GET', /objects\/quote_template/, { results: [] }],
+    ['PATCH', /objects\/deals\/77$/, {}],
+  ]);
+  const res = await main({ parameters: { action: 'quote', dealId: '77' } });
+  assert.equal(res.body.current, null);
+  assert.deepEqual(res.body.live.map((q) => q.id), ['451645967574'], 'the manual draft is still reported, so the card can offer to replace it');
+  assert.deepEqual(sent.find((s) => s.method === 'PATCH').body.properties, { of_quote_id: '', of_quote_status: '', of_status: 'draft', of_changed_after_quote: '' });
+});

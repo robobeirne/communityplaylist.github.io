@@ -418,7 +418,11 @@ async function quote({ dealId }) {
   const d = deal.properties || {};
   const current = quotes.find((q) => q.id === d.of_quote_id) || null;
   let properties = {};
-  if (current) {
+  if (d.of_quote_id && !current) {
+    // The order form quote was deleted in HubSpot: forget it, so the card offers a new one.
+    properties = { of_quote_id: '', of_quote_status: '', of_status: 'draft', of_changed_after_quote: '' };
+    for (const k of await patchDeal(dealId, properties)) delete properties[k];
+  } else if (current) {
     const want = { of_quote_status: current.state, of_status: DEAL_STATUS[current.state] };
     if (current.signedAt) want.of_signed_at = current.signedAt;
     for (const [k, val] of Object.entries(want)) if ((d[k] || '') !== val && !(k === 'of_signed_at' && Date.parse(d[k] || '') === Date.parse(val))) properties[k] = val;

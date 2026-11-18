@@ -103,7 +103,13 @@ The quote is created as a **draft**. Open it, check it, add the Protex countersi
 
 To move the deal stage the moment a quote is signed, add a HubSpot workflow on the quote being signed.
 
-**One live quote at a time.** Creating the order form is blocked while the deal has any live quote (draft, awaiting approval, sent or signed), including one made by hand. Expired and rejected quotes don't block.
+**One live quote at a time.** If the deal already has a quote that wasn't made from the order form (for example, from HubSpot's own Create quote), the card shows it with a button:
+- a draft: **Replace it with the order form** (the draft is deleted);
+- a sent quote: **Create the order form instead** (it's expired and kept as a record).
+
+A signed quote can't be replaced. Expired and rejected quotes don't count. If the order form quote is deleted in HubSpot, the card forgets it and offers **Create order form** again.
+
+**Set back to Draft.** When the order form is marked Ready to send, Sent or Signed (including the old "Ready for Juro") but no live order form quote is behind that status, the header offers **Set back to Draft**.
 
 **Changing the order form after the quote exists.** The quote is a copy taken when it was made. Edit the fields on the card, save, then use the button under the quote:
 - **Replace the draft quote** (draft): deletes the draft and its line item copies and makes a fresh one.
