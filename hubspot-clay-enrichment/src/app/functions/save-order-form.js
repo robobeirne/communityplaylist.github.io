@@ -57,9 +57,35 @@ const isId = (v) => /^\d+$/.test(String(v ?? ''));
 async function call(method, path, body) {
   const res = await fetch(`${ROOT}${path}`, { method, headers: H(), body: body ? JSON.stringify(body) : undefined });
   const json = res.status === 204 ? {} : await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error(json.message || `HubSpot returned ${res.status}`), { status: res.status });
+  if (!res.ok) throw Object.assign(new Error(json.message || `HubSpot returned ${res.status}`), { status: res.status, body: json });
   return json;
 }
+
+/** Property names HubSpot rejected as not existing, from a failed write. */
+function missingProperties(e) {
+  const text = `${e.message || ''} ${JSON.stringify(e.body || {})}`;
+  return [...new Set([...text.matchAll(/Property \\*"([A-Za-z0-9_]+)\\*" does not exist/g)].map((m) => m[1]))];
+}
+
+/**
+ * Update the deal. If some properties don't exist yet (the property script hasn't been run since
+ * an update), save everything else and report which ones were skipped, rather than failing the
+ * whole save.
+ */
+async function patchDeal(dealId, properties) {
+  try {
+    await call('PATCH', `/crm/v3/objects/deals/${dealId}`, { properties });
+    return [];
+  } catch (e) {
+    const missing = missingProperties(e).filter((k) => k in properties);
+    if (!missing.length) throw e;
+    const rest = Object.fromEntries(Object.entries(properties).filter(([k]) => !missing.includes(k)));
+    if (Object.keys(rest).length) await call('PATCH', `/crm/v3/objects/deals/${dealId}`, { properties: rest });
+    return missing;
+  }
+}
+const skippedNote = (skipped) =>
+  skipped.length ? `Saved, but these deal properties don't exist yet, so they were skipped: ${skipped.join(', ')}. Run the order form property script to create them.` : undefined;
 
 async function associatedIds(dealId, toType) {
   const ids = [];
@@ -253,12 +279,14 @@ async function save({ dealId, properties, lines }) {
   const hasLines = ['create', 'update', 'remove'].some((k) => Array.isArray(changes[k]) && changes[k].length);
   if (!Object.keys(out).length && !hasLines) return fail(400, 'Nothing to save');
 
+  let skipped = [];
   try {
-    if (Object.keys(out).length) await call('PATCH', `/crm/v3/objects/deals/${dealId}`, { properties: out });
+    if (Object.keys(out).length) skipped = await patchDeal(dealId, out);
   } catch (e) {
     return fail(e.status || 500, e.message);
   }
-  if (!hasLines) return { statusCode: 200, body: { ok: true, properties: out } };
+  for (const k of skipped) delete out[k];
+  if (!hasLines) return { statusCode: 200, body: { ok: true, properties: out, warning: skippedNote(skipped) } };
 
   // New lines are priced in the deal's currency, so read it after any change the save just made.
   const currency =
@@ -270,6 +298,7 @@ async function save({ dealId, properties, lines }) {
     body: {
       ok: problems.length === 0,
       message: problems.length ? `Saved, but: ${problems.join('; ')}` : undefined,
+      warning: skippedNote(skipped),
       properties: out,
       lines: fresh,
     },
@@ -393,7 +422,7 @@ async function quote({ dealId }) {
     const want = { of_quote_status: current.state, of_status: DEAL_STATUS[current.state] };
     if (current.signedAt) want.of_signed_at = current.signedAt;
     for (const [k, val] of Object.entries(want)) if ((d[k] || '') !== val && !(k === 'of_signed_at' && Date.parse(d[k] || '') === Date.parse(val))) properties[k] = val;
-    if (Object.keys(properties).length) await call('PATCH', `/crm/v3/objects/deals/${dealId}`, { properties });
+    if (Object.keys(properties).length) for (const k of await patchDeal(dealId, properties)) delete properties[k];
   }
   return { statusCode: 200, body: { ok: true, quotes, current, live: quotes.filter((q) => LIVE.has(q.state)), properties, ...t } };
 }
@@ -474,8 +503,9 @@ async function createQuote(params) {
     of_ready_at: new Date().toISOString(),
     of_ready_by: String(sender.email || ''),
   };
-  await call('PATCH', `/crm/v3/objects/deals/${dealId}`, { properties: dealProps });
-  return { statusCode: 200, body: { ok: true, quote: { id: quoteId, title: properties.hs_title, state: 'draft', link: '', expires: properties.hs_expiration_date }, properties: dealProps } };
+  const skipped = await patchDeal(dealId, dealProps);
+  for (const k of skipped) delete dealProps[k];
+  return { statusCode: 200, body: { ok: true, warning: skippedNote(skipped), quote: { id: quoteId, title: properties.hs_title, state: 'draft', link: '', expires: properties.hs_expiration_date }, properties: dealProps } };
 }
 
 async function associatedIdsFrom(fromType, id, toType) {

@@ -152,6 +152,8 @@ type QuoteInfo = { quotes: Quote[]; current: Quote | null; live: Quote[]; templa
 type User = { email: string; firstName: string; lastName: string };
 type Body = {
   ok: boolean;
+  /** Saved, but something was skipped (e.g. a deal property that doesn't exist yet). */
+  warning?: string;
   quote?: Quote;
   quotes?: Quote[];
   current?: Quote | null;
@@ -389,6 +391,7 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
         });
         setAdded((cur) => cur.filter((a) => !sentAdded.includes(a.id)));
       }
+      if (b.warning) actions.addAlert({ type: 'warning', message: b.warning });
       if (!b.ok) {
         actions.addAlert({ type: 'warning', message: b.message ?? 'Some line item changes were not saved.' });
         return false;
@@ -424,6 +427,7 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
       });
       setSaved((s) => ({ ...s, ...(b.properties ?? {}) }));
       actions.addAlert({ type: 'success', message: 'Order form quote created. Open it to check it, add the Protex countersigner and send it for signature.' });
+      if (b.warning) actions.addAlert({ type: 'warning', message: b.warning });
       actions.refreshObjectProperties();
       loadQuote();
     } catch (e) {

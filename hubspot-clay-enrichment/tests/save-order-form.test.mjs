@@ -14,8 +14,9 @@ function stub(routes) {
     const method = opts.method ?? 'GET';
     sent.push({ url, method, body: opts.body ? JSON.parse(opts.body) : null, auth: opts.headers?.Authorization });
     const hit = routes.find(([m, re]) => m === method && re.test(url));
-    const body = hit ? (typeof hit[2] === 'function' ? hit[2](url) : hit[2]) : {};
-    return { ok: true, status: 200, json: async () => body };
+    const body = hit ? (typeof hit[2] === 'function' ? hit[2](url, opts) : hit[2]) : {};
+    const status = body?.__status ?? 200;
+    return { ok: status < 400, status, json: async () => body };
   };
   return sent;
 }
@@ -312,4 +313,34 @@ test('free products are offered at 0 in every currency', async () => {
   assert.deepEqual(by['Protex AI Licence - Intelligence (Free)'], { GBP: 0, EUR: 0, USD: 0, CAD: 0 });
   assert.deepEqual(by['Deployment Services'], { GBP: 0, EUR: 0, USD: 0, CAD: 0 });
   assert.deepEqual(by['Unpriced thing'], {}, 'no price and not free: still needs a price');
+});
+
+test('save skips deal properties that do not exist yet instead of failing', async () => {
+  let attempt = 0;
+  const sent = stub([
+    [
+      'PATCH',
+      /objects\/deals\/77$/,
+      () =>
+        ++attempt === 1
+          ? {
+              __status: 400,
+              status: 'error',
+              message:
+                'Property values were not valid: [{"isValid":false,"message":"Property \\"of_standard_inclusions_added\\" does not exist","error":"PROPERTY_DOESNT_EXIST","name":"of_standard_inclusions_added"},{"isValid":false,"message":"Property \\"of_msa_status\\" does not exist","error":"PROPERTY_DOESNT_EXIST","name":"of_msa_status"}]',
+              category: 'VALIDATION_ERROR',
+            }
+          : {},
+    ],
+  ]);
+  const res = await main({ parameters: { action: 'save', dealId: '77', properties: { of_client_legal_name: 'Lennox', of_msa_status: 'standard_msa', of_standard_inclusions_added: 'true' } } });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.ok, true);
+  assert.match(res.body.warning, /skipped: of_standard_inclusions_added, of_msa_status/);
+  assert.deepEqual(res.body.properties, { of_client_legal_name: 'Lennox' });
+  assert.deepEqual(sent[1].body.properties, { of_client_legal_name: 'Lennox' }, 'retried without the missing ones');
+
+  stub([['PATCH', /objects\/deals\/77$/, { __status: 400, message: 'Some other validation error' }]]);
+  const other = await main({ parameters: { action: 'save', dealId: '77', properties: { of_client_legal_name: 'Lennox' } } });
+  assert.equal(other.statusCode, 400, 'other errors still fail');
 });
