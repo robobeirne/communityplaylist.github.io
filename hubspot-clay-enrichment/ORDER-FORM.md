@@ -175,6 +175,26 @@ Each save bumps the clause's version and records who changed it and when. Quotes
 
 Until the HubDB tables exist, or if the app can't read them, the card uses the built-in defaults in `src/app/cards/orderform/settings.ts` and says so in the panel.
 
+## Amending the wording for one deal, and client redlines
+
+On the **Legal & signing** tab, **Contract wording for this deal** lists every clause on this deal's order form, numbered as it will print (1A … 7B, then special terms as S1, S2…). For each clause you can:
+- see the standard wording (with this deal's details filled in);
+- **Amend for this deal**: write the new wording, give a reason, and say whether the client asked for it or Protex is proposing it;
+- **Remove this clause for this deal**;
+- go **Back to the standard wording**.
+
+The quote prints the amended wording. Removed clauses drop out and the sections renumber.
+
+**Approval:** an amendment by a legal editor counts as approved. Anyone else's (reps can propose) appears in the Approval box for Legal. Changing the wording again needs approval again.
+
+**Client redlines.** HubSpot quotes can't take tracked changes, so a client's mark-up arrives as a file or an email.
+1. Click **The client sent redlines**, add a link to their file and a short note, and log the round (round 1, 2…).
+2. While the round is open, work through each change: amend the clause (accepting their wording or countering), or paste their wording and click **Reject the client's change** to log a rejection and keep the clause.
+3. Client changes are tied to the round. An open round blocks the order form from being sent.
+4. **Mark the round resolved**, then **Create a new version** of the quote.
+
+The **Change history** lists every amendment, removal, reversion and rejection, with round, who, when and why. It's stored on the deal in `of_amendments`, with a readable summary in `of_amendment_summary`.
+
 ## MSAs and Juro
 
 - **Existing MSA:** the order form is governed by it. Enter its date.
@@ -333,6 +353,7 @@ The dropdowns store values like `annually_in_advance` and show labels like "Annu
 
 From the `protex-account-intel` folder:
 
+0. **For deal amendments and redlines:** run step 1 to create the 2 new properties (`of_amendments`, `of_amendment_summary`), then upload. No new permissions.
 0. **For the settings (rules and Terms library):** create the HubDB tables with a service key that has the `hubdb.tables.read` and `hubdb.tables.write` scopes:
    ```
    read -s HUBSPOT_TOKEN

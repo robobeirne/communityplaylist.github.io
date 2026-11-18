@@ -11,6 +11,7 @@ import type { Values } from './calc.ts';
 import type { Line } from './lines.ts';
 import { discountApprovalPct, rule, ruleList } from './settings.ts';
 import { activeTerms, ROLE_LABEL, type Role } from './specialterms.ts';
+import { readAmendments, shortHash } from './amendments.ts';
 
 export { ROLE_LABEL, type Role };
 
@@ -41,6 +42,9 @@ export function approvalReasons(v: Values, lines: Line[]): ApprovalReason[] {
     out.push({ key: 'auto_renew:off', label: 'Auto-renewal switched off', role: autoRole as Role });
   for (const { term, value } of activeTerms(v))
     if (term.role) out.push({ key: `term:${term.id}:${value}`, label: `Special term: ${term.title}${value && term.input?.kind !== 'text' ? ` (${value}${term.input?.kind === 'percent' ? '%' : ''})` : ''}`, role: term.role });
+  // Contract wording amended for this deal by someone who isn't a legal editor.
+  for (const a of readAmendments(v).amendments.filter((x) => !x.byLegal))
+    out.push({ key: `amend:${a.clauseId}:${a.removed ? 'removed' : shortHash(a.text)}`, label: `Wording ${a.removed ? 'removed' : 'amended'}: ${a.label || a.clauseId}${a.reason ? ` (${a.reason})` : ''}`, role: 'legal' });
   return out;
 }
 

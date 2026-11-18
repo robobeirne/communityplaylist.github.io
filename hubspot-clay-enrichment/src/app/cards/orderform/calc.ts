@@ -6,6 +6,7 @@ import { lineIssues, pricingTable, quantityRule, totals, type Line, type Totals 
 import { STANDARD_MSA_URL } from './legal.ts';
 import { approvalState, ROLE_LABEL } from './approvals.ts';
 import { activeTerms, termMissingValue } from './specialterms.ts';
+import { amendmentSummary, openRound, readAmendments } from './amendments.ts';
 
 export type Values = Record<string, string | null | undefined>;
 
@@ -238,6 +239,7 @@ export function computedProperties(v: Values, lines: Line[]): Record<string, str
     of_total_contract_value: t.tcv === null ? '' : String(t.tcv),
     of_contract_end_date: s.end ? isoDate(s.end) : '',
     of_approval_status: approvalState(v, lines).status,
+    of_amendment_summary: amendmentSummary(readAmendments(v)),
   };
   const amount = dealAmount(lines);
   if (amount !== null) out.amount = String(amount);
@@ -358,6 +360,10 @@ export function readiness(v: Values, lines: Line[]): { missing: Gap[]; warnings:
   need('legal', has('of_protex_signer_email'), 'Protex signatory email');
   need('legal', has('of_protex_signer_title'), 'Protex signatory job title');
   email('legal', 'of_counterparty_signer_email', 'Counterparty signer email');
+
+  // A client redline round that's still open: resolve it before sending a new version.
+  const round = openRound(readAmendments(v));
+  if (round) need('legal', false, `Client redlines (round ${round.n}): resolve them, then mark the round resolved`);
 
   // Special terms: a ticked term needs its blank filled in.
   for (const { term, value } of activeTerms(v)) if (termMissingValue(term, value)) need('legal', false, `Special term "${term.title}": ${term.input!.label}`);

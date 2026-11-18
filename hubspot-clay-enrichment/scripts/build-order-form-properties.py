@@ -100,6 +100,9 @@ add(G, 'of_approval', 'Order form approval record (card data)', 'textarea', 'Wha
 add(G, 'of_approved_at', 'Order form approved at', 'datetime', 'When the last approval needed was given.')
 add(G, 'of_approved_by', 'Order form approved by', 'text', 'Who approved, by type (e.g. Finance: Jane Doe; Legal: …).')
 
+add(G, 'of_amendments', 'Contract amendments (card data)', 'textarea', "This deal's changes to the order form wording, the change history and the client's redline rounds, as JSON.")
+add(G, 'of_amendment_summary', 'Contract amendments', 'textarea', "One line per clause amended or removed for this deal, with who, why and whether it's approved. Written by the order form card.")
+
 json.dump(P, open(out, 'w'), indent=2, ensure_ascii=False)
 open(out, 'a').write('\n')
 from collections import Counter

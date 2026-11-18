@@ -1130,5 +1130,21 @@
     "type": "string",
     "fieldType": "text",
     "description": "Who approved, by type (e.g. Finance: Jane Doe; Legal: …)."
+  },
+  {
+    "groupLabel": "Order form — Approval",
+    "name": "of_amendments",
+    "label": "Contract amendments (card data)",
+    "type": "string",
+    "fieldType": "textarea",
+    "description": "This deal's changes to the order form wording, the change history and the client's redline rounds, as JSON."
+  },
+  {
+    "groupLabel": "Order form — Approval",
+    "name": "of_amendment_summary",
+    "label": "Contract amendments",
+    "type": "string",
+    "fieldType": "textarea",
+    "description": "One line per clause amended or removed for this deal, with who, why and whether it's approved. Written by the order form card."
   }
 ]

@@ -103,6 +103,7 @@ src/app/cards/
   orderform/specialterms.ts       optional special terms: wording, blanks, who approves
   orderform/approvals.ts          what needs approval and whether it's current (unit tested)
   orderform/settings.ts           rules and Terms library defaults; loaded from HubDB at runtime
+  orderform/amendments.ts         per-deal wording changes and client redline rounds (unit tested)
   orderform/properties.json       order form deal properties (generated)
 src/app/functions/
   save-discovery.js               saves industry and level corrections from the Discovery card

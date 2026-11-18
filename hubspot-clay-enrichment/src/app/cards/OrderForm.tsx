@@ -75,7 +75,8 @@ import {
   type Product,
   type RawLine,
 } from './orderform/lines.ts';
-import { orderComments, orderTerms } from './orderform/terms.ts';
+import { dealClauses, orderComments, orderTerms } from './orderform/terms.ts';
+import { amend, logRound, openRound, readAmendments, rejectChange, resolveRound, revert, type AmendmentRecord } from './orderform/amendments.ts';
 import { isInclusion, missingInclusions } from './orderform/inclusions.ts';
 import { approvalState, fingerprint, ROLE_LABEL, type Role } from './orderform/approvals.ts';
 import {
@@ -681,7 +682,7 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
                     />
                   </>
                 )}
-                {t.key === 'legal' && <LegalSection {...shared} people={people} signers={signers} signersError={signersError} />}
+                {t.key === 'legal' && <LegalSection {...shared} people={people} signers={signers} signersError={signersError} me={user} />}
               </Flex>
             </Tab>
           );
@@ -1401,7 +1402,7 @@ function TotalRow({ label: l, value, strong }: { label: string; value: string; s
   );
 }
 
-function LegalSection({ v, set, people, signers, signersError }: Shared & { people: People; signers: Signer[] | null; signersError: string }) {
+function LegalSection({ v, set, people, signers, signersError, me }: Shared & { people: People; signers: Signer[] | null; signersError: string; me: User }) {
   const msa = msaStatus(v);
   return (
     <Flex direction="column" gap="sm">
@@ -1465,6 +1466,8 @@ function LegalSection({ v, set, people, signers, signersError }: Shared & { peop
       <Text variant="microcopy">Job titles fill from the HubSpot user profile, or from the last order form they signed.</Text>
       <Divider />
       <SpecialTermsField v={v} set={set} />
+      <Divider />
+      <ContractWording v={v} set={set} me={me} />
     </Flex>
   );
 }
@@ -1667,7 +1670,11 @@ function SettingsPanel(p: { me: string; users: Signer[]; source: string; error?:
         <Flex direction="column" gap="md">
           {p.source !== 'hubdb' && (
             <Alert title="Using the built-in defaults" variant="warning">
-              <Text>{`The HubDB settings tables aren't set up${p.error ? ` (${p.error})` : ''}. Run the HubDB setup script, then reinstall the app so it can read HubDB. Until then, changes can't be saved.`}</Text>
+              <Text>
+                {/permission|scope/i.test(p.error ?? '')
+                  ? `The app can't read HubDB yet (${p.error}). Reinstall it so it picks up its HubDB permissions: Development → Projects → protex-account-intel → Protex Account Intel → Distribution → Reinstall. Until then, changes can't be saved.`
+                  : `The HubDB settings tables aren't set up${p.error ? ` (${p.error})` : ''}. Run the HubDB setup script. Until then, changes can't be saved.`}
+              </Text>
             </Alert>
           )}
           {canRules && (
@@ -1830,5 +1837,175 @@ function SettingsPanel(p: { me: string; users: Signer[]; source: string; error?:
         </Flex>
       </Accordion>
     </Tile>
+  );
+}
+
+/* ---------------- contract wording for this deal (amendments and client redlines) ---------------- */
+
+const plainWording = (t: string) => t.replace(/\*\*(.+?)\*\*/g, '$1').replace(/__(.+?)__/g, '$1');
+
+function ContractWording({ v, set, me }: { v: Values; set: Setter; me: User }) {
+  const rec = readAmendments(v);
+  const clauses = dealClauses(v);
+  const round = openRound(rec);
+  const legal = isLegalEditor(me.email);
+  const myName = [me.firstName, me.lastName].filter(Boolean).join(' ') || me.email;
+  const write = (next: AmendmentRecord) => set('of_amendments', JSON.stringify(next));
+  const [clauseId, setClauseId] = React.useState('');
+  const [text, setText] = React.useState('');
+  const [reason, setReason] = React.useState('');
+  const [source, setSource] = React.useState<'client' | 'protex'>(round ? 'client' : 'protex');
+  const [logging, setLogging] = React.useState(false);
+  const [link, setLink] = React.useState('');
+  const [note, setNote] = React.useState('');
+  const [history, setHistory] = React.useState(false);
+  const clause = clauses.find((c) => c.id === clauseId);
+  const current = rec.amendments.find((a) => a.clauseId === clauseId);
+  const labelOf = (id: string) => {
+    const c = clauses.find((x) => x.id === id);
+    return c ? `${c.label}${c.title ? ` ${c.title}` : ''}` : id;
+  };
+  const pick = (id: string) => {
+    setClauseId(id);
+    const c = clauses.find((x) => x.id === id);
+    const a = rec.amendments.find((x) => x.clauseId === id);
+    setText(a && !a.removed ? a.text : c?.standard ?? '');
+    setReason(a?.reason ?? '');
+    setSource(a?.source ?? (round ? 'client' : 'protex'));
+  };
+  const save = (removed: boolean) => {
+    if (!clause) return;
+    write(amend(rec, { clauseId: clause.id, clauseLabel: labelOf(clause.id), text: removed ? '' : text, removed, reason, source, byLegal: legal, by: myName }));
+  };
+  return (
+    <Flex direction="column" gap="sm">
+      <SubHead>Contract wording for this deal</SubHead>
+      <Text variant="microcopy">
+        {legal
+          ? 'Amend or remove any clause for this deal only. As a legal editor, your changes count as Legal approval.'
+          : 'Propose wording changes for this deal only. They go to Legal for approval before the order form can be sent.'}
+      </Text>
+
+      {round ? (
+        <Alert title={`Client redlines: round ${round.n} is open`} variant="info">
+          <Flex direction="column" gap="xs">
+            <Text>{`Logged ${shortDate(new Date(round.receivedAt))} by ${round.loggedBy}.${round.note ? ` ${round.note}` : ''}`}</Text>
+            {round.link && <Link href={round.link}>The client's marked-up version</Link>}
+            <Text variant="microcopy">Work through their changes below: amend the clause (accept or counter), or log the change as rejected. Then mark the round resolved and create a new version of the quote.</Text>
+            <Flex direction="row">
+              <Button size="sm" variant="secondary" onClick={() => write(resolveRound(rec, myName))}>
+                {`Mark round ${round.n} resolved`}
+              </Button>
+            </Flex>
+          </Flex>
+        </Alert>
+      ) : logging ? (
+        <Flex direction="column" gap="xs">
+          <Input name="redline-link" label="Link to the client's marked-up file (HubSpot file, Drive, email…)" value={link} onChange={setLink} />
+          <TextArea name="redline-note" label="What they've asked for (summary)" rows={2} value={note} onChange={setNote} />
+          <Flex direction="row" gap="sm">
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => {
+                write(logRound(rec, { link: link.trim(), note: note.trim(), loggedBy: myName }));
+                setLogging(false);
+                setLink('');
+                setNote('');
+                setSource('client');
+              }}
+            >
+              {`Log round ${(rec.rounds.length || 0) + 1}`}
+            </Button>
+            <Button size="sm" variant="transparent" onClick={() => setLogging(false)}>
+              Cancel
+            </Button>
+          </Flex>
+        </Flex>
+      ) : (
+        <Flex direction="row" gap="sm" align="center" wrap="wrap">
+          <Button size="sm" variant="secondary" onClick={() => setLogging(true)}>
+            The client sent redlines
+          </Button>
+          {rec.rounds.length > 0 && <Text variant="microcopy">{`${rec.rounds.length} redline round${rec.rounds.length === 1 ? '' : 's'} so far, all resolved.`}</Text>}
+        </Flex>
+      )}
+
+      {rec.amendments.length > 0 && (
+        <Flex direction="column" gap="xs">
+          {rec.amendments.map((a) => (
+            <Text key={a.clauseId} variant="microcopy">
+              {`${a.label || labelOf(a.clauseId)}: ${a.removed ? 'removed' : 'amended'} (${a.source === 'client' ? `client request${a.round ? `, round ${a.round}` : ''}` : 'Protex'}) by ${a.by}${a.byLegal ? ', approved as legal' : ', needs Legal approval'}${a.reason ? `. ${a.reason}` : ''}`}
+            </Text>
+          ))}
+        </Flex>
+      )}
+
+      <Select
+        name="amend-clause"
+        label="Clause"
+        placeholder="Choose a clause to view or amend"
+        value={clauseId}
+        options={clauses.map((c) => ({ label: `${c.label}${c.title ? ` ${c.title}` : ''}${rec.amendments.some((a) => a.clauseId === c.id) ? ' · amended' : ''}`, value: c.id }))}
+        onChange={(x) => pick(String(x ?? ''))}
+      />
+      {clause && (
+        <Flex direction="column" gap="sm">
+          <Text variant="microcopy">Standard wording</Text>
+          <Text>{plainWording(clause.standard)}</Text>
+          {current?.removed && <Text format={{ fontWeight: 'demibold' }}>Removed for this deal.</Text>}
+          <TextArea name="amend-text" label="Wording for this deal" rows={6} value={text} onChange={setText} />
+          <Grid>
+            <Select
+              name="amend-source"
+              label="Whose change"
+              value={source}
+              options={[
+                { label: 'The client asked for it', value: 'client' },
+                { label: 'Protex is proposing it', value: 'protex' },
+              ]}
+              onChange={(x) => setSource(x === 'client' ? 'client' : 'protex')}
+            />
+            <Input name="amend-reason" label="Reason" value={reason} onChange={setReason} />
+          </Grid>
+          <Flex direction="row" gap="sm" wrap="wrap">
+            <Button size="sm" variant="primary" disabled={!text.trim() || text.trim() === clause.standard.trim()} onClick={() => save(false)}>
+              {current ? 'Update the amendment' : 'Amend for this deal'}
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => save(true)}>
+              Remove this clause for this deal
+            </Button>
+            {current && (
+              <Button size="sm" variant="transparent" onClick={() => write(revert(rec, clause.id, labelOf(clause.id), myName, reason))}>
+                Back to the standard wording
+              </Button>
+            )}
+            {round && (
+              <Button
+                size="sm"
+                variant="transparent"
+                disabled={!text.trim() || text.trim() === clause.standard.trim()}
+                onClick={() => write(rejectChange(rec, clause.id, labelOf(clause.id), text.trim(), reason, myName))}
+              >
+                Reject the client's change (keep the clause)
+              </Button>
+            )}
+          </Flex>
+          <Text variant="microcopy">To reject a client's change, paste their wording above, give a reason, and click Reject: it's logged and the clause stays as it is. Save changes to keep any of this.</Text>
+        </Flex>
+      )}
+
+      {rec.history.length > 0 && (
+        <Accordion title={`Change history (${rec.history.length})`} size="sm" open={history} onClick={() => setHistory(!history)}>
+          <Flex direction="column" gap="xs">
+            {[...rec.history].reverse().map((h, i) => (
+              <Text key={i} variant="microcopy">
+                {`${h.round ? `Round ${h.round} · ` : ''}${h.clauseLabel} ${h.action}${h.source === 'client' ? ' (client)' : ''} by ${h.by} on ${shortDate(new Date(h.at))}${h.text ? `: "${plainWording(h.text)}"` : ''}${h.reason ? `. ${h.reason}` : ''}`}
+              </Text>
+            ))}
+          </Flex>
+        </Accordion>
+      )}
+    </Flex>
   );
 }

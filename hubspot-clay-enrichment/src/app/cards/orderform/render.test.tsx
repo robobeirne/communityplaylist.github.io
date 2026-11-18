@@ -459,6 +459,32 @@ await r.waitFor(() => assert.equal(lastSettings()?.clauses?.[0]?.body, '{{paymen
 asUser = { email: 'rep@protex.ai', firstName: 'Rob', lastName: 'Rep' };
 console.log('settings: reps never see them; leadership saves rules; legal edits and publishes clauses');
 
+// Contract wording: a rep amends a clause (needs Legal approval); client redlines are logged as a round.
+r = await renderWith({ ...complete }, COMPLETE_LINES);
+select(r, 'amend-clause').trigger('onChange', 'tc_3d' as never);
+await r.waitFor(() => assert.equal(field(r, 'amend-text')?.props.value, 'Payment terms Net 30 days from invoice date. Fees to be paid by bank transfer.'));
+field(r, 'amend-text').trigger('onChange', 'Payment terms Net 45 days from invoice date.' as never);
+field(r, 'amend-reason').trigger('onChange', 'Client AP cycle' as never);
+await r.waitFor(() => assert.equal(button(r, 'Amend for this deal')?.props.disabled, false));
+button(r, 'Amend for this deal')!.trigger('onClick');
+await r.waitFor(() => assert.ok(texts(r).includes('• Wording amended: 3D (Client AP cycle)')), 'goes to Legal approval');
+assert.ok(texts(r).some((t) => t.startsWith('3D: amended (Protex) by Rob Rep, needs Legal approval')));
+button(r, 'Save changes')!.trigger('onClick');
+await r.waitFor(() => assert.ok(lastSave().of_amendments));
+const savedAmend = JSON.parse(lastSave().of_amendments);
+assert.equal(savedAmend.amendments[0].text, 'Payment terms Net 45 days from invoice date.');
+assert.equal(savedAmend.amendments[0].byLegal, false);
+assert.ok(lastSave().of_amendment_summary.startsWith('3D: amended'));
+button(r, 'The client sent redlines')!.trigger('onClick');
+await r.waitFor(() => assert.ok(field(r, 'redline-link')));
+field(r, 'redline-link').trigger('onChange', 'https://files.example/redline.pdf' as never);
+button(r, 'Log round 1')!.trigger('onClick');
+await r.waitFor(() => assert.ok(r.findAll(Alert).some((a) => a.props.title === 'Client redlines: round 1 is open')));
+assert.ok(texts(r).join(' ').includes('Client redlines (round 1): resolve them'), 'an open round blocks sending');
+button(r, 'Mark round 1 resolved')!.trigger('onClick');
+await r.waitFor(() => assert.ok(button(r, 'The client sent redlines')));
+console.log('contract wording: reps amend (Legal approval), client redline rounds are logged and block sending until resolved');
+
 // New business: the free standard rows are added once, never for renewals, never again once recorded.
 extraProducts = INCLUSIONS;
 r = await renderWith(complete, COMPLETE_LINES);

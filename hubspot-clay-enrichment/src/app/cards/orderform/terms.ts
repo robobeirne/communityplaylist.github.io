@@ -9,7 +9,8 @@
 import { isNewSite, parseDate, readSites, termEnd, termMonths, type Site, type Values } from './calc.ts';
 import { PROTEX_ENTITY, STANDARD_MSA_URL } from './legal.ts';
 import { activeTerms } from './specialterms.ts';
-import { formatClause, getLibrary } from './settings.ts';
+import { formatClause, getLibrary, type Clause } from './settings.ts';
+import { readAmendments } from './amendments.ts';
 
 export { PROTEX_ENTITY, STANDARD_MSA_URL };
 
@@ -119,36 +120,78 @@ export function orderComments(v: Values): string {
     .join('');
 }
 
-/** "Terms": the Terms and Conditions. */
-export function orderTerms(v: Values): string {
-  // The delivery clause only applies when this order ships devices: new business, or a renewal or
-  // expansion that adds sites.
-  const shipsDevices = (v.of_order_type !== 'renewal' && v.of_order_type !== 'expansion') || sitesOnOrder(v).length > 0;
+/** The delivery clause only applies when this order ships devices: new business, or a renewal or expansion that adds sites. */
+const shipsDevices = (v: Values) => (v.of_order_type !== 'renewal' && v.of_order_type !== 'expansion') || sitesOnOrder(v).length > 0;
+
+/** Values for the {{placeholders}} in clause wording; HTML-escaped for the quote, plain for editing. */
+function clauseTokens(v: Values, html: boolean): Record<string, string> {
+  const e = html ? esc : (x: string) => x;
   const billing = BILLING[String(v.of_billing_frequency)] ?? 'invoiced annually in advance';
   const net = NET[String(v.of_payment_terms)];
   const payment = net ? `Payment terms Net ${net} days from invoice date. Fees to be paid by bank transfer.` : 'Payment is due on receipt of invoice. Fees to be paid by bank transfer.';
-  const msaLink = STANDARD_MSA_URL ? `the Protex AI Master Services Agreement available at ${esc(STANDARD_MSA_URL)}` : 'the Protex AI Master Services Agreement';
-  const tokens: Record<string, string> = {
-    entity: esc(PROTEX_ENTITY),
-    msa_link: msaLink,
-    billing: esc(billing),
-    payment: esc(payment),
-    from_start: has(v.contract_start_date) ? ` from ${esc(longDate(v.contract_start_date))}` : '',
+  return {
+    entity: e(PROTEX_ENTITY),
+    msa_link: STANDARD_MSA_URL ? `the Protex AI Master Services Agreement available at ${e(STANDARD_MSA_URL)}` : 'the Protex AI Master Services Agreement',
+    billing: e(billing),
+    payment: e(payment),
+    from_start: has(v.contract_start_date) ? ` from ${e(longDate(v.contract_start_date))}` : '',
   };
+}
+const fillTokens = (text: string, tokens: Record<string, string>) => text.replace(/\{\{(\w+)\}\}/g, (_, k) => tokens[k] ?? '');
+
+/** Standard clauses that apply to this deal (enabled, condition met), in order. */
+function applicableClauses(v: Values): Clause[] {
   const applies = (condition = '') =>
     !condition ||
     (condition === 'renewal' && v.of_order_type === 'renewal') ||
     (condition === 'not_renewal' && v.of_order_type !== 'renewal') ||
-    (condition === 'ships_devices' && shipsDevices) ||
+    (condition === 'ships_devices' && shipsDevices(v)) ||
     (condition === 'auto_renew' && autoRenews(v));
-  // The standard clauses from the Terms library, grouped into numbered sections. Sections with no
-  // clause that applies (e.g. auto-renewal switched off) drop out, and the rest renumber.
-  const clauses = getLibrary()
+  return getLibrary()
     .filter((c) => c.kind === 'standard' && c.enabled !== false && applies(c.condition))
     .sort((a, b) => (a.section ?? 0) - (b.section ?? 0) || (a.position ?? 0) - (b.position ?? 0));
+}
+
+export interface DealClause {
+  id: string;
+  /** "3D", or "S1" for a special term. */
+  label: string;
+  title: string;
+  /** The standard wording with this deal's details filled in (plain text with **markers**). */
+  standard: string;
+  kind: 'standard' | 'special';
+}
+
+/** Every clause on this deal's order form, as legal sees them for amending (standard numbering). */
+export function dealClauses(v: Values): DealClause[] {
+  const tokens = clauseTokens(v, false);
+  const std = applicableClauses(v);
+  const sectionIds = [...new Set(std.map((c) => c.section ?? 0))];
+  const out: DealClause[] = [];
+  sectionIds.forEach((id, i) =>
+    std
+      .filter((c) => (c.section ?? 0) === id)
+      .forEach((c, j) => out.push({ id: c.id, label: `${i + 1}${String.fromCharCode(65 + j)}`, title: '', standard: fillTokens(c.body, tokens), kind: 'standard' })),
+  );
+  activeTerms(v).forEach(({ term, value }, i) => {
+    const body = getLibrary().find((c) => c.id === term.id)?.body ?? '';
+    out.push({ id: term.id, label: `S${i + 1}`, title: term.title, standard: fillTokens(body, { ...tokens, value }), kind: 'special' });
+  });
+  return out;
+}
+
+/** "Terms": the Terms and Conditions. */
+export function orderTerms(v: Values): string {
+  const amendments = readAmendments(v).amendments;
+  const amendmentOf = (id: string) => amendments.find((x) => x.clauseId === id);
+  const tokens = clauseTokens(v, true);
+  // The standard clauses from the Terms library, grouped into numbered sections, with this deal's
+  // amendments applied. Sections with no clause left (e.g. auto-renewal off) drop out and the rest
+  // renumber.
+  const clauses = applicableClauses(v).filter((c) => !amendmentOf(c.id)?.removed);
   const sectionIds = [...new Set(clauses.map((c) => c.section ?? 0))];
   const sections: string[][] = sectionIds.map((id) =>
-    clauses.filter((c) => (c.section ?? 0) === id).map((c) => formatClause(c.body).replace(/\{\{(\w+)\}\}/g, (_, k) => tokens[k] ?? '')),
+    clauses.filter((c) => (c.section ?? 0) === id).map((c) => fillTokens(formatClause(amendmentOf(c.id)?.text ?? c.body), tokens)),
   );
   const out: string[] = [];
   out.push('<h3>Terms and Conditions</h3>');
@@ -158,12 +201,12 @@ export function orderTerms(v: Values): string {
   );
   out.push(`<table><tbody>${rows.join('')}</tbody></table>`);
   // Special terms the rep ticked, after the standard terms.
-  const special = activeTerms(v).filter(({ term, value }) => !term.input || value);
+  const special = activeTerms(v).filter(({ term, value }) => (!term.input || value) && !amendmentOf(term.id)?.removed);
   if (special.length) {
     out.push('<h3>Special Terms</h3>');
     out.push('<p>The following special terms form part of this Order Form and prevail over the Terms and Conditions above and the MSA to the extent of any conflict.</p>');
     out.push(
-      `<table><tbody>${special.map(({ term, value }, i) => `<tr><td>S${i + 1}</td><td><p><strong>${esc(term.title)}.</strong> ${term.clause(value)}</p></td></tr>`).join('')}</tbody></table>`,
+      `<table><tbody>${special.map(({ term, value }, i) => `<tr><td>S${i + 1}</td><td><p><strong>${esc(term.title)}.</strong> ${amendmentOf(term.id) ? fillTokens(formatClause(amendmentOf(term.id)!.text), { ...tokens, value: esc(value) }) : term.clause(value)}</p></td></tr>`).join('')}</tbody></table>`,
     );
   }
   return out.join('');
