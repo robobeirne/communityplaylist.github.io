@@ -5,7 +5,7 @@
 //
 //   HUBSPOT_TOKEN=... node scripts/create-hubdb-tables.mjs
 //
-// The token needs the hubdb scope.
+// The token needs the HubDB scopes hubdb.tables.read and hubdb.tables.write.
 
 import { readFileSync } from 'node:fs';
 
