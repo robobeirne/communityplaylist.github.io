@@ -242,6 +242,7 @@ const createRoutes = (quotes = []) => [
   ['POST', /objects\/quotes$/, { id: '950' }],
   ['POST', /line_items\/batch\/create/, { results: [] }],
   ['DELETE', /objects\/(quotes|line_items)\/\d+$/, {}],
+  ['PATCH', /objects\/quotes\/\d+$/, {}],
   ['PATCH', /objects\/deals\/77$/, {}],
 ];
 
@@ -269,15 +270,24 @@ test('create_quote: a draft quote with e-signature, copies of the line items, an
   assert.equal(deal.of_changed_after_quote, 'false');
 });
 
-test('create_quote: blocks a second live quote, replaces only a draft, checks the signer', async () => {
+test('create_quote: blocks a second live quote, replaces a draft, versions a sent quote, checks the signer', async () => {
   let sent = stub(createRoutes([Q('901', { hs_status: 'APPROVAL_NOT_NEEDED' })]));
   let res = await main({ parameters: CREATE });
   assert.equal(res.statusCode, 409);
   assert.match(res.body.message, /already has a live quote/);
   assert.ok(!sent.some((s) => s.method === 'POST' && /objects\/quotes$/.test(s.url)), 'nothing created');
 
+  sent = stub(createRoutes([Q('901', { hs_status: 'APPROVAL_NOT_NEEDED', hs_title: 'Northbridge | Order form' })]));
   res = await main({ parameters: { ...CREATE, replaceQuoteId: '901' } });
-  assert.equal(res.statusCode, 409, 'a sent quote cannot be replaced');
+  assert.equal(res.statusCode, 200, 'a sent quote can be superseded by a new version');
+  const expired = sent.find((s) => s.method === 'PATCH' && /quotes\/901$/.test(s.url));
+  assert.ok(Date.parse(expired.body.properties.hs_expiration_date) < Date.now(), 'the sent quote is expired, not deleted');
+  assert.ok(!sent.some((s) => s.method === 'DELETE' && /quotes\/901$/.test(s.url)));
+  assert.equal(sent.find((s) => s.method === 'POST' && /objects\/quotes$/.test(s.url)).body.properties.hs_title, 'Northbridge | Order form v2');
+
+  stub(createRoutes([Q('903', { hs_status: 'APPROVAL_NOT_NEEDED', hs_esign_date: '1795000000000' })]));
+  res = await main({ parameters: { ...CREATE, replaceQuoteId: '903' } });
+  assert.equal(res.statusCode, 409, 'a signed quote cannot be replaced');
 
   sent = stub(createRoutes([Q('902', { hs_status: 'DRAFT' })]));
   res = await main({ parameters: { ...CREATE, replaceQuoteId: '902' } });

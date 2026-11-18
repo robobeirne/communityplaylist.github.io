@@ -4,13 +4,12 @@
 //
 // The Terms and Conditions are Protex's new business order form wording, word for word. Only the
 // parts that vary by deal are filled in: billing frequency, payment terms, and the auto-renewal
-// clause (left out if auto-renewal is switched off). TERMS_APPROVED in legal.ts controls the DRAFT
-// notice until legal confirms this version.
+// clause (left out if auto-renewal is switched off).
 
 import { parseDate, readSites, termEnd, termMonths, type Site, type Values } from './calc.ts';
-import { PROTEX_ENTITY, STANDARD_MSA_URL, TERMS_APPROVED } from './legal.ts';
+import { PROTEX_ENTITY, STANDARD_MSA_URL } from './legal.ts';
 
-export { TERMS_APPROVED, PROTEX_ENTITY, STANDARD_MSA_URL };
+export { PROTEX_ENTITY, STANDARD_MSA_URL };
 
 const BILLING: Record<string, string> = {
   annually_in_advance: 'invoiced annually in advance',
@@ -150,7 +149,6 @@ export function orderTerms(v: Values): string {
     ],
   );
   const out: string[] = [];
-  if (!TERMS_APPROVED) out.push('<p><strong>DRAFT TERMS: NOT YET APPROVED BY LEGAL</strong></p>');
   out.push('<h3>Terms and Conditions</h3>');
   // One row per numbered section; its lettered clauses (A, B…) as paragraphs, like the order form.
   const rows = sections.map(

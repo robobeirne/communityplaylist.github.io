@@ -3,7 +3,7 @@
 import React from 'react';
 import assert from 'node:assert/strict';
 import { createRenderer } from '@hubspot/ui-extensions/testing';
-import { Accordion, Alert, Button, Heading, Input, Link, LoadingButton, NumberInput, Select, StatisticsItem, StatusTag, Tag, Text, TextArea } from '@hubspot/ui-extensions';
+import { Alert, Tab, Tabs, Button, Heading, Input, Link, LoadingButton, NumberInput, Select, StatisticsItem, StatusTag, Tag, Text, TextArea } from '@hubspot/ui-extensions';
 import { OrderForm } from '../OrderForm.tsx';
 
 const calls: { name: string; parameters: Record<string, any> }[] = [];
@@ -98,8 +98,9 @@ async function renderWith(props: Record<string, string>, lines: ReturnType<typeo
   return r;
 }
 type R = Awaited<ReturnType<typeof renderWith>>;
-const sections = (r: R) => r.findAll(Accordion).filter((a) => /^\d\./.test(String(a.props.title)));
-const section = (r: R, n: number) => sections(r).find((a) => String(a.props.title).startsWith(`${n}.`))!;
+const sections = (r: R) => r.findAll(Tab);
+const tabTitle = (r: R, key: string) => String(sections(r).find((t) => t.props.tabId === key)!.props.title);
+const selectedTab = (r: R) => r.find(Tabs).props.selected;
 const lastCreate = () => [...calls].reverse().find((c) => c.parameters.action === 'create_quote')?.parameters;
 const texts = (r: R) => r.findAll(Text).map((t) => t.text);
 const field = (r: R, name: string) => [...r.findAll(Input), ...r.findAll(TextArea)].find((x) => x.props.name === name)!;
@@ -113,13 +114,13 @@ const num = (r: R, name: string) => r.findAll(NumberInput).find((n) => n.props.n
 let r = await renderWith({ pipeline: 'default', dealname: 'Northbridge' });
 assert.equal(r.find(Heading).text, 'Order form');
 assert.ok(r.findAll(Tag).some((t) => t.text === 'New business'), 'order type comes from the pipeline');
-assert.equal(sections(r).length, 5);
+assert.equal(sections(r).length, 3);
 assert.ok(r.findAll(Alert).some((a) => String(a.props.title).startsWith('Still needed before sending')));
 const gated = [...r.findAll(LoadingButton)].find((b) => b.text.startsWith('Create order form'));
 assert.ok(gated && gated.props.disabled && / to fill$/.test(gated.text), 'Create order form shows, disabled, with how much is left');
-assert.ok(sections(r).every((a) => !a.props.open), 'every section starts closed');
-assert.equal(section(r, 3).props.title, '3. Sites and rollout · still needed: At least one site, Rollout: all together or staged', 'the title says what is missing');
-assert.ok(/ and \d+ more$/.test(section(r, 2).props.title), 'long lists are shortened');
+assert.equal(selectedTab(r), 'deal');
+assert.deepEqual(sections(r).map((t) => String(t.props.title).replace(/ \(\d+ missing\)/, '')), ['Order & client', 'Sites & products', 'Legal & signing'], 'three short tab titles');
+assert.ok(/^Sites & products \(\d+ missing\)$/.test(tabTitle(r, 'scope')));
 assert.ok(calls.some((c) => c.parameters.action === 'signatories'), 'loads the Protex signatories');
 await r.waitFor(() => assert.ok(select(r, 'pick-Fill from a deal contact')));
 assert.deepEqual(
@@ -127,7 +128,7 @@ assert.deepEqual(
   ['Alex Kim — COO — alex@northbridge.example', 'Pat Fox — Finance Manager — ap@northbridge.example', 'ops@northbridge.example'],
   'contacts show names, titles and emails, never a bare ID',
 );
-console.log('new deal: 5 closed sections, still-needed alert, Create order form disabled');
+console.log('new deal: three tabs, still-needed alert, Create order form disabled');
 
 // Fill from the company and a deal contact, then save.
 button(r, 'Fill from the company')!.trigger('onClick');
@@ -199,8 +200,8 @@ assert.deepEqual(
     ['Sites', '3'],
   ],
 );
-assert.ok(sections(r).every((a) => String(a.props.title).endsWith('· complete')));
-assert.ok(sections(r).every((a) => !a.props.open), 'all closed to start');
+assert.ok(sections(r).every((a) => String(a.props.title).endsWith(' ✓')));
+assert.equal(selectedTab(r), 'deal');
 // Save first (sends the calculated fields), then create the order form quote.
 field(r, 'of_legal_notes').trigger('onChange', 'Standard deal' as never);
 await r.waitFor(() => assert.ok(button(r, 'Save changes')));
@@ -321,19 +322,25 @@ button(r, 'Save changes')!.trigger('onClick');
 await r.waitFor(() => assert.equal(lastSave().of_legal_notes, 'Client wants 60-day payment terms'));
 assert.equal(lastSave().of_changed_after_quote, 'true');
 await r.waitFor(() => assert.ok(r.findAll(Alert).some((a) => a.props.title === 'The order form changed after this quote was created')));
+assert.ok(texts(r).some((t) => t.startsWith('To change the order form: edit the fields here, save, then replace the draft.')));
 button(r, 'Replace the draft quote')!.trigger('onClick');
 await r.waitFor(() => assert.equal(lastCreate()?.replaceQuoteId, '950'));
 console.log('a change after the quote is flagged, and the draft quote can be replaced');
 
-// A sent quote can't be replaced from the card; another live quote blocks creating one.
+// A sent quote gets a new version (the card asks the server to expire the old one); a signed one can't be replaced.
 r = await renderWith({ ...complete, of_status: 'sent', of_quote_id: '950', of_changed_after_quote: 'true' }, COMPLETE_LINES, [{ ...DRAFT_Q, state: 'sent', link: 'https://quotes.example/950' }]);
 assert.ok(r.findAll(Alert).some((a) => a.props.title === 'The order form changed after this quote was sent'));
 assert.equal(button(r, 'Replace the draft quote'), undefined);
 assert.ok(r.findAll(Link).some((l) => l.text === "The client's view"));
+button(r, 'Create a new version')!.trigger('onClick');
+await r.waitFor(() => assert.equal(lastCreate()?.replaceQuoteId, '950'));
+r = await renderWith({ ...complete, of_status: 'signed', of_quote_id: '950' }, COMPLETE_LINES, [{ ...DRAFT_Q, state: 'signed' }]);
+assert.equal(button(r, 'Create a new version'), undefined);
+assert.ok(texts(r).some((t) => t.startsWith("Signed order forms can't be replaced.")));
 r = await renderWith({ ...complete }, COMPLETE_LINES, [{ id: '777', title: 'Manual quote', state: 'draft', expires: '', link: '' }]);
 assert.ok(texts(r).some((t) => t.startsWith("This deal already has a live quote, so the order form can't be created: Manual quote")));
 assert.equal(button(r, 'Create order form'), undefined);
-console.log("a sent quote isn't replaceable, and another live quote blocks creating the order form");
+console.log("a sent quote gets a new version, a signed one can't be replaced, and another live quote blocks creating one");
 
 // MSA negotiating in Juro blocks the order form until it's signed.
 r = await renderWith({ ...complete, of_msa_status: 'negotiating_in_juro' }, COMPLETE_LINES);
@@ -341,22 +348,21 @@ assert.ok(texts(r).join(' ').includes('The MSA signed in Juro'));
 assert.ok(button(r, 'Create order form · 1 to fill')?.props.disabled);
 console.log('an MSA still in Juro blocks the order form');
 
-// Sections only open and close when the rep clicks; filling the last field never closes one.
+// Tabs only change when the rep clicks; filling the last field never moves them on.
 r = await renderWith({ ...complete, of_counterparty_signer_title: '', of_payment_terms: '' }, COMPLETE_LINES);
-assert.equal(section(r, 1).props.open, false);
-assert.equal(section(r, 1).props.title, '1. Order and term · still needed: Payment terms');
-section(r, 1).trigger('onClick');
-await r.waitFor(() => assert.equal(section(r, 1).props.open, true));
+assert.equal(tabTitle(r, 'deal'), 'Order & client (1 missing)');
+assert.ok(texts(r).includes('Still needed here: Payment terms'));
 select(r, 'of_payment_terms').trigger('onChange', 'net_30' as never);
-await r.waitFor(() => assert.equal(section(r, 1).props.title, '1. Order and term · complete'));
-assert.equal(section(r, 1).props.open, true, 'filling Payment terms keeps the section open, so Auto-renews is still there');
+await r.waitFor(() => assert.equal(tabTitle(r, 'deal'), 'Order & client ✓'));
+assert.equal(selectedTab(r), 'deal', 'filling Payment terms keeps you on the tab, so Auto-renews is still there');
+assert.ok(select(r, 'of_auto_renew'));
 const link = r.findAll(Link).find((l) => l.text === 'Legal, MSA and signatures');
 assert.ok(link, 'the missing item names its section as a link');
 link!.trigger('onClick');
-await r.waitFor(() => assert.equal(section(r, 5).props.open, true));
-section(r, 1).trigger('onClick');
-await r.waitFor(() => assert.equal(section(r, 1).props.open, false));
-console.log('sections start closed and only open or close when clicked; titles say what is missing');
+await r.waitFor(() => assert.equal(selectedTab(r), 'legal'));
+r.find(Tabs).trigger('onSelectedChange', 'scope' as never);
+await r.waitFor(() => assert.equal(selectedTab(r), 'scope'));
+console.log('three tabs; they only change when clicked, and say how many details are missing');
 
 // New business: the free standard rows are added once, never for renewals, never again once recorded.
 extraProducts = INCLUSIONS;

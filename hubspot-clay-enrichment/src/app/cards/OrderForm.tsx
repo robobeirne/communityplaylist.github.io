@@ -3,6 +3,8 @@ import {
   Accordion,
   Alert,
   AutoGrid,
+  Tab,
+  Tabs,
   Button,
   DateInput,
   Divider,
@@ -74,7 +76,7 @@ import {
 } from './orderform/lines.ts';
 import { orderComments, orderTerms } from './orderform/terms.ts';
 import { isInclusion, missingInclusions } from './orderform/inclusions.ts';
-import { PROTEX_ENTITY, STANDARD_MSA_URL, TERMS_APPROVED } from './orderform/legal.ts';
+import { PROTEX_ENTITY, STANDARD_MSA_URL } from './orderform/legal.ts';
 
 /*
  * Order form: everything the order form and MSA need, captured on the deal. Pricing is the deal's
@@ -136,12 +138,15 @@ const QUOTE_VARIANT: Record<string, 'default' | 'info' | 'warning' | 'success' |
   expired: 'danger',
   rejected: 'danger',
 };
-/** "3. Sites and rollout · still needed: Rollout, Site 3: go-live date", or "· complete". */
-function sectionTitle(i: number, title: string, gaps: Gap[]): string {
-  if (!gaps.length) return `${i + 1}. ${title} · complete`;
-  const names = gaps.slice(0, 2).map((g) => g.label);
-  return `${i + 1}. ${title} · still needed: ${names.join(', ')}${gaps.length > 2 ? ` and ${gaps.length - 2} more` : ''}`;
-}
+/** The card's three tabs, and which readiness sections each one holds. */
+type TabKey = 'deal' | 'scope' | 'legal';
+const TABS: { key: TabKey; title: string; sections: Section[] }[] = [
+  { key: 'deal', title: 'Order & client', sections: ['order', 'client'] },
+  { key: 'scope', title: 'Sites & products', sections: ['sites', 'pricing'] },
+  { key: 'legal', title: 'Legal & signing', sections: ['legal'] },
+];
+const tabOf = (section: Section): TabKey => TABS.find((t) => t.sections.includes(section))!.key;
+
 /** Fields laid out several to a row, wrapping on narrow screens. */
 const Grid = ({ children }: { children: React.ReactNode }) => (
   <AutoGrid columnWidth={200} gap="sm" flexible>
@@ -214,8 +219,8 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
   const [saving, setSaving] = React.useState(false);
   const [signers, setSigners] = React.useState<Signer[] | null>(null);
   const [signersError, setSignersError] = React.useState('');
-  /** Open sections: all closed to start, and only the rep (or a still-needed link) opens or closes them. */
-  const [openSections, setOpenSections] = React.useState<Section[]>([]);
+  /** The open tab. Only the rep (or a still-needed link) changes it: filling a field never moves them on. */
+  const [tab, setTab] = React.useState<TabKey>('deal');
   const [pricing, setPricing] = React.useState<Pricing | null>(null);
   const [pricingError, setPricingError] = React.useState('');
   const [contacts, setContacts] = React.useState<Person[] | null>(null);
@@ -454,8 +459,7 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
   };
 
   const missingIn = (s: Section) => r.missing.filter((g) => g.section === s);
-  const toggle = (k: Section) => setOpenSections((o) => (o.includes(k) ? o.filter((x) => x !== k) : [...o, k]));
-  const reveal = (k: Section) => setOpenSections((o) => (o.includes(k) ? o : [...o, k]));
+  const reveal = (k: Section) => setTab(tabOf(k));
   const done = r.required - r.missing.length;
   const shared = { v, set, currency, sum };
   const t = sum.totals;
@@ -535,37 +539,51 @@ export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmAct
         onRefresh={loadQuote}
       />
 
-      {SECTIONS.map((s, i) => {
-        const gaps = missingIn(s.key);
-        return (
-          <Accordion key={s.key} title={sectionTitle(i, s.title, gaps)} open={openSections.includes(s.key)} onClick={() => toggle(s.key)} size="sm">
-              <Flex direction="column" gap="sm">
-              {s.key === 'client' && <ClientSection {...shared} people={people} company={company} />}
-              {s.key === 'order' && <OrderSection {...shared} />}
-              {s.key === 'pricing' && (
+      <Tabs variant="enclosed" selected={tab} onSelectedChange={(id: string | number) => setTab(String(id) as TabKey)}>
+        {TABS.map((t) => {
+          const gaps = t.sections.flatMap((k) => missingIn(k));
+          return (
+            <Tab key={t.key} tabId={t.key} title={`${t.title}${gaps.length ? ` (${gaps.length} missing)` : ' ✓'}`}>
+              <Flex direction="column" gap="md">
+                <Missing gaps={gaps} />
+                {t.key === 'deal' && (
+                  <>
+                    <SubHead>Order and term</SubHead>
+                    <OrderSection {...shared} />
+                    <Divider />
+                    <SubHead>Client and contacts</SubHead>
+                    <ClientSection {...shared} people={people} company={company} />
+                  </>
+                )}
+                {t.key === 'scope' && (
+                  <>
+                    <SubHead>Sites and rollout</SubHead>
+                    <SitesSection {...shared} />
+                    <Divider />
+                    <SubHead>Products and pricing</SubHead>
                 <ProductsSection
-                  {...shared}
-                  lines={lines}
-                  products={products}
-                  loaded={!!pricing}
-                  loadError={pricingError}
-                  edits={lineEdits}
-                  onEdit={editLine}
-                  onUndo={undoLine}
-                  onAdd={addProduct}
-                  termFixes={termFixes.length}
-                  amount={{ next: newAmount, current: Number.isFinite(currentAmount) ? currentAmount : null, stale: amountStale }}
-                  canSync={!dirty && !saving}
-                  onSync={() => save()}
-                />
-              )}
-              {s.key === 'sites' && <SitesSection {...shared} />}
-              {s.key === 'legal' && <LegalSection {...shared} people={people} signers={signers} signersError={signersError} />}
-              <Missing gaps={missingIn(s.key)} />
-            </Flex>
-          </Accordion>
-        );
-      })}
+                      {...shared}
+                      lines={lines}
+                      products={products}
+                      loaded={!!pricing}
+                      loadError={pricingError}
+                      edits={lineEdits}
+                      onEdit={editLine}
+                      onUndo={undoLine}
+                      onAdd={addProduct}
+                      termFixes={termFixes.length}
+                      amount={{ next: newAmount, current: Number.isFinite(currentAmount) ? currentAmount : null, stale: amountStale }}
+                      canSync={!dirty && !saving}
+                      onSync={() => save()}
+                    />
+                  </>
+                )}
+                {t.key === 'legal' && <LegalSection {...shared} people={people} signers={signers} signersError={signersError} />}
+              </Flex>
+            </Tab>
+          );
+        })}
+      </Tabs>
 
       {dirty && (
         <Actions dirty={dirty} saving={saving} onSave={() => save()} />
@@ -625,6 +643,7 @@ function QuotePanel(p: {
   const canCreate = !p.missing && !p.dirty && !!p.templateId && !p.busy;
   const createLabel = p.missing ? `Create order form · ${p.missing} to fill` : p.dirty ? 'Save, then create the order form' : 'Create order form';
   const signer = String(v.of_protex_signer_name || 'the Protex signatory');
+  const replaceLabel = ours?.state === 'draft' ? 'Replace the draft quote' : 'Create a new version';
 
   let body: React.ReactNode;
   if (p.error) {
@@ -659,22 +678,27 @@ function QuotePanel(p: {
             Refresh status
           </Link>
         </Flex>
-        {changed && ours.state === 'draft' && (
-          <Alert title="The order form changed after this quote was created" variant="warning">
-            <Flex direction="column" gap="xs">
-              <Text>The quote still has the old details. Replace the draft to pick up the changes.</Text>
-              <Flex direction="row">
-                <LoadingButton size="sm" variant="secondary" loading={p.busy} disabled={!canCreate} onClick={() => p.onCreate(ours.id)}>
-                  {p.missing || p.dirty ? createLabel.replace('Create order form', 'Replace the draft quote') : 'Replace the draft quote'}
-                </LoadingButton>
-              </Flex>
+        {ours.state !== 'signed' && (
+          <Flex direction="column" gap="xs">
+            {changed && (
+              <Alert title={`The order form changed after this quote was ${ours.state === 'draft' ? 'created' : 'sent'}`} variant="warning">
+                <Text>{ours.state === 'draft' ? "The draft still has the old details." : "The client's quote doesn't include the changes."}</Text>
+              </Alert>
+            )}
+            <Flex direction="row" gap="sm" align="center" wrap="wrap">
+              <LoadingButton size="sm" variant={changed ? 'primary' : 'secondary'} loading={p.busy} disabled={!canCreate} onClick={() => p.onCreate(ours.id)}>
+                {p.missing ? `${replaceLabel} · ${p.missing} to fill` : p.dirty ? `Save, then ${replaceLabel.toLowerCase()}` : replaceLabel}
+              </LoadingButton>
+              <Text variant="microcopy">
+                {ours.state === 'draft'
+                  ? 'To change the order form: edit the fields here, save, then replace the draft. The old draft is deleted.'
+                  : `To change the order form: edit the fields here, save, then create a new version. ${ours.title} is expired (it stays on the deal as a record) and a new draft is made for you to send.`}
+              </Text>
             </Flex>
-          </Alert>
+          </Flex>
         )}
-        {changed && ours.state !== 'draft' && ours.state !== 'signed' && (
-          <Alert title="The order form changed after this quote was sent" variant="warning">
-            <Text>The quote the client has doesn't include the changes. To send a new version, delete or expire this quote in HubSpot, then create the order form again here.</Text>
-          </Alert>
+        {ours.state === 'signed' && (
+          <Text variant="microcopy">Signed order forms can't be replaced. For changes after signature, start a new deal (an expansion or amendment) and create its order form there.</Text>
         )}
       </Flex>
     );
@@ -726,9 +750,6 @@ function QuotePanel(p: {
     <Tile>
       <Flex direction="column" gap="sm">
         <Text format={{ fontWeight: 'demibold' }}>Order form quote</Text>
-        {!TERMS_APPROVED && (
-          <Text variant="microcopy">The order form terms are placeholder wording until legal approves them. Quotes created now carry a DRAFT notice in their terms.</Text>
-        )}
         {body}
         <Accordion title="Preview the order form text" size="sm" open={preview} onClick={() => setPreview(!preview)}>
           <Flex direction="column" gap="sm">
@@ -754,7 +775,7 @@ function QuotePanel(p: {
 
 function Missing({ gaps }: { gaps: Gap[] }) {
   if (!gaps.length) return null;
-  return <Text variant="microcopy">{`Still needed: ${gaps.map((g) => g.label).join('; ')}`}</Text>;
+  return <Text variant="microcopy">{`Still needed here: ${gaps.map((g) => g.label).join('; ')}`}</Text>;
 }
 
 type Shared = { v: Values; set: Setter; currency: string; sum: Summary };

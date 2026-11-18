@@ -434,7 +434,11 @@ async function quote({ dealId }) {
  *
  * The line items are copied from the deal on the server (not taken from the card), e-signature is
  * switched on, and the quote is left as a draft for the rep to check, add the countersigner and
- * publish. Refuses if the deal already has a live quote, unless it's a draft being replaced.
+ * publish. Refuses if the deal already has a live quote, unless replaceQuoteId names it:
+ *   - a draft is deleted and replaced;
+ *   - a sent or awaiting-approval quote is expired (kept on the deal as a record) and a new
+ *     version created, titled "… v2", "… v3";
+ *   - a signed quote can't be replaced.
  */
 async function createQuote(params) {
   const { dealId, templateId, title, expirationDate, currency, terms, comments, signerContactId, companyId, sender = {}, replaceQuoteId } = params;
@@ -447,23 +451,35 @@ async function createQuote(params) {
   if (!contactIds.includes(String(signerContactId))) return fail(400, "The counterparty signer isn't a contact on this deal");
   const live = quotes.filter((q) => LIVE.has(q.state));
   const replacing = replaceQuoteId ? live.find((q) => q.id === String(replaceQuoteId)) : null;
-  if (replaceQuoteId && (!replacing || replacing.state !== 'draft')) return fail(409, 'Only a draft quote on this deal can be replaced');
+  if (replaceQuoteId && !replacing) return fail(409, "That quote isn't live on this deal any more. Refresh the card.");
+  if (replacing?.state === 'signed') return fail(409, 'That quote is already signed, so it can\'t be replaced. Changes after signature need a new order (an expansion or amendment deal).');
   const blocking = live.filter((q) => q.id !== replacing?.id);
   if (blocking.length) return { statusCode: 409, body: { ok: false, message: `This deal already has a live quote (${blocking[0].title}, ${blocking[0].state.replace('_', ' ')})`, live: blocking } };
 
   const lines = await readLines(dealId);
   if (!lines.length) return fail(400, 'The deal has no line items');
 
-  if (replacing) {
+  if (replacing?.state === 'draft') {
     const old = await associatedIdsFrom('quotes', replacing.id, 'line_items');
     await call('DELETE', `/crm/v3/objects/quotes/${replacing.id}`);
     for (const id of old) await call('DELETE', `/crm/v3/objects/line_items/${id}`).catch(() => {});
+  } else if (replacing) {
+    // Sent or awaiting approval: expire it so the client's link stops accepting signatures, and
+    // keep it on the deal as a record of what was sent.
+    try {
+      await call('PATCH', `/crm/v3/objects/quotes/${replacing.id}`, { properties: { hs_expiration_date: new Date(Date.now() - 60000).toISOString() } });
+    } catch (e) {
+      return fail(e.status || 500, `Couldn't expire the current quote (${e.message}). Expire or delete it in HubSpot, then create the new version.`);
+    }
   }
+  // Version the title when earlier order form quotes exist on the deal (kept, expired or rejected).
+  const earlier = quotes.filter((q) => q.id !== (replacing?.state === 'draft' ? replacing.id : '') && /order form/i.test(q.title)).length;
+  const baseTitle = String(title || 'Order form').replace(/\s+v\d+$/i, '');
 
   const associations = [assoc(dealId, QUOTE_TO.deal), assoc(templateId, QUOTE_TO.quote_template), assoc(signerContactId, QUOTE_TO.contact)];
   if (isId(companyId) && companyIds.includes(String(companyId))) associations.push(assoc(companyId, QUOTE_TO.company));
   const properties = {
-    hs_title: String(title || 'Order form').slice(0, 250),
+    hs_title: `${baseTitle}${earlier ? ` v${earlier + 1}` : ''}`.slice(0, 250),
     hs_expiration_date: `${expirationDate}T23:59:59.000Z`,
     hs_status: 'DRAFT',
     hs_currency: String(currency || ''),

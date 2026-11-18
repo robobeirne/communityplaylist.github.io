@@ -68,7 +68,6 @@ The card only uses plain tags, with no classes and no inline styles: `table`, `t
 
 **Terms:**
 ```html
-(<p><strong>DRAFT TERMS: NOT YET APPROVED BY LEGAL</strong></p> only while TERMS_APPROVED is false)
 <h3>Terms and Conditions</h3>
 <table><tbody>
   <tr><td>1</td><td><p><strong>A.</strong> By signing this Order Form…</p><p><strong>B.</strong> Capitalized terms…</p></td></tr>

@@ -2,7 +2,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { cameraApportionment, orderComments, orderTerms, subscriptionTerm } from './terms.ts';
-import { TERMS_APPROVED } from './legal.ts';
 
 const LENNOX: Record<string, string> = {
   of_order_type: 'new_business',
@@ -48,8 +47,8 @@ test('comments to buyer match the order form: client and billing details, term, 
 
 test('terms are the order form Terms and Conditions, with the deal-specific parts filled in', () => {
   const t = orderTerms(LENNOX);
-  if (!TERMS_APPROVED) assert.ok(t.startsWith('<p><strong>DRAFT TERMS: NOT YET APPROVED BY LEGAL</strong></p>'));
-  else assert.ok(t.startsWith('<h3>Terms and Conditions</h3>') && !t.includes('DRAFT'), 'no draft notice once approved');
+  assert.ok(t.startsWith('<h3>Terms and Conditions</h3>'), 'starts with the heading');
+  assert.ok(!/draft|not yet approved|legal review/i.test(t), 'no draft or legal-review notice anywhere');
   assert.ok(t.includes('separately executed between Client and Protex AI Limited, if such an agreement is in effect; or, if no such executed agreement exists, then the Protex AI Master Services Agreement available at www.protex.ai/legal'));
   assert.ok(t.includes('<h3>Terms and Conditions</h3><table><tbody><tr><td>1</td><td><p><strong>A.</strong> By signing this Order Form'));
   assert.ok(t.includes('<p><strong>B.</strong> Capitalized terms not otherwise defined'));
