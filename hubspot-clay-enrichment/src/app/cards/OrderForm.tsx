@@ -43,6 +43,8 @@ import {
   parseDate,
   parseSiteList,
   readiness,
+  msaStatus,
+  normaliseStatus,
   summarise,
   termMonths,
   type Gap,
@@ -68,17 +70,23 @@ import {
   type Product,
   type RawLine,
 } from './orderform/lines.ts';
+import { orderComments, orderTerms } from './orderform/terms.ts';
+import { PROTEX_ENTITY, STANDARD_MSA_URL, TERMS_APPROVED } from './orderform/legal.ts';
 
 /*
- * Order form: everything the order form and MSA need, captured on the deal so Juro can pull it
- * through its HubSpot integration. Pricing is the deal's line items, drawn from the product library
- * at list price with a discount per line. Totals, the contract end date, the pricing table and the
- * site schedule are calculated here and saved with the rest. "Mark ready for Juro" only unlocks
- * when nothing required is missing.
+ * Order form: everything the order form and MSA need, captured on the deal. Pricing is the deal's
+ * line items, drawn from the product library at list price with a discount per line. Totals, the contract end date, the pricing table and the
+ * site schedule are calculated here and saved with the rest. When nothing required is missing,
+ * "Create order form" makes the HubSpot quote that the client e-signs. Juro is only for MSA redlines.
  */
 
 hubspot.extend<'crm.record.tab'>(({ actions, context }) => (
-  <OrderForm actions={actions} dealId={String(context.crm.objectId)} user={context.user?.email ?? 'rep'} />
+  <OrderForm
+    actions={actions}
+    dealId={String(context.crm.objectId)}
+    portalId={String(context.portal?.id ?? '')}
+    user={{ email: context.user?.email ?? '', firstName: context.user?.firstName ?? '', lastName: context.user?.lastName ?? '' }}
+  />
 ));
 
 const FN = 'save_order_form';
@@ -104,17 +112,50 @@ const DISCOUNT_MODES = [
 ];
 const STATUS_VARIANT: Record<string, 'default' | 'info' | 'warning' | 'success'> = {
   draft: 'default',
-  ready_for_juro: 'info',
-  sent_to_juro: 'warning',
+  ready_to_send: 'info',
+  sent: 'warning',
   signed: 'success',
 };
+const STATUS_LABEL: Record<string, string> = { draft: 'Draft', ready_to_send: 'Ready to send', sent: 'Sent', signed: 'Signed' };
+const QUOTE_LABEL: Record<string, string> = {
+  draft: 'Quote draft',
+  awaiting_approval: 'Awaiting approval',
+  sent: 'Sent for signature',
+  signed: 'Signed',
+  expired: 'Expired',
+  rejected: 'Rejected',
+};
+const QUOTE_VARIANT: Record<string, 'default' | 'info' | 'warning' | 'success' | 'danger'> = {
+  draft: 'info',
+  awaiting_approval: 'warning',
+  sent: 'warning',
+  signed: 'success',
+  expired: 'danger',
+  rejected: 'danger',
+};
+const MSA_OPTIONS = [
+  { label: 'Existing MSA', value: 'existing_msa' },
+  { label: 'Standard MSA (accepted by signing this order form)', value: 'standard_msa' },
+  { label: 'Negotiating in Juro', value: 'negotiating_in_juro' },
+  { label: 'Signed in Juro', value: 'signed_in_juro' },
+];
 
 type Signer = { id: string; name: string; email: string; title: string };
 type Person = { id: string; name: string; email: string; title: string };
 type Setter = (key: string, value: string) => void;
 type Pricing = { lines: RawLine[]; products: Product[] };
+type Quote = { id: string; title: string; state: string; expires: string; link: string; signedAt?: string };
+type Template = { id: string; name: string };
+type QuoteInfo = { quotes: Quote[]; current: Quote | null; live: Quote[]; templates: Template[]; templatesError: string };
+type User = { email: string; firstName: string; lastName: string };
 type Body = {
   ok: boolean;
+  quote?: Quote;
+  quotes?: Quote[];
+  current?: Quote | null;
+  live?: Quote[];
+  templates?: Template[];
+  templatesError?: string;
   message?: string;
   properties?: Values;
   users?: Signer[];
@@ -148,7 +189,7 @@ const isoOf = (v: unknown) => {
   return d ? isoDate(d) : '';
 };
 
-export function OrderForm({ actions, dealId, user }: { actions: CrmActions; dealId: string; user: string }) {
+export function OrderForm({ actions, dealId, portalId, user }: { actions: CrmActions; dealId: string; portalId: string; user: User }) {
   const { props, error, loading } = useRecordProperties(actions, PROPS);
   const [saved, setSaved] = React.useState<Values>({});
   const [edits, setEdits] = React.useState<Values>({});
@@ -165,6 +206,10 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
   /** Products added in the card and not saved yet, in the order they were added. */
   const [added, setAdded] = React.useState<{ id: string; productId: string }[]>([]);
   const nextId = React.useRef(1);
+  const [quoteInfo, setQuoteInfo] = React.useState<QuoteInfo | null>(null);
+  const [quoteError, setQuoteError] = React.useState('');
+  const [templateId, setTemplateId] = React.useState('');
+  const [creating, setCreating] = React.useState(false);
 
   const call = React.useCallback(async (parameters: Record<string, unknown>) => {
     const res = await hubspot.serverless(FN, { parameters: parameters as never });
@@ -173,6 +218,17 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
     return body;
   }, []);
 
+  const loadQuote = React.useCallback(() => {
+    call({ action: 'quote', dealId })
+      .then((b) => {
+        setQuoteInfo({ quotes: b.quotes ?? [], current: b.current ?? null, live: b.live ?? [], templates: b.templates ?? [], templatesError: b.templatesError ?? '' });
+        setQuoteError('');
+        // The server keeps the order form status in step with the quote; show what it wrote.
+        if (b.properties && Object.keys(b.properties).length) setSaved((s) => ({ ...s, ...b.properties }));
+      })
+      .catch((e: Error) => setQuoteError(e.message));
+  }, [call, dealId]);
+
   React.useEffect(() => {
     call({ action: 'signatories' })
       .then((b) => setSigners(b.users ?? []))
@@ -180,6 +236,7 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
     call({ action: 'pricing', dealId })
       .then((b) => setPricing({ lines: b.lines ?? [], products: b.products ?? [] }))
       .catch((e: Error) => setPricingError(e.message));
+    loadQuote();
     call({ action: 'parties', dealId })
       .then((b) => {
         setContacts(b.contacts ?? []);
@@ -189,7 +246,7 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
         setContacts([]);
         setPartiesError(e.message);
       });
-  }, [call, dealId]);
+  }, [call, dealId, loadQuote]);
 
   if (loading) return <LoadingSpinner label="Loading the order form" layout="centered" />;
   if (error || !props) {
@@ -220,7 +277,9 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
     r.required++;
     r.missing.push({ section: 'pricing', label: pricingError ? "Line items (couldn't load them)" : 'Line items (loading)' });
   }
-  const status = String(v.of_status || 'draft');
+  const status = normaliseStatus(v.of_status);
+  const current = quoteInfo?.current ?? null;
+  const liveQuote = current && ['draft', 'awaiting_approval', 'sent', 'signed'].includes(current.state) ? current : null;
 
   // Recurring lines bill for the contract term from the billing start, so HubSpot's own ARR and TCV
   // on the line items agree with the order form. Saving brings them into line.
@@ -282,10 +341,8 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
     try {
       const payload: Values = { ...sent, ...computedProperties(v, lines), ...extra };
       if (!props.of_order_type) payload.of_order_type = v.of_order_type;
-      if (!extra.of_status && dirty && (status === 'ready_for_juro' || status === 'sent_to_juro')) {
-        payload.of_status = 'draft';
-        actions.addAlert({ type: 'warning', message: 'The order form changed after it was marked ready, so it is back to Draft. Mark it ready again.' });
-      }
+      // The quote is a copy taken when it was created, so flag changes made after it.
+      if (dirty && liveQuote && v.of_changed_after_quote !== 'true') payload.of_changed_after_quote = 'true';
       const changes = pricing ? lineChanges() : { create: [], update: [], remove: [] };
       const b = await call({ action: 'save', dealId, properties: payload, lines: changes });
       setSaved((s) => ({ ...s, ...(b.properties ?? {}) }));
@@ -318,14 +375,43 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
     }
   };
 
+  const templates = quoteInfo?.templates ?? [];
+  const chosenTemplate = templateId || (templates.find((x) => /order form/i.test(x.name)) ?? templates[0])?.id || '';
+  const createQuote = async (replaceQuoteId?: string) => {
+    setCreating(true);
+    try {
+      const b = await call({
+        action: 'create_quote',
+        dealId,
+        templateId: chosenTemplate,
+        title: `${v.dealname || 'Order form'} | Order form`,
+        expirationDate: isoOf(v.of_offer_expiry_date),
+        currency,
+        terms: orderTerms(v),
+        comments: orderComments(v),
+        signerContactId: v.of_counterparty_signer_contact_id,
+        companyId: company?.id,
+        sender: { firstName: user.firstName, lastName: user.lastName, email: user.email, company: PROTEX_ENTITY },
+        replaceQuoteId,
+      });
+      setSaved((s) => ({ ...s, ...(b.properties ?? {}) }));
+      actions.addAlert({ type: 'success', message: 'Order form quote created. Open it to check it, add the Protex countersigner and send it for signature.' });
+      actions.refreshObjectProperties();
+      loadQuote();
+    } catch (e) {
+      actions.addAlert({ type: 'danger', message: `Couldn't create the order form: ${(e as Error).message}` });
+      loadQuote();
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const missingIn = (s: Section) => r.missing.filter((g) => g.section === s);
   // Sections with something to fill start open; complete ones start closed.
   const open = openSections ?? SECTIONS.filter((s) => missingIn(s.key).length).map((s) => s.key);
   const toggle = (k: Section) => setOpenSections(open.includes(k) ? open.filter((x) => x !== k) : [...open, k]);
   const reveal = (k: Section) => setOpenSections(open.includes(k) ? open : [...open, k]);
   const done = r.required - r.missing.length;
-  const canMarkReady = !r.missing.length && !dirty;
-  const isReady = status === 'ready_for_juro' || status === 'sent_to_juro' || status === 'signed';
   const shared = { v, set, currency, sum };
   const t = sum.totals;
 
@@ -337,10 +423,10 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
             <Flex direction="row" gap="sm" align="center" wrap="wrap">
               <Heading>Order form</Heading>
               <Tag variant="info">{optionLabel('of_order_type', v.of_order_type)}</Tag>
-              <StatusTag variant={STATUS_VARIANT[status] ?? 'default'}>{optionLabel('of_status', status) || 'Draft'}</StatusTag>
+              <StatusTag variant={STATUS_VARIANT[status] ?? 'default'}>{STATUS_LABEL[status]}</StatusTag>
             </Flex>
             {v.of_ready_at && (
-              <Text variant="microcopy">{`Marked ready ${shortDate(parseDate(v.of_ready_at))}${v.of_ready_by ? ` by ${v.of_ready_by}` : ''}`}</Text>
+              <Text variant="microcopy">{`Order form created ${shortDate(parseDate(v.of_ready_at))}${v.of_ready_by ? ` by ${v.of_ready_by}` : ''}`}</Text>
             )}
           </Flex>
           <Statistics>
@@ -350,7 +436,7 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
             <StatisticsItem label="Sites" number={String(sum.siteCount)} />
           </Statistics>
           <ProgressBar
-            title="Ready for Juro"
+            title="Ready to send"
             value={done}
             maxValue={r.required}
             valueDescription={`${done} of ${r.required} required details`}
@@ -360,7 +446,7 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
       </Tile>
 
       {r.missing.length > 0 ? (
-        <Alert title={`Still needed before Juro (${r.missing.length})`} variant="warning">
+        <Alert title={`Still needed before sending (${r.missing.length})`} variant="warning">
           <Flex direction="column" gap="xs">
             {SECTIONS.filter((s) => missingIn(s.key).length).map((s) => (
               <Text key={s.key}>
@@ -373,8 +459,8 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
           </Flex>
         </Alert>
       ) : (
-        <Alert title="Everything Juro needs is here" variant="success">
-          <Text>{isReady ? 'This order form is ready for Juro.' : 'Check the totals, then mark it ready for Juro.'}</Text>
+        <Alert title="Everything the order form needs is here" variant="success">
+          <Text>{liveQuote ? 'The order form quote is below.' : 'Check the totals and the terms preview, then create the order form.'}</Text>
         </Alert>
       )}
       {r.warnings.length > 0 && (
@@ -387,14 +473,21 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
         </Alert>
       )}
 
-      <Actions
-        dirty={dirty}
-        saving={saving}
-        isReady={isReady}
-        canMarkReady={canMarkReady}
+      <Actions dirty={dirty} saving={saving} onSave={() => save()} />
+
+      <QuotePanel
+        v={v}
+        portalId={portalId}
+        info={quoteInfo}
+        error={quoteError}
+        current={current}
         missing={r.missing.length}
-        onSave={() => save()}
-        onReady={() => save({ of_status: 'ready_for_juro', of_ready_at: new Date().toISOString(), of_ready_by: user })}
+        dirty={dirty}
+        busy={creating || saving}
+        templateId={chosenTemplate}
+        onTemplate={setTemplateId}
+        onCreate={createQuote}
+        onRefresh={loadQuote}
       />
 
       {SECTIONS.map((s, i) => {
@@ -436,34 +529,184 @@ export function OrderForm({ actions, dealId, user }: { actions: CrmActions; deal
       })}
 
       {dirty && (
-        <Actions dirty={dirty} saving={saving} isReady={isReady} canMarkReady={false} missing={r.missing.length} onSave={() => save()} />
+        <Actions dirty={dirty} saving={saving} onSave={() => save()} />
       )}
     </Flex>
   );
 }
 
-function Actions(p: {
-  dirty: boolean;
-  saving: boolean;
-  isReady: boolean;
-  canMarkReady: boolean;
-  missing: number;
-  onSave: () => void;
-  onReady?: () => void;
-}) {
-  const readyLabel = p.missing ? `Mark ready for Juro · ${p.missing} to fill` : p.dirty ? 'Save, then mark ready for Juro' : 'Mark ready for Juro';
+function Actions(p: { dirty: boolean; saving: boolean; onSave: () => void }) {
   return (
     <Flex direction="row" gap="sm" align="center" wrap="wrap">
       <LoadingButton variant="primary" loading={p.saving} disabled={!p.dirty} onClick={p.onSave}>
         {p.dirty ? 'Save changes' : 'Saved'}
       </LoadingButton>
-      {p.onReady && !p.isReady && (
-        <LoadingButton variant="secondary" loading={p.saving} disabled={!p.canMarkReady} onClick={p.onReady}>
-          {readyLabel}
-        </LoadingButton>
-      )}
       {p.dirty && <Text variant="microcopy">Unsaved changes</Text>}
     </Flex>
+  );
+}
+
+/** Quote HTML as plain text, for the preview. */
+const plain = (html: string) =>
+  html
+    .replace(/<br\s*\/?>/g, '\n')
+    .replace(/<\/p>\s*/g, '\n\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .trim();
+
+/** The order form quote: create it, or show where it's at and what to do next. */
+function QuotePanel(p: {
+  v: Values;
+  portalId: string;
+  info: QuoteInfo | null;
+  error: string;
+  current: Quote | null;
+  missing: number;
+  dirty: boolean;
+  busy: boolean;
+  templateId: string;
+  onTemplate: (id: string) => void;
+  onCreate: (replaceQuoteId?: string) => void;
+  onRefresh: () => void;
+}) {
+  const { v, info, current } = p;
+  const [preview, setPreview] = React.useState(false);
+  const quoteUrl = (id: string) => `https://app.hubspot.com/quotes/${p.portalId}/details/${id}`;
+  const live = info?.live ?? [];
+  const ours = current && live.some((q) => q.id === current.id) ? current : null;
+  const others = live.filter((q) => q.id !== ours?.id);
+  const changed = v.of_changed_after_quote === 'true';
+  const canCreate = !p.missing && !p.dirty && !!p.templateId && !p.busy;
+  const createLabel = p.missing ? `Create order form · ${p.missing} to fill` : p.dirty ? 'Save, then create the order form' : 'Create order form';
+  const signer = String(v.of_protex_signer_name || 'the Protex signatory');
+
+  let body: React.ReactNode;
+  if (p.error) {
+    body = (
+      <Text variant="microcopy">
+        {`Couldn't check the deal's quotes (${p.error}). If the card was just updated, reinstall the app so it can read and create quotes.`}
+      </Text>
+    );
+  } else if (!info) {
+    body = <LoadingSpinner label="Checking the deal's quotes" size="sm" />;
+  } else if (ours) {
+    body = (
+      <Flex direction="column" gap="xs">
+        <Flex direction="row" gap="sm" align="center" wrap="wrap">
+          <Text format={{ fontWeight: 'demibold' }}>{ours.title}</Text>
+          <StatusTag variant={QUOTE_VARIANT[ours.state] ?? 'default'}>{QUOTE_LABEL[ours.state] ?? ours.state}</StatusTag>
+          {ours.expires && ours.state !== 'signed' && <Text variant="microcopy">{`Expires ${shortDate(parseDate(ours.expires))}`}</Text>}
+        </Flex>
+        <Text>
+          {ours.state === 'draft'
+            ? `Next: open the quote, check it, add ${signer} as the countersigner, then publish it and send it for e-signature.`
+            : ours.state === 'awaiting_approval'
+              ? 'Waiting for approval in HubSpot.'
+              : ours.state === 'sent'
+                ? 'Sent to the client for e-signature.'
+                : `Signed${ours.signedAt ? ` ${shortDate(new Date(ours.signedAt))}` : ''}.`}
+        </Text>
+        <Flex direction="row" gap="md" wrap="wrap">
+          <Link href={quoteUrl(ours.id)}>Open the quote in HubSpot</Link>
+          {ours.link && <Link href={ours.link}>The client's view</Link>}
+          <Link href="#" preventDefault onClick={p.onRefresh}>
+            Refresh status
+          </Link>
+        </Flex>
+        {changed && ours.state === 'draft' && (
+          <Alert title="The order form changed after this quote was created" variant="warning">
+            <Flex direction="column" gap="xs">
+              <Text>The quote still has the old details. Replace the draft to pick up the changes.</Text>
+              <Flex direction="row">
+                <LoadingButton size="sm" variant="secondary" loading={p.busy} disabled={!canCreate} onClick={() => p.onCreate(ours.id)}>
+                  {p.missing || p.dirty ? createLabel.replace('Create order form', 'Replace the draft quote') : 'Replace the draft quote'}
+                </LoadingButton>
+              </Flex>
+            </Flex>
+          </Alert>
+        )}
+        {changed && ours.state !== 'draft' && ours.state !== 'signed' && (
+          <Alert title="The order form changed after this quote was sent" variant="warning">
+            <Text>The quote the client has doesn't include the changes. To send a new version, delete or expire this quote in HubSpot, then create the order form again here.</Text>
+          </Alert>
+        )}
+      </Flex>
+    );
+  } else if (others.length) {
+    body = (
+      <Flex direction="column" gap="xs">
+        <Text>{`This deal already has a live quote, so the order form can't be created: ${others.map((q) => `${q.title} (${QUOTE_LABEL[q.state] ?? q.state})`).join(', ')}.`}</Text>
+        <Flex direction="row" gap="md" wrap="wrap">
+          {others.map((q) => (
+            <Link key={q.id} href={quoteUrl(q.id)}>{`Open ${q.title}`}</Link>
+          ))}
+          <Link href="#" preventDefault onClick={p.onRefresh}>
+            Refresh
+          </Link>
+        </Flex>
+        <Text variant="microcopy">Delete it or let it expire in HubSpot, then come back and create the order form.</Text>
+      </Flex>
+    );
+  } else {
+    body = (
+      <Flex direction="column" gap="sm">
+        {current && (current.state === 'expired' || current.state === 'rejected') && (
+          <Text variant="microcopy">{`The last order form quote (${current.title}) is ${current.state}. Create a new one when the details are right.`}</Text>
+        )}
+        {info.templates.length ? (
+          <Select
+            name="quote-template"
+            label="Quote template"
+            value={p.templateId}
+            options={info.templates.map((x) => ({ label: x.name, value: x.id }))}
+            onChange={(x) => p.onTemplate(String(x ?? ''))}
+          />
+        ) : (
+          <Text variant="microcopy">
+            {`No quote templates found${info.templatesError ? ` (${info.templatesError})` : ''}. Set one up in Settings > Objects > Quotes > Templates.`}
+          </Text>
+        )}
+        <Flex direction="row" gap="sm" align="center" wrap="wrap">
+          <LoadingButton variant="primary" loading={p.busy} disabled={!canCreate} onClick={() => p.onCreate()}>
+            {createLabel}
+          </LoadingButton>
+          <Text variant="microcopy">Creates a draft HubSpot quote with these line items, e-signature on, for you to check and send.</Text>
+        </Flex>
+      </Flex>
+    );
+  }
+
+  return (
+    <Tile>
+      <Flex direction="column" gap="sm">
+        <Text format={{ fontWeight: 'demibold' }}>Order form quote</Text>
+        {!TERMS_APPROVED && (
+          <Text variant="microcopy">The order form terms are placeholder wording until legal approves them. Quotes created now carry a DRAFT notice in their terms.</Text>
+        )}
+        {body}
+        <Accordion title="Preview the order form text" size="sm" open={preview} onClick={() => setPreview(!preview)}>
+          <Flex direction="column" gap="sm">
+            <Text format={{ fontWeight: 'demibold' }}>Comments to buyer</Text>
+            {plain(orderComments(v))
+              .split('\n')
+              .map((line, i) => (
+                <Text key={`c${i}`}>{line || ' '}</Text>
+              ))}
+            <Divider />
+            <Text format={{ fontWeight: 'demibold' }}>Terms</Text>
+            {plain(orderTerms(v))
+              .split('\n')
+              .map((line, i) => (
+                <Text key={`t${i}`}>{line || ' '}</Text>
+              ))}
+          </Flex>
+        </Accordion>
+      </Flex>
+    </Tile>
   );
 }
 
@@ -945,7 +1188,7 @@ function SitesSection({ v, set, sum }: Shared) {
       )}
       {sum.siteCount > 0 && (
         <Text variant="microcopy">
-          {`${sum.siteCount} site${sum.siteCount === 1 ? '' : 's'} and ${sum.siteCameras} camera integrations. Licence and camera quantities on the line items are checked against these.${staged ? '' : ' All sites go live on the contract start date.'}${sum.siteCount > NUMBERED_SITES ? ` Every site goes to Juro in the site schedule; Sites 1–${NUMBERED_SITES} also fill the numbered site fields.` : ''}`}
+          {`${sum.siteCount} site${sum.siteCount === 1 ? '' : 's'} and ${sum.siteCameras} camera integrations. Licence and camera quantities on the line items are checked against these.${staged ? '' : ' All sites go live on the contract start date.'}${sum.siteCount > NUMBERED_SITES ? ` Every site is on the order form in the site schedule; Sites 1–${NUMBERED_SITES} also fill the numbered site fields.` : ''}`}
         </Text>
       )}
     </Flex>
@@ -968,17 +1211,34 @@ function TotalRow({ label: l, value, strong }: { label: string; value: string; s
 function LegalSection({ v, set, people, signers, signersError }: Shared & { people: People; signers: Signer[] | null; signersError: string }) {
   return (
     <Flex direction="column" gap="sm">
-      <SelectField v={v} set={set} name="of_existing_msa" required />
-      {v.of_existing_msa === 'yes' && (
-        <>
-          <TextField v={v} set={set} name="of_msa_details" area required />
-          <DateField v={v} set={set} name="of_msa_date" />
-        </>
+      <Select
+        name="of_msa_status"
+        label="MSA status"
+        required
+        value={msaStatus(v)}
+        options={MSA_OPTIONS}
+        onChange={(x) => set('of_msa_status', String(x ?? ''))}
+      />
+      {(msaStatus(v) === 'existing_msa' || msaStatus(v) === 'signed_in_juro') && (
+        <Flex direction="row" gap="sm" wrap="wrap">
+          <DateField v={v} set={set} name="of_msa_date" required />
+          <TextField v={v} set={set} name="of_msa_details" area />
+        </Flex>
       )}
-      {v.of_existing_msa === 'not_sure' && <Text variant="microcopy">Check with legal before marking this ready. If there's no MSA, one goes out with this order form.</Text>}
+      {msaStatus(v) === 'negotiating_in_juro' && (
+        <Text variant="microcopy">Redline the MSA in Juro. When it's signed, set this to Signed in Juro and add its date. The order form can't be created until then.</Text>
+      )}
+      {msaStatus(v) === 'standard_msa' && (
+        <Text variant="microcopy">
+          {STANDARD_MSA_URL
+            ? `The order form links to the standard MSA (${STANDARD_MSA_URL}); signing it accepts the MSA.`
+            : 'Legal needs to add the link to the standard MSA before Standard MSA order forms can go out.'}
+        </Text>
+      )}
       <TextField v={v} set={set} name="of_legal_notes" area />
       <Divider />
       <Text format={{ fontWeight: 'demibold' }}>{`Counterparty signer${v.of_client_legal_name ? ` for ${v.of_client_legal_name}` : ''}`}</Text>
+      <Text variant="microcopy">Pick them from a deal contact: the order form quote is sent to that contact to e-sign.</Text>
       <ContactPicker
         people={people}
         label="Fill from a deal contact"
@@ -995,7 +1255,7 @@ function LegalSection({ v, set, people, signers, signersError }: Shared & { peop
         <TextField v={v} set={set} name="of_counterparty_signer_title" label="Job title" required />
       </Flex>
       <Divider />
-      <Text format={{ fontWeight: 'demibold' }}>Signing for Protex</Text>
+      <Text format={{ fontWeight: 'demibold' }}>Countersigning for Protex</Text>
       {signersError ? (
         <Text variant="microcopy">{`Couldn't load HubSpot users (${signersError}). Type the signatory's details below.`}</Text>
       ) : signers === null ? (

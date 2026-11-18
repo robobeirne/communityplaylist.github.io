@@ -3,7 +3,7 @@
 import React from 'react';
 import assert from 'node:assert/strict';
 import { createRenderer } from '@hubspot/ui-extensions/testing';
-import { Accordion, Alert, Button, Heading, Input, Link, LoadingButton, NumberInput, Select, StatisticsItem, Tag, Text, TextArea } from '@hubspot/ui-extensions';
+import { Accordion, Alert, Button, Heading, Input, Link, LoadingButton, NumberInput, Select, StatisticsItem, StatusTag, Tag, Text, TextArea } from '@hubspot/ui-extensions';
 import { OrderForm } from '../OrderForm.tsx';
 
 const calls: { name: string; parameters: Record<string, any> }[] = [];
@@ -31,6 +31,9 @@ const LINE = (id: string, productId: string, quantity: number, extra: Record<str
   };
 };
 let dealLines: ReturnType<typeof LINE>[] = [];
+type Q = { id: string; title: string; state: string; expires: string; link: string };
+let dealQuotes: Q[] = [];
+let quoteId = '';
 const g = globalThis as Record<string, unknown>;
 g.self ??= globalThis; // the extension worker's global, which hubspot.serverless() reads
 g.serverless = async (name: string, opts: { parameters: Record<string, any> }) => {
@@ -52,6 +55,18 @@ g.serverless = async (name: string, opts: { parameters: Record<string, any> }) =
       },
     };
   }
+  if (opts.parameters.action === 'quote') {
+    const live = dealQuotes.filter((q) => ['draft', 'awaiting_approval', 'sent', 'signed'].includes(q.state));
+    return {
+      statusCode: 200,
+      body: { ok: true, quotes: dealQuotes, current: dealQuotes.find((q) => q.id === quoteId) ?? null, live, templates: [{ id: '55', name: 'Protex order form' }], templatesError: '', properties: {} },
+    };
+  }
+  if (opts.parameters.action === 'create_quote') {
+    dealQuotes = [...dealQuotes.filter((q) => q.id !== opts.parameters.replaceQuoteId), { id: '950', title: opts.parameters.title, state: 'draft', expires: '2026-12-17T23:59:59.000Z', link: '' }];
+    quoteId = '950';
+    return { statusCode: 200, body: { ok: true, quote: dealQuotes[dealQuotes.length - 1], properties: { of_quote_id: '950', of_status: 'ready_to_send', of_quote_status: 'draft', of_changed_after_quote: 'false' } } };
+  }
   if (opts.parameters.action === 'pricing') return { statusCode: 200, body: { ok: true, lines: dealLines, products: PRODUCTS } };
   const ch = opts.parameters.lines ?? {};
   const created = (ch.create ?? []).map((c: any, i: number) => LINE(String(900 + i), c.productId, c.quantity));
@@ -59,20 +74,25 @@ g.serverless = async (name: string, opts: { parameters: Record<string, any> }) =
   return { statusCode: 200, body: { ok: true, properties: opts.parameters.properties, lines: dealLines } };
 };
 
-async function renderWith(props: Record<string, string>, lines: ReturnType<typeof LINE>[] = []) {
+async function renderWith(props: Record<string, string>, lines: ReturnType<typeof LINE>[] = [], quotes: Q[] = []) {
   dealLines = lines;
+  dealQuotes = quotes;
+  quoteId = props.of_quote_id ?? '';
   const r = createRenderer('crm.record.tab');
   r.mocks.actions.fetchCrmObjectProperties.willCall(async () => props);
   r.mocks.actions.onCrmPropertiesUpdate.willCall(() => {});
   r.mocks.actions.refreshObjectProperties.willCall(() => {});
   r.mocks.actions.addAlert.willCall(() => {});
-  r.render(<OrderForm actions={r.mocks.actions as never} dealId="77" user="rep@protex.ai" />);
+  r.render(<OrderForm actions={r.mocks.actions as never} dealId="77" portalId="24888392" user={{ email: 'rep@protex.ai', firstName: 'Rob', lastName: 'Rep' }} />);
   await r.waitFor(() => assert.ok(r.maybeFind(Heading)));
   await r.waitFor(() => assert.ok(!texts(r).join(' ').includes('Line items (loading)')));
   await r.waitFor(() => assert.ok(button(r, 'Fill from the company')));
+  await r.waitFor(() => assert.ok(!texts(r).includes("Checking the deal's quotes") && texts(r).includes('Order form quote')));
   return r;
 }
 type R = Awaited<ReturnType<typeof renderWith>>;
+const sections = (r: R) => r.findAll(Accordion).filter((a) => /^\d\./.test(String(a.props.title)));
+const lastCreate = () => [...calls].reverse().find((c) => c.parameters.action === 'create_quote')?.parameters;
 const texts = (r: R) => r.findAll(Text).map((t) => t.text);
 const field = (r: R, name: string) => [...r.findAll(Input), ...r.findAll(TextArea)].find((x) => x.props.name === name)!;
 const select = (r: R, name: string) => r.findAll(Select).find((x) => x.props.name === name)!;
@@ -85,11 +105,11 @@ const num = (r: R, name: string) => r.findAll(NumberInput).find((n) => n.props.n
 let r = await renderWith({ pipeline: 'default', dealname: 'Northbridge' });
 assert.equal(r.find(Heading).text, 'Order form');
 assert.ok(r.findAll(Tag).some((t) => t.text === 'New business'), 'order type comes from the pipeline');
-assert.equal(r.findAll(Accordion).length, 5);
-assert.ok(r.findAll(Alert).some((a) => String(a.props.title).startsWith('Still needed before Juro')));
-const gated = [...r.findAll(LoadingButton)].find((b) => b.text.startsWith('Mark ready for Juro'));
-assert.ok(gated && gated.props.disabled && / to fill$/.test(gated.text), 'Mark ready shows, disabled, with how much is left');
-assert.ok(r.findAll(Accordion).every((a) => a.props.open), 'every section has gaps, so every section starts open');
+assert.equal(sections(r).length, 5);
+assert.ok(r.findAll(Alert).some((a) => String(a.props.title).startsWith('Still needed before sending')));
+const gated = [...r.findAll(LoadingButton)].find((b) => b.text.startsWith('Create order form'));
+assert.ok(gated && gated.props.disabled && / to fill$/.test(gated.text), 'Create order form shows, disabled, with how much is left');
+assert.ok(sections(r).every((a) => a.props.open), 'every section has gaps, so every section starts open');
 assert.ok(calls.some((c) => c.parameters.action === 'signatories'), 'loads the Protex signatories');
 await r.waitFor(() => assert.ok(select(r, 'pick-Fill from a deal contact')));
 assert.deepEqual(
@@ -97,7 +117,7 @@ assert.deepEqual(
   ['Alex Kim — COO — alex@northbridge.example', 'Pat Fox — Finance Manager — ap@northbridge.example', 'ops@northbridge.example'],
   'contacts show names, titles and emails, never a bare ID',
 );
-console.log('new deal: 5 sections open, still-needed alert, Mark ready disabled');
+console.log('new deal: 5 sections open, still-needed alert, Create order form disabled');
 
 // Fill from the company and a deal contact, then save.
 button(r, 'Fill from the company')!.trigger('onClick');
@@ -122,7 +142,7 @@ await r.waitFor(() => assert.equal(field(r, 'of_protex_signer_email').props.valu
 assert.equal(field(r, 'of_protex_signer_name').props.value, 'Jesse Maggs');
 console.log('Protex signatory fills name and email');
 
-// A complete deal: ready for Juro.
+// A complete deal: ready to send.
 const complete: Record<string, string> = {
   pipeline: 'default',
   of_order_type: 'new_business',
@@ -146,7 +166,9 @@ const complete: Record<string, string> = {
     { name: 'Wakefield', cameras: 10, goLive: '' },
     { name: 'Doncaster', cameras: 8, goLive: '' },
   ]),
-  of_existing_msa: 'no',
+  of_msa_status: 'existing_msa',
+  of_msa_date: '2025-06-01',
+  of_counterparty_signer_contact_id: '501',
   of_counterparty_signer_name: 'Alex Kim',
   of_counterparty_signer_email: 'alex@northbridge.example',
   of_counterparty_signer_title: 'COO',
@@ -157,7 +179,7 @@ const complete: Record<string, string> = {
 };
 const COMPLETE_LINES = [LINE('501', '2281317872', 3), LINE('502', '2282093038', 30), LINE('503', '2282093039', 3)];
 r = await renderWith(complete, COMPLETE_LINES);
-assert.ok(r.findAll(Alert).some((a) => a.props.title === 'Everything Juro needs is here'), JSON.stringify(r.findAll(Alert).map((a) => a.props.title)));
+assert.ok(r.findAll(Alert).some((a) => a.props.title === 'Everything the order form needs is here'), JSON.stringify(r.findAll(Alert).map((a) => a.props.title)));
 assert.deepEqual(
   r.findAll(StatisticsItem).map((s) => [s.props.label, s.props.number]),
   [
@@ -167,14 +189,15 @@ assert.deepEqual(
     ['Sites', '3'],
   ],
 );
-assert.ok(r.findAll(Accordion).every((a) => String(a.props.title).endsWith('complete')));
-assert.ok(r.findAll(Accordion).every((a) => !a.props.open), 'complete sections start closed');
-const ready = button(r, 'Mark ready for Juro');
-assert.ok(ready, 'Mark ready shows when nothing is missing');
-ready!.trigger('onClick');
-await r.waitFor(() => assert.equal(lastSave().of_status, 'ready_for_juro'));
+assert.ok(sections(r).every((a) => String(a.props.title).endsWith('complete')));
+assert.ok(sections(r).every((a) => !a.props.open), 'complete sections start closed');
+// Save first (sends the calculated fields), then create the order form quote.
+field(r, 'of_legal_notes').trigger('onChange', 'Standard deal' as never);
+await r.waitFor(() => assert.ok(button(r, 'Save changes')));
+assert.ok(button(r, 'Save, then create the order form')?.props.disabled, 'unsaved changes block creating the quote');
+button(r, 'Save changes')!.trigger('onClick');
+await r.waitFor(() => assert.equal(lastSave().of_legal_notes, 'Standard deal'));
 saved = lastSave();
-assert.equal(saved.of_ready_by, 'rep@protex.ai');
 assert.equal(saved.of_total_contract_value, '256050');
 assert.equal(saved.number_of_sites_to_start, '3');
 assert.equal(saved.amount, '122400', 'the deal Amount is the annual subscription from the line items');
@@ -183,14 +206,31 @@ assert.equal(
   saved.of_site_schedule,
   '1. Leeds DC — 12 camera integrations — go-live 1 Jan 2027\n2. Wakefield — 10 camera integrations — go-live 1 Jan 2027\n3. Doncaster — 8 camera integrations — go-live 1 Jan 2027',
 );
-console.log('complete deal: £122,400 a year from the line items, £256,050 TCV, Mark ready saves the status');
+assert.equal(select(r, 'quote-template').props.value, '55', 'picks the order form template');
+await r.waitFor(() => assert.equal(button(r, 'Create order form')?.props.disabled, false));
+button(r, 'Create order form')!.trigger('onClick');
+await r.waitFor(() => assert.ok(lastCreate()));
+const created = lastCreate()!;
+assert.equal(created.templateId, '55');
+assert.equal(created.expirationDate, '2026-12-17');
+assert.equal(created.signerContactId, '501');
+assert.equal(created.companyId, '9');
+assert.equal(created.currency, 'GBP');
+assert.deepEqual(created.sender, { firstName: 'Rob', lastName: 'Rep', email: 'rep@protex.ai', company: 'Protex AI' });
+assert.ok(created.terms.includes('dated 1 June 2025'));
+assert.ok(created.comments.includes('Northbridge Logistics Ltd'));
+await r.waitFor(() => assert.ok(texts(r).some((t) => t.startsWith('Next: open the quote, check it, add Jesse Maggs as the countersigner'))));
+assert.ok(r.findAll(Link).some((l) => l.props.href === 'https://app.hubspot.com/quotes/24888392/details/950'));
+assert.ok(r.findAll(StatusTag).some((t) => t.text === 'Ready to send'), 'status moves to Ready to send');
+assert.equal(button(r, 'Create order form'), undefined, 'no second quote while this one is live');
+console.log('complete deal: £122,400 a year, £256,050 TCV; Create order form makes the quote with the terms, signer and template');
 
 // A per-line discount needs a reason, flags approval at 20%, and saves to the line item.
 r = await renderWith(complete, COMPLETE_LINES);
 num(r, 'dval-501').trigger('onChange', 25 as never);
 await r.waitFor(() => assert.ok(r.findAll(Tag).some((t) => t.text === 'Needs approval')));
 assert.ok(texts(r).some((t) => t.includes('25% discount is at or above the 20% approval threshold')));
-assert.ok(r.findAll(Alert).some((a) => String(a.props.title).startsWith('Still needed before Juro')), 'the discount needs a reason');
+assert.ok(r.findAll(Alert).some((a) => String(a.props.title).startsWith('Still needed before sending')), 'the discount needs a reason');
 field(r, 'of_discount_reason').trigger('onChange', 'Three-year multi-site commitment' as never);
 await r.waitFor(() => assert.ok(button(r, 'Save changes')));
 button(r, 'Save changes')!.trigger('onClick');
@@ -247,7 +287,7 @@ field(r, 'site-paste').trigger('onChange', pasted as never);
 await r.waitFor(() => assert.ok(button(r, 'Add 25 sites')));
 button(r, 'Add 25 sites')!.trigger('onClick');
 await r.waitFor(() => assert.ok(field(r, 'site-24-name')));
-assert.ok(texts(r).some((t) => t.includes('Every site goes to Juro in the site schedule')));
+assert.ok(texts(r).some((t) => t.includes('Every site is on the order form in the site schedule')));
 assert.ok(texts(r).some((t) => t.startsWith('25 sites: only Sites 1–20')));
 button(r, 'Add a site')!.trigger('onClick');
 await r.waitFor(() => assert.ok(field(r, 'site-25-name')));
@@ -259,19 +299,39 @@ assert.equal(lastSave().of_site_schedule.split('\n').length, 26);
 assert.equal(lastSave().of_site_20_name, 'Depot 20');
 console.log('25 pasted sites plus one added: all 26 saved and in the schedule, 1–20 in the numbered fields');
 
-// Editing after it's marked ready puts it back to Draft.
-r = await renderWith({ ...complete, of_status: 'ready_for_juro', of_ready_at: '2026-11-17T10:00:00Z', of_ready_by: 'rep@protex.ai' }, COMPLETE_LINES);
-assert.equal(button(r, 'Mark ready for Juro'), undefined);
+// Changing the order form after the quote exists: flagged, and a draft can be replaced.
+const DRAFT_Q = { id: '950', title: 'Northbridge | Order form', state: 'draft', expires: '2026-12-17T23:59:59.000Z', link: '' };
+r = await renderWith({ ...complete, of_status: 'ready_to_send', of_quote_id: '950', of_ready_at: '2026-11-17T10:00:00Z', of_ready_by: 'rep@protex.ai' }, COMPLETE_LINES, [DRAFT_Q]);
+assert.ok(texts(r).includes('Order form created 17 Nov 2026 by rep@protex.ai'));
 field(r, 'of_legal_notes').trigger('onChange', 'Client wants 60-day payment terms' as never);
 await r.waitFor(() => assert.ok(button(r, 'Save changes')));
 button(r, 'Save changes')!.trigger('onClick');
 await r.waitFor(() => assert.equal(lastSave().of_legal_notes, 'Client wants 60-day payment terms'));
-assert.equal(lastSave().of_status, 'draft');
-console.log('a change after Mark ready sends it back to Draft');
+assert.equal(lastSave().of_changed_after_quote, 'true');
+await r.waitFor(() => assert.ok(r.findAll(Alert).some((a) => a.props.title === 'The order form changed after this quote was created')));
+button(r, 'Replace the draft quote')!.trigger('onClick');
+await r.waitFor(() => assert.equal(lastCreate()?.replaceQuoteId, '950'));
+console.log('a change after the quote is flagged, and the draft quote can be replaced');
+
+// A sent quote can't be replaced from the card; another live quote blocks creating one.
+r = await renderWith({ ...complete, of_status: 'sent', of_quote_id: '950', of_changed_after_quote: 'true' }, COMPLETE_LINES, [{ ...DRAFT_Q, state: 'sent', link: 'https://quotes.example/950' }]);
+assert.ok(r.findAll(Alert).some((a) => a.props.title === 'The order form changed after this quote was sent'));
+assert.equal(button(r, 'Replace the draft quote'), undefined);
+assert.ok(r.findAll(Link).some((l) => l.text === "The client's view"));
+r = await renderWith({ ...complete }, COMPLETE_LINES, [{ id: '777', title: 'Manual quote', state: 'draft', expires: '', link: '' }]);
+assert.ok(texts(r).some((t) => t.startsWith("This deal already has a live quote, so the order form can't be created: Manual quote")));
+assert.equal(button(r, 'Create order form'), undefined);
+console.log("a sent quote isn't replaceable, and another live quote blocks creating the order form");
+
+// MSA negotiating in Juro blocks the order form until it's signed.
+r = await renderWith({ ...complete, of_msa_status: 'negotiating_in_juro' }, COMPLETE_LINES);
+assert.ok(texts(r).join(' ').includes('The MSA signed in Juro'));
+assert.ok(button(r, 'Create order form · 1 to fill')?.props.disabled);
+console.log('an MSA still in Juro blocks the order form');
 
 // The still-needed list links to its section: clicking opens it.
 r = await renderWith({ ...complete, of_counterparty_signer_title: '' }, COMPLETE_LINES);
-const legal = () => r.findAll(Accordion).find((a) => String(a.props.title).startsWith('5.'))!;
+const legal = () => sections(r).find((a) => String(a.props.title).startsWith('5.'))!;
 assert.equal(legal().props.open, true, 'the section with a gap starts open');
 legal().trigger('onClick');
 await r.waitFor(() => assert.equal(legal().props.open, false));

@@ -2,7 +2,7 @@ import json, re, sys
 out = sys.argv[1]
 P = []
 def slug(s): return re.sub(r'[^a-z0-9]+', '_', s.lower()).strip('_')
-def add(group, name, label, kind, desc='', options=None):
+def add(group, name, label, kind, desc='', options=None, hidden=()):
     t = {'text': ('string', 'text'), 'textarea': ('string', 'textarea'), 'number': ('number', 'number'),
          'date': ('date', 'date'), 'datetime': ('datetime', 'date'), 'select': ('enumeration', 'select'),
          'radio': ('enumeration', 'radio'), 'bool': ('bool', 'booleancheckbox')}[kind]
@@ -11,6 +11,8 @@ def add(group, name, label, kind, desc='', options=None):
         p['options'] = [{'label': 'Yes', 'value': 'true'}, {'label': 'No', 'value': 'false'}]
     elif options:
         p['options'] = [{'label': o, 'value': slug(o)} for o in options]
+        # Old values kept as hidden options so deals that still hold them read correctly.
+        p['options'] += [{'label': o, 'value': slug(o), 'hidden': True} for o in hidden]
     P.append(p)
 
 # Order and term
@@ -61,24 +63,32 @@ for i in range(1, 21):
 
 # Legal and MSA
 G = 'Legal & MSA'
-add(G, 'of_existing_msa', 'Is there an existing MSA?', 'select', '', ['Yes', 'No', 'Not sure'])
+add(G, 'of_msa_status', 'MSA status', 'select', 'Which MSA this order form is governed by. Negotiated MSAs are redlined in Juro; the order form goes out once it is signed.',
+    ['Existing MSA', 'Standard MSA', 'Negotiating in Juro', 'Signed in Juro'])
+add(G, 'of_existing_msa', 'Is there an existing MSA? (old)', 'select', 'Replaced by MSA status.', ['Yes', 'No', 'Not sure'])
 add(G, 'of_msa_details', 'MSA details or link', 'textarea')
-add(G, 'of_msa_date', 'Existing MSA date', 'date')
-add(G, 'of_legal_notes', 'Notes for legal', 'textarea')
+add(G, 'of_msa_date', 'MSA date', 'date', 'The date of the MSA this order form refers to: the existing one, or the one signed in Juro.')
+add(G, 'of_legal_notes', 'Notes for legal', 'textarea', 'Internal. Not shown on the order form.')
 add(G, 'of_counterparty_signer_name', 'Counterparty signer name', 'text')
 add(G, 'of_counterparty_signer_email', 'Counterparty signer email', 'text')
 add(G, 'of_counterparty_signer_title', 'Counterparty signer job title', 'text')
-add(G, 'of_counterparty_signer_contact_id', 'Counterparty signer contact ID', 'text', 'The HubSpot contact the signer details came from.')
-add(G, 'of_protex_signer_user_id', 'Protex signatory (user ID)', 'text', 'The HubSpot user who signs for Protex.')
+add(G, 'of_counterparty_signer_contact_id', 'Counterparty signer contact ID', 'text', 'The HubSpot contact who e-signs the order form quote.')
+add(G, 'of_protex_signer_user_id', 'Protex signatory (user ID)', 'text', 'The HubSpot user who countersigns for Protex.')
 add(G, 'of_protex_signer_name', 'Protex signatory name', 'text')
 add(G, 'of_protex_signer_email', 'Protex signatory email', 'text')
 add(G, 'of_protex_signer_title', 'Protex signatory job title', 'text')
 
 # Status
 G = 'Status'
-add(G, 'of_status', 'Order form status', 'select', '', ['Draft', 'Ready for Juro', 'Sent to Juro', 'Signed'])
-add(G, 'of_ready_at', 'Marked ready for Juro at', 'datetime')
-add(G, 'of_ready_by', 'Marked ready for Juro by', 'text')
+add(G, 'of_status', 'Order form status', 'select', 'Draft, then Ready to send once the order form quote is created, Sent once it is published, Signed once fully signed.',
+    ['Draft', 'Ready to send', 'Sent', 'Signed'], hidden=['Ready for Juro', 'Sent to Juro'])
+add(G, 'of_ready_at', 'Order form created at', 'datetime', 'When the order form quote was created from the card.')
+add(G, 'of_ready_by', 'Order form created by', 'text')
+add(G, 'of_quote_id', 'Order form quote ID', 'text', 'The HubSpot quote that is this deal\'s order form.')
+add(G, 'of_quote_status', 'Order form quote status', 'select', 'Kept in step with the quote by the order form card.',
+    ['Draft', 'Awaiting approval', 'Sent', 'Signed', 'Expired', 'Rejected'])
+add(G, 'of_changed_after_quote', 'Order form changed after the quote was created', 'bool', 'Set when the card saves changes after the order form quote exists; cleared when a new quote is created.')
+add(G, 'of_signed_at', 'Order form signed at', 'datetime', 'When the order form quote was fully signed (including countersignature).')
 
 json.dump(P, open(out, 'w'), indent=2, ensure_ascii=False)
 open(out, 'a').write('\n')

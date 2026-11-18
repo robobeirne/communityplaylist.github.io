@@ -177,3 +177,117 @@ test('parties returns the deal contacts by name and its company', async () => {
   ]);
   assert.deepEqual(res.body.company, { id: '9', name: 'Northbridge Ltd', city: 'Leeds', zip: '' });
 });
+
+const future = new Date(Date.now() + 30 * 86400000).toISOString();
+const past = new Date(Date.now() - 86400000).toISOString();
+const Q = (id, props) => ({ id, properties: { hs_title: `Quote ${id}`, hs_expiration_date: future, hs_createdate: `2026-11-${10 + Number(id) % 10}T00:00:00Z`, ...props } });
+
+test('quote: reads the deal quotes, works out their state, and keeps the order form status in step', async () => {
+  const sent = stub([
+    ['GET', /objects\/deals\/77\?properties=of_quote_id/, { properties: { of_quote_id: '901', of_status: 'ready_to_send', of_quote_status: 'draft' } }],
+    ['GET', /v4\/objects\/deals\/77\/associations\/quotes/, { results: [{ toObjectId: 901 }, { toObjectId: 902 }, { toObjectId: 903 }] }],
+    [
+      'POST',
+      /quotes\/batch\/read/,
+      {
+        results: [
+          Q('901', { hs_status: 'APPROVAL_NOT_NEEDED', hs_esign_date: '1795000000000' }),
+          Q('902', { hs_status: 'DRAFT', hs_expiration_date: past }),
+          Q('903', { hs_status: 'PENDING_APPROVAL' }),
+        ],
+      },
+    ],
+    ['GET', /objects\/quote_template/, { results: [{ id: '55', properties: { hs_name: 'Protex order form', hs_active: 'true' } }, { id: '56', properties: { hs_name: 'Old', hs_active: 'false' } }] }],
+    ['PATCH', /objects\/deals\/77$/, {}],
+  ]);
+  const res = await main({ parameters: { action: 'quote', dealId: '77' } });
+  assert.equal(res.statusCode, 200);
+  const states = Object.fromEntries(res.body.quotes.map((q) => [q.id, q.state]));
+  assert.deepEqual(states, { 901: 'signed', 902: 'expired', 903: 'awaiting_approval' });
+  assert.equal(res.body.current.id, '901');
+  assert.deepEqual(res.body.live.map((q) => q.id).sort(), ['901', '903']);
+  assert.deepEqual(res.body.templates, [{ id: '55', name: 'Protex order form', active: true, type: '' }]);
+  const patch = sent.find((s) => s.method === 'PATCH');
+  assert.equal(patch.body.properties.of_status, 'signed');
+  assert.equal(patch.body.properties.of_quote_status, 'signed');
+  assert.ok(patch.body.properties.of_signed_at.startsWith('2026-'));
+});
+
+const CREATE = {
+  action: 'create_quote',
+  dealId: '77',
+  templateId: '55',
+  title: 'Northbridge | Order form',
+  expirationDate: '2026-12-17',
+  currency: 'GBP',
+  terms: '<p>Terms</p>',
+  comments: '<p>Comments</p>',
+  signerContactId: '501',
+  companyId: '9',
+  sender: { firstName: 'Rob', lastName: 'Rep', email: 'rep@protex.ai', company: 'Protex AI' },
+};
+const createRoutes = (quotes = []) => [
+  ['GET', /v4\/objects\/deals\/77\/associations\/quotes/, { results: quotes.map((q) => ({ toObjectId: Number(q.id) })) }],
+  ['POST', /quotes\/batch\/read/, { results: quotes }],
+  ['GET', /v4\/objects\/deals\/77\/associations\/contacts/, { results: [{ toObjectId: 501 }] }],
+  ['GET', /v4\/objects\/deals\/77\/associations\/companies/, { results: [{ toObjectId: 9 }] }],
+  ['GET', /v4\/objects\/deals\/77\/associations\/line_items/, { results: [{ toObjectId: 601 }] }],
+  [
+    'POST',
+    /line_items\/batch\/read/,
+    { results: [{ id: '601', properties: { hs_product_id: '1', name: 'Licence', quantity: '3', price: '33300', hs_discount_percentage: '10', amount: '89910', hs_line_item_currency_code: 'GBP', recurringbillingfrequency: 'annually', discount: null } }] },
+  ],
+  ['GET', /v4\/objects\/quotes\/\d+\/associations\/line_items/, { results: [{ toObjectId: 700 }] }],
+  ['POST', /objects\/quotes$/, { id: '950' }],
+  ['POST', /line_items\/batch\/create/, { results: [] }],
+  ['DELETE', /objects\/(quotes|line_items)\/\d+$/, {}],
+  ['PATCH', /objects\/deals\/77$/, {}],
+];
+
+test('create_quote: a draft quote with e-signature, copies of the line items, and the deal updated', async () => {
+  const sent = stub(createRoutes());
+  const res = await main({ parameters: CREATE });
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+  const quote = sent.find((s) => s.method === 'POST' && /objects\/quotes$/.test(s.url)).body;
+  assert.equal(quote.properties.hs_status, 'DRAFT');
+  assert.equal(quote.properties.hs_esign_enabled, 'true');
+  assert.equal(quote.properties.hs_expiration_date, '2026-12-17T23:59:59.000Z');
+  assert.equal(quote.properties.hs_terms, '<p>Terms</p>');
+  assert.equal(quote.properties.hs_sender_email, 'rep@protex.ai');
+  assert.deepEqual(
+    quote.associations.map((a) => [a.to.id, a.types[0].associationTypeId]),
+    [['77', 64], ['55', 286], ['501', 69], ['9', 71]],
+  );
+  const copies = sent.find((s) => /line_items\/batch\/create/.test(s.url)).body.inputs;
+  assert.deepEqual(copies[0].properties, { hs_product_id: '1', name: 'Licence', quantity: '3', price: '33300', hs_discount_percentage: '10', hs_line_item_currency_code: 'GBP', recurringbillingfrequency: 'annually' });
+  assert.equal(copies[0].associations[0].to.id, '950');
+  assert.equal(copies[0].associations[0].types[0].associationTypeId, 68);
+  const deal = sent.filter((s) => s.method === 'PATCH').pop().body.properties;
+  assert.equal(deal.of_quote_id, '950');
+  assert.equal(deal.of_status, 'ready_to_send');
+  assert.equal(deal.of_changed_after_quote, 'false');
+});
+
+test('create_quote: blocks a second live quote, replaces only a draft, checks the signer', async () => {
+  let sent = stub(createRoutes([Q('901', { hs_status: 'APPROVAL_NOT_NEEDED' })]));
+  let res = await main({ parameters: CREATE });
+  assert.equal(res.statusCode, 409);
+  assert.match(res.body.message, /already has a live quote/);
+  assert.ok(!sent.some((s) => s.method === 'POST' && /objects\/quotes$/.test(s.url)), 'nothing created');
+
+  res = await main({ parameters: { ...CREATE, replaceQuoteId: '901' } });
+  assert.equal(res.statusCode, 409, 'a sent quote cannot be replaced');
+
+  sent = stub(createRoutes([Q('902', { hs_status: 'DRAFT' })]));
+  res = await main({ parameters: { ...CREATE, replaceQuoteId: '902' } });
+  assert.equal(res.statusCode, 200);
+  assert.ok(sent.some((s) => s.method === 'DELETE' && /quotes\/902$/.test(s.url)), 'the old draft is removed');
+  assert.ok(sent.some((s) => s.method === 'DELETE' && /line_items\/700$/.test(s.url)), 'with its line item copies');
+
+  stub(createRoutes([Q('902', { hs_status: 'DRAFT', hs_expiration_date: past })]));
+  assert.equal((await main({ parameters: CREATE })).statusCode, 200, 'an expired quote does not block');
+
+  stub(createRoutes());
+  assert.equal((await main({ parameters: { ...CREATE, signerContactId: '999' } })).statusCode, 400, 'signer must be a deal contact');
+  assert.equal((await main({ parameters: { ...CREATE, templateId: '' } })).statusCode, 400);
+});

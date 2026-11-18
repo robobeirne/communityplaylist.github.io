@@ -1,11 +1,11 @@
 # Order form card (deals)
 
-One card on the deal captures everything the order form and MSA need, for new business, renewals and expansions. It saves it all as deal properties, so Juro can pull it into the contract through its HubSpot integration. Edits and approvals then happen in Juro.
+One card on the deal captures everything the order form needs, for new business, renewals and expansions, and turns it into the order form itself: a HubSpot quote the client e-signs and Protex countersigns. Juro is only used to redline MSAs.
 
 ## What reps see
 
-- **Summary:** order type, status (Draft, Ready for Juro, Sent to Juro or Signed), annual subscription, total contract value, overall discount, number of sites, and a "Ready for Juro" bar counting the required details.
-- **Still needed before Juro:** every missing item, listed under its section. Each section name is a link that opens that section. **Check these** flags anything that looks wrong:
+- **Summary:** order type, status (Draft, Ready to send, Sent or Signed), annual subscription, total contract value, overall discount, number of sites, and a "Ready to send" bar counting the required details.
+- **Still needed before sending:** every missing item, listed under its section. Each section name is a link that opens that section. **Check these** flags anything that looks wrong:
   - the offer expires before the quote date;
   - the target signature date is after the offer expires;
   - an email address isn't valid;
@@ -33,11 +33,11 @@ One card on the deal captures everything the order form and MSA need, for new bu
      - A totals table: annual subscription at list, discounts, annual subscription, one-off fees, total contract value and the overall discount.
      - **Reason for the discounts**, required when any line is discounted.
   5. **Legal, MSA and signatures.**
-     - Existing MSA (details or link and date if yes) and notes for legal.
-     - The counterparty signer, picked from a deal contact.
-     - The Protex signatory, picked from HubSpot users.
+     - **MSA status:** Existing MSA, Standard MSA (accepted by signing the order form), Negotiating in Juro, or Signed in Juro, with the MSA date where there is one. Notes for legal stay internal.
+     - The counterparty signer, picked from a deal contact: that contact e-signs the quote.
+     - The Protex countersignatory, picked from HubSpot users.
 - **Save changes** saves what was typed and the line item changes (adds, edits, removals), plus the calculated fields: pricing table, annual subscription, discounts, one-off fees, total contract value, contract end date, site list and site schedule.
-- **Mark ready for Juro** is always visible. It stays disabled, showing how many details are left, until nothing required is missing and everything is saved. It records who marked it and when. If anything changes afterwards, the status goes back to Draft.
+- **Order form quote** panel: **Create order form** stays disabled, showing how many details are left, until nothing required is missing and everything is saved. Then it creates the quote (see below) and shows its status, what to do next and links to it. **Preview the order form text** shows the Comments and Terms the quote will carry.
 
 ## Pricing: line items, list prices and per-line discounts
 
@@ -52,10 +52,10 @@ The line items on the deal are the pricing. The card doesn't keep a second copy,
 
 **Governance:**
 - A discount needs a reason before the order form can be marked ready.
-- A line discounted 20% or more is tagged **Needs approval** and listed under **Check these**. The threshold is `DISCOUNT_APPROVAL_PCT` in `src/app/cards/orderform/lines.ts`. Approval itself happens in Juro.
+- A line discounted 20% or more is tagged **Needs approval** and listed under **Check these**. The threshold is `DISCOUNT_APPROVAL_PCT` in `src/app/cards/orderform/lines.ts`. Approval itself happens outside the card (see the decision in **The order form quote**).
 - A unit price that isn't list (the hidden discounting found on existing deals) is flagged, with a one-click fix.
 - A licence quantity that doesn't match the number of sites, or a camera quantity that doesn't match the cameras across sites, is flagged, with **Match the sites**.
-- A line in a different currency from the deal blocks **Ready for Juro**.
+- A line in a different currency from the deal blocks creating the order form.
 
 **The totals:**
 - A line is quantity × unit price, minus its discount. A % is capped at 100% and an amount at the unit price.
@@ -65,11 +65,54 @@ The line items on the deal are the pricing. The card doesn't keep a second copy,
 - **Overall discount** is all discounts as a share of list.
 - **Contract end date** is the contract start date + term − 1 day. For example, a 24-month term from 1 Jan 2027 ends on 31 Dec 2028.
 
-The calculated deal fields are written when the card saves. If someone edits line items elsewhere, the deal fields update the next time the card is saved. Map Juro to the card's fields, and only create the contract once the order form is **Ready for Juro**.
+The calculated deal fields are written when the card saves. If someone edits line items elsewhere, the deal fields update the next time the card is saved.
+
+## The order form quote
+
+**Create order form** makes a HubSpot quote from the deal:
+- **Line items:** copied from the deal on the server, so the quote shows exactly the pricing the card checked.
+- **Expiry:** "Offer expires on".
+- **Title:** "*deal name* | Order form", in the deal's currency.
+- **Template:** the one you pick. The card picks a template with "order form" in its name if there is one.
+- **People:** the counterparty signer as the contact who signs, the deal's company, and you as the sender.
+- **E-signature:** switched on.
+- **Comments to buyer:** client legal entity, address and IDs, contacts, subscription term, billing and payment terms, PO, and every site with its go-live date.
+- **Terms:** the agreement clause pointing at the MSA, renewal or expansion if relevant, subscription term and auto-renewal, fees and payment, sites, and offer validity.
+
+Every quote template shows the Comments and Terms fields, so no template tokens are needed.
+
+The quote is created as a **draft**. Open it, check it, add the Protex countersignatory, then publish it and send it for e-signature. The card shows the quote's state: Quote draft, Awaiting approval, Sent for signature, Signed, Expired or Rejected.
+
+**The card's status follows the quote.** Each time anyone opens the card, it reads the order form quote:
+- a draft or awaiting-approval quote is **Ready to send**;
+- a published quote is **Sent**;
+- a fully signed quote is **Signed**, and its signed date goes in `of_signed_at`;
+- an expired or rejected quote puts the order form back to **Draft**.
+
+To move the deal stage the moment a quote is signed, add a HubSpot workflow on the quote being signed.
+
+**One live quote at a time.** Creating the order form is blocked while the deal has any live quote (draft, awaiting approval, sent or signed), including one made by hand. Expired and rejected quotes don't block.
+
+**Changes after the quote exists.** The quote is a copy taken when it was made. If the card saves changes afterwards, it flags them:
+- **draft quote:** **Replace the draft quote** deletes the draft and its line item copies, then creates a fresh one;
+- **sent quote:** the card says the client's copy is out of date. Delete or expire the quote in HubSpot, then create the order form again.
+
+**Legal settings** live in `src/app/cards/orderform/legal.ts`:
+- `TERMS_APPROVED` is false until legal approves the wording in `orderform/terms.ts`. Until then, the card warns and every quote's Terms start with "DRAFT TERMS: NOT YET APPROVED BY LEGAL".
+- `PROTEX_ENTITY` is the contracting entity name. Legal to confirm.
+- `STANDARD_MSA_URL` is the link to the standard MSA. Until legal adds it, "Standard MSA" order forms can't be created.
+
+## MSAs and Juro
+
+- **Existing MSA:** the order form is governed by it. Enter its date.
+- **Standard MSA:** the order form links to the standard MSA, and signing the order form accepts it.
+- **Negotiating in Juro:** redline the MSA in Juro. The order form can't be created until the MSA is signed. Then set **Signed in Juro** and enter its date, and the order form refers to it.
+
+Older deals that answered "Is there an existing MSA? Yes" are read as **Existing MSA**.
 
 ## More than 20 sites
 
-There's no limit on sites. The card keeps the full list in `of_sites` and writes every site to the **site schedule** (`of_site_schedule`), one line each: name, camera integrations and go-live date. Sites 1–20 are also copied to the numbered site fields for templates that list sites one by one. Above 20 sites, the card warns that the Juro template should use the site schedule. **# of Sites for this Deal** is set from the list, and licence quantities are checked against it.
+There's no limit on sites. The card keeps the full list in `of_sites` and writes every site to the **site schedule** (`of_site_schedule`), one line each: name, camera integrations and go-live date. Sites 1–20 are also copied to the numbered site fields for templates that list sites one by one. Above 20 sites, the card notes that only the site schedule has every site; the order form quote always uses the site schedule. **# of Sites for this Deal** is set from the list, and licence quantities are checked against it.
 
 ## How your field list maps
 
@@ -109,13 +152,13 @@ There's no limit on sites. The card keeps the full list in `of_sites` and writes
 - company registration number and VAT ID;
 - a billing contact and address;
 - products drawn from the product library at list price, with a discount per line and approval flags;
-- a pricing table for Juro;
+- a pricing table for documents and reports;
 - an open-ended site list with paste-in;
 - status, with who marked it ready and when.
 
-## Juro mapping
+## Field reference
 
-In Juro, map each template smartfield to the HubSpot deal property below. For the price table, map `of_pricing_table`: one line per product, as name (SKU), quantity × unit price, discount and net. For the site table, map `of_site_schedule`: every site, one line each. If your Juro templates can read HubSpot line items directly, they can use those instead, since the line items are the source of truth. The Juro side of the setup belongs to whoever owns the templates; this table is what they need.
+Every order form property, for reports, workflows and any document template. `of_pricing_table` is one line per product (name (SKU), quantity × unit price, discount, net); `of_site_schedule` is every site, one line each. The line items themselves are the source of truth for pricing.
 
 **Order**
 
@@ -184,9 +227,10 @@ In Juro, map each template smartfield to the HubSpot deal property below. For th
 
 | HubSpot property | Label | Type |
 | --- | --- | --- |
-| `of_existing_msa` | Is there an existing MSA? | enumeration |
+| `of_msa_status` | MSA status | enumeration |
+| `of_existing_msa` | Is there an existing MSA? (old, replaced by MSA status) | enumeration |
 | `of_msa_details` | MSA details or link | string |
-| `of_msa_date` | Existing MSA date | date |
+| `of_msa_date` | MSA date | date |
 | `of_legal_notes` | Notes for legal | string |
 | `of_counterparty_signer_name` | Counterparty signer name | string |
 | `of_counterparty_signer_email` | Counterparty signer email | string |
@@ -201,33 +245,39 @@ In Juro, map each template smartfield to the HubSpot deal property below. For th
 
 | HubSpot property | Label | Type |
 | --- | --- | --- |
-| `of_status` | Order form status | enumeration |
-| `of_ready_at` | Marked ready for Juro at | datetime |
-| `of_ready_by` | Marked ready for Juro by | string |
+| `of_status` | Order form status: Draft, Ready to send, Sent, Signed | enumeration |
+| `of_ready_at` | Order form created at | datetime |
+| `of_ready_by` | Order form created by | string |
+| `of_quote_id` | Order form quote ID | string |
+| `of_quote_status` | Order form quote status | enumeration |
+| `of_changed_after_quote` | Order form changed after the quote was created | bool |
+| `of_signed_at` | Order form signed at | datetime |
 
-The dropdowns store values like `annually_in_advance` and show labels like "Annually in advance". If Juro shows the stored value rather than the label, map the smartfield to the label, or use a Juro text smartfield.
+The dropdowns store values like `annually_in_advance` and show labels like "Annually in advance".
 
 ## Set it up
 
 From the `protex-account-intel` folder:
 
-1. **Create the order form properties (104).** Run the same command as before: it skips the ones that exist and creates the three new ones (`of_sites`, `of_pricing_table`, `of_discount_pct`). This needs a private app token with `crm.schemas.deals.write`:
+1. **Create the new properties and update the changed ones.** Make a temporary HubSpot **service key** with `crm.schemas.deals.write`, then:
    ```
    read -s HUBSPOT_TOKEN
    export HUBSPOT_TOKEN
    node scripts/create-deal-properties.mjs src/app/cards/orderform/properties.json
+   node scripts/create-deal-properties.mjs src/app/cards/orderform/properties.json --fix of_status,of_ready_at,of_ready_by,of_msa_date,of_existing_msa,of_legal_notes,of_counterparty_signer_contact_id,of_protex_signer_user_id
    unset HUBSPOT_TOKEN
    ```
-   Delete the private app afterwards.
+   The first command creates the five new properties: `of_msa_status`, `of_quote_id`, `of_quote_status`, `of_changed_after_quote` and `of_signed_at`. The second updates the status options (Draft, Ready to send, Sent, Signed; the old Juro values are kept hidden) and the changed labels. Delete the service key afterwards.
 2. **Upload:**
    ```
    cd src/app/cards && npm install && cd ../../..
    hs project upload
    ```
-3. **Reinstall the app.** It now reads products and reads and writes line items (`e-commerce`, `crm.objects.line_items.read`, `crm.objects.line_items.write`). Go to **Development > Projects > protex-account-intel > Protex Account Intel > Distribution** and reinstall it. Until you do, the Products section shows "Couldn't load the line items".
-4. **Add the card** if it isn't there yet: **Settings > Objects > Deals > Record customization**, add an **Order form** tab with the **Order form** card.
-5. **Optional:** add job titles to the people who sign for Protex (**Settings > Users**). Until then, a title typed once is remembered from that signatory's last order form.
-6. **Optional tidy-up:** the first version's per-product pricing properties (`of_safety_units`, `of_safety_unit_fee`, `of_cameras_*`, `of_ops_*`, `of_intel_*`, `of_hardware_*`, `of_implementation_fee`, `of_discount_applied`, `of_discount_type`, `of_discount_value`, `of_*_units_manual`, `of_*_total`) are no longer used. Archive them in **Settings > Properties** once nothing in Juro points at them.
+3. **Reinstall the app.** It now also reads and creates quotes (`crm.objects.quotes.read`, `crm.objects.quotes.write`). Go to **Development > Projects > protex-account-intel > Protex Account Intel > Distribution** and reinstall it.
+4. **Quote template:** make sure there's a quote template that shows Comments and Terms, with e-signature. Naming it with "order form" in the name makes the card pick it by default.
+5. **Legal:** have legal review the wording in `src/app/cards/orderform/terms.ts` and set `PROTEX_ENTITY`, `STANDARD_MSA_URL` and `TERMS_APPROVED` in `src/app/cards/orderform/legal.ts`, then upload again.
+6. **Optional:** a workflow on the quote being signed, to move the deal stage straight away.
+7. **Optional tidy-up:** the first version's per-product pricing properties (`of_safety_units`, `of_safety_unit_fee`, `of_cameras_*`, `of_ops_*`, `of_intel_*`, `of_hardware_*`, `of_implementation_fee`, `of_discount_applied`, `of_discount_type`, `of_discount_value`, `of_*_units_manual`, `of_*_total`) and `of_existing_msa` are no longer used. Archive them in **Settings > Properties**.
 
 ## Changing the fields
 
@@ -235,7 +285,7 @@ Edit `scripts/build-order-form-properties.py`, then run:
 ```
 python3 scripts/build-order-form-properties.py src/app/cards/orderform/properties.json
 ```
-Then create any new properties (step 1) and upload. Required fields, sites and the totals live in `src/app/cards/orderform/calc.ts`; line item arithmetic, checks and the approval threshold in `src/app/cards/orderform/lines.ts`.
+Then create any new properties (step 1) and upload. Required fields, sites and the totals live in `src/app/cards/orderform/calc.ts`; line item arithmetic, checks and the approval threshold in `src/app/cards/orderform/lines.ts`; the order form wording in `src/app/cards/orderform/terms.ts`; legal settings in `src/app/cards/orderform/legal.ts`.
 
 ## Develop
 

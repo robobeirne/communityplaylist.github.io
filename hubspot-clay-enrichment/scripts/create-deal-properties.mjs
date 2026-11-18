@@ -7,8 +7,8 @@
 //
 // The token needs the crm.schemas.deals.write scope.
 //
-// To replace the options of properties that already exist (for example after
-// fixing a checklist in the sheet), name them with --fix:
+// To update properties that already exist (label, description and, for dropdowns,
+// the options), name them with --fix:
 //
 //   node scripts/create-deal-properties.mjs --fix da_who_details,da_sites_details,da_cameras_details
 
@@ -66,17 +66,21 @@ if (fixArg) {
   let failedFix = 0;
   for (const name of names) {
     const p = PROPERTIES.find((x) => x.name === name);
-    if (!p?.options) {
-      console.error(`${name}: not a dropdown or checkbox property in deal-properties.json`);
+    if (!p) {
+      console.error(`${name}: not in the definitions file`);
       failedFix++;
       continue;
     }
     const res = await fetch(`${API}/${name}`, {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ options: p.options.map((o, j) => ({ ...o, displayOrder: j })) }),
+      body: JSON.stringify({
+        label: p.label,
+        description: p.description,
+        ...(p.options ? { options: p.options.map((o, j) => ({ ...o, displayOrder: j })) } : {}),
+      }),
     });
-    if (res.ok) console.log(`${name}: options replaced (${p.options.length})`);
+    if (res.ok) console.log(`${name}: updated${p.options ? ` (${p.options.length} options)` : ''}`);
     else {
       failedFix++;
       console.error(`${name}: FAILED ${res.status} ${await res.text()}`);

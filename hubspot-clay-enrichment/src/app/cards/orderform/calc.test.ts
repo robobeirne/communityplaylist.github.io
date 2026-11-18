@@ -4,6 +4,7 @@ import {
   NUMBERED_SITES,
   computedProperties,
   dealAmount,
+  normaliseStatus,
   isoDate,
   orderTypeFromPipeline,
   parseDate,
@@ -127,7 +128,9 @@ const FULL: Record<string, string> = {
   of_payment_terms: 'net_30',
   of_sites: SITES,
   of_rollout: 'all_sites_together',
-  of_existing_msa: 'no',
+  of_msa_status: 'existing_msa',
+  of_msa_date: '2025-06-01',
+  of_counterparty_signer_contact_id: '501',
   of_counterparty_signer_name: 'Alex Kim',
   of_counterparty_signer_email: 'alex@northbridge.example',
   of_counterparty_signer_title: 'COO',
@@ -148,7 +151,18 @@ test('readiness lists what is missing, by section', () => {
   assert.deepEqual(r.warnings, []);
 
   assert.deepEqual(readiness({ ...FULL, of_order_type: 'renewal' }, LINES).missing.map((g) => g.label), ['Pro-rata renewal?']);
-  assert.deepEqual(readiness({ ...FULL, of_existing_msa: 'yes' }, LINES).missing.map((g) => g.label), ['MSA details or link']);
+  assert.deepEqual(readiness({ ...FULL, of_msa_date: '' }, LINES).missing.map((g) => g.label), ['MSA date']);
+  assert.deepEqual(readiness({ ...FULL, of_msa_status: 'negotiating_in_juro' }, LINES).missing.map((g) => g.label), [
+    'The MSA signed in Juro (then set MSA status to Signed in Juro)',
+  ]);
+  assert.deepEqual(readiness({ ...FULL, of_msa_status: 'standard_msa' }, LINES).missing.map((g) => g.label), [
+    'A link to the standard MSA (legal to add it to the card)',
+  ], 'blocked until legal adds the standard MSA link');
+  assert.deepEqual(readiness({ ...FULL, of_msa_status: 'signed_in_juro' }, LINES).missing, []);
+  assert.deepEqual(readiness({ ...FULL, of_msa_status: '', of_existing_msa: 'yes' }, LINES).missing, [], 'older deals: "existing MSA: yes" counts');
+  assert.deepEqual(readiness({ ...FULL, of_counterparty_signer_contact_id: '' }, LINES).missing.map((g) => g.label), [
+    'Counterparty signer picked from a deal contact (they e-sign the quote)',
+  ]);
   assert.deepEqual(readiness({ ...FULL, of_rollout: 'staged_rollout' }, LINES).missing.map((g) => g.label), [
     'Site 1: go-live date',
     'Site 2: go-live date',
@@ -189,4 +203,11 @@ test('the deal Amount is the annual value from the line items, like existing dea
   assert.equal(dealAmount([]), null, 'no line items: leave the Amount alone');
   assert.equal(computedProperties({}, []).amount, undefined);
   assert.equal(computedProperties({}, LINES).amount, '122400');
+});
+
+test('statuses: the old Juro values read as the new ones', () => {
+  assert.equal(normaliseStatus('ready_for_juro'), 'ready_to_send');
+  assert.equal(normaliseStatus('sent_to_juro'), 'sent');
+  assert.equal(normaliseStatus('signed'), 'signed');
+  assert.equal(normaliseStatus(''), 'draft');
 });

@@ -797,11 +797,37 @@
   },
   {
     "groupLabel": "Order form — Legal & MSA",
-    "name": "of_existing_msa",
-    "label": "Is there an existing MSA?",
+    "name": "of_msa_status",
+    "label": "MSA status",
     "type": "enumeration",
     "fieldType": "select",
-    "description": "",
+    "description": "Which MSA this order form is governed by. Negotiated MSAs are redlined in Juro; the order form goes out once it is signed.",
+    "options": [
+      {
+        "label": "Existing MSA",
+        "value": "existing_msa"
+      },
+      {
+        "label": "Standard MSA",
+        "value": "standard_msa"
+      },
+      {
+        "label": "Negotiating in Juro",
+        "value": "negotiating_in_juro"
+      },
+      {
+        "label": "Signed in Juro",
+        "value": "signed_in_juro"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Order form — Legal & MSA",
+    "name": "of_existing_msa",
+    "label": "Is there an existing MSA? (old)",
+    "type": "enumeration",
+    "fieldType": "select",
+    "description": "Replaced by MSA status.",
     "options": [
       {
         "label": "Yes",
@@ -828,10 +854,10 @@
   {
     "groupLabel": "Order form — Legal & MSA",
     "name": "of_msa_date",
-    "label": "Existing MSA date",
+    "label": "MSA date",
     "type": "date",
     "fieldType": "date",
-    "description": ""
+    "description": "The date of the MSA this order form refers to: the existing one, or the one signed in Juro."
   },
   {
     "groupLabel": "Order form — Legal & MSA",
@@ -839,7 +865,7 @@
     "label": "Notes for legal",
     "type": "string",
     "fieldType": "textarea",
-    "description": ""
+    "description": "Internal. Not shown on the order form."
   },
   {
     "groupLabel": "Order form — Legal & MSA",
@@ -871,7 +897,7 @@
     "label": "Counterparty signer contact ID",
     "type": "string",
     "fieldType": "text",
-    "description": "The HubSpot contact the signer details came from."
+    "description": "The HubSpot contact who e-signs the order form quote."
   },
   {
     "groupLabel": "Order form — Legal & MSA",
@@ -879,7 +905,7 @@
     "label": "Protex signatory (user ID)",
     "type": "string",
     "fieldType": "text",
-    "description": "The HubSpot user who signs for Protex."
+    "description": "The HubSpot user who countersigns for Protex."
   },
   {
     "groupLabel": "Order form — Legal & MSA",
@@ -911,40 +937,118 @@
     "label": "Order form status",
     "type": "enumeration",
     "fieldType": "select",
-    "description": "",
+    "description": "Draft, then Ready to send once the order form quote is created, Sent once it is published, Signed once fully signed.",
     "options": [
       {
         "label": "Draft",
         "value": "draft"
       },
       {
-        "label": "Ready for Juro",
-        "value": "ready_for_juro"
+        "label": "Ready to send",
+        "value": "ready_to_send"
       },
       {
-        "label": "Sent to Juro",
-        "value": "sent_to_juro"
+        "label": "Sent",
+        "value": "sent"
       },
       {
         "label": "Signed",
         "value": "signed"
+      },
+      {
+        "label": "Ready for Juro",
+        "value": "ready_for_juro",
+        "hidden": true
+      },
+      {
+        "label": "Sent to Juro",
+        "value": "sent_to_juro",
+        "hidden": true
       }
     ]
   },
   {
     "groupLabel": "Order form — Status",
     "name": "of_ready_at",
-    "label": "Marked ready for Juro at",
+    "label": "Order form created at",
     "type": "datetime",
     "fieldType": "date",
-    "description": ""
+    "description": "When the order form quote was created from the card."
   },
   {
     "groupLabel": "Order form — Status",
     "name": "of_ready_by",
-    "label": "Marked ready for Juro by",
+    "label": "Order form created by",
     "type": "string",
     "fieldType": "text",
     "description": ""
+  },
+  {
+    "groupLabel": "Order form — Status",
+    "name": "of_quote_id",
+    "label": "Order form quote ID",
+    "type": "string",
+    "fieldType": "text",
+    "description": "The HubSpot quote that is this deal's order form."
+  },
+  {
+    "groupLabel": "Order form — Status",
+    "name": "of_quote_status",
+    "label": "Order form quote status",
+    "type": "enumeration",
+    "fieldType": "select",
+    "description": "Kept in step with the quote by the order form card.",
+    "options": [
+      {
+        "label": "Draft",
+        "value": "draft"
+      },
+      {
+        "label": "Awaiting approval",
+        "value": "awaiting_approval"
+      },
+      {
+        "label": "Sent",
+        "value": "sent"
+      },
+      {
+        "label": "Signed",
+        "value": "signed"
+      },
+      {
+        "label": "Expired",
+        "value": "expired"
+      },
+      {
+        "label": "Rejected",
+        "value": "rejected"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Order form — Status",
+    "name": "of_changed_after_quote",
+    "label": "Order form changed after the quote was created",
+    "type": "bool",
+    "fieldType": "booleancheckbox",
+    "description": "Set when the card saves changes after the order form quote exists; cleared when a new quote is created.",
+    "options": [
+      {
+        "label": "Yes",
+        "value": "true"
+      },
+      {
+        "label": "No",
+        "value": "false"
+      }
+    ]
+  },
+  {
+    "groupLabel": "Order form — Status",
+    "name": "of_signed_at",
+    "label": "Order form signed at",
+    "type": "datetime",
+    "fieldType": "date",
+    "description": "When the order form quote was fully signed (including countersignature)."
   }
 ]

@@ -1,12 +1,13 @@
-// Order form arithmetic and the "ready for Juro" check, as pure functions so they can be tested
+// Order form arithmetic and the "ready to send" check, as pure functions so they can be tested
 // without HubSpot. Pricing comes from the deal's line items (see lines.ts); sites come from the
 // card's site list, which has no upper limit.
 
 import { lineIssues, pricingTable, quantityRule, totals, type Line, type Totals } from './lines.ts';
+import { STANDARD_MSA_URL } from './legal.ts';
 
 export type Values = Record<string, string | null | undefined>;
 
-/** Sites written to the numbered Site 1–20 fields for Juro templates that list sites one by one. */
+/** Sites written to the numbered Site 1–20 fields, for documents that list sites one by one. */
 export const NUMBERED_SITES = 20;
 
 /** Existing deal properties the order form reuses instead of duplicating. */
@@ -63,6 +64,25 @@ export function orderTypeFromPipeline(pipeline: unknown): 'new_business' | 'rene
   if (pipeline === '497851373') return 'renewal';
   if (pipeline === '25788392') return 'expansion';
   return 'new_business';
+}
+
+/* ---------------- status ---------------- */
+
+export type Status = 'draft' | 'ready_to_send' | 'sent' | 'signed';
+
+/** The card's status, reading the old Juro-era values as their new equivalents. */
+export function normaliseStatus(v: unknown): Status {
+  const s = String(v ?? '');
+  if (s === 'ready_to_send' || s === 'ready_for_juro') return 'ready_to_send';
+  if (s === 'sent' || s === 'sent_to_juro') return 'sent';
+  if (s === 'signed') return 'signed';
+  return 'draft';
+}
+
+/** MSA status, defaulting older deals that answered "Is there an existing MSA? Yes". */
+export function msaStatus(v: Values): string {
+  if (filled(v.of_msa_status)) return String(v.of_msa_status);
+  return v.of_existing_msa === 'yes' ? 'existing_msa' : '';
 }
 
 /* ---------------- sites ---------------- */
@@ -122,7 +142,7 @@ export function parseSiteList(text: string): Site[] {
 const longDate = (d: Date) =>
   `${d.getUTCDate()} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 
-/** One line per site, for the Juro template: "1. Amesbury — 12 camera integrations — go-live 1 Feb 2027". */
+/** One line per site, for the order form: "1. Amesbury — 12 camera integrations — go-live 1 Feb 2027". */
 export function siteSchedule(sites: Site[], staged: boolean, start: Date | null): string {
   return sites
     .map((s, idx) => {
@@ -172,7 +192,7 @@ export function dealAmount(lines: Line[]): number | null {
   return live.some((l) => l.recurring) ? t.annual : t.oneOff;
 }
 
-/** The calculated deal properties the card writes alongside what the rep typed, for Juro and reporting. */
+/** The calculated deal properties the card writes alongside what the rep typed, for the order form and reporting. */
 export function computedProperties(v: Values, lines: Line[]): Record<string, string> {
   const s = summarise(v, lines);
   const t = s.totals;
@@ -219,7 +239,7 @@ export interface Gap {
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** What's still needed before the order form can go to Juro, and anything that looks wrong. */
+/** What's still needed before the order form can be sent, and anything that looks wrong. */
 export function readiness(v: Values, lines: Line[]): { missing: Gap[]; warnings: Gap[]; required: number } {
   const s = summarise(v, lines);
   const missing: Gap[] = [];
@@ -276,7 +296,7 @@ export function readiness(v: Values, lines: Line[]): { missing: Gap[]; warnings:
   if (s.siteCount > NUMBERED_SITES)
     warnings.push({
       section: 'sites',
-      label: `${s.siteCount} sites: only Sites 1–${NUMBERED_SITES} fit the numbered site fields. Every site is in the site schedule, so the Juro template should use that.`,
+      label: `${s.siteCount} sites: only Sites 1–${NUMBERED_SITES} fit the numbered site fields. Every site is on the order form in the site schedule.`,
     });
 
   // Products and pricing
@@ -291,11 +311,15 @@ export function readiness(v: Values, lines: Line[]): { missing: Gap[]; warnings:
   if (s.totals.discounted) need('pricing', has('of_discount_reason'), 'Reason for the discounts');
 
   // Legal, MSA and signatures
-  need('legal', has('of_existing_msa'), 'Is there an existing MSA?');
-  if (v.of_existing_msa === 'yes') need('legal', has('of_msa_details'), 'MSA details or link');
+  const msa = msaStatus(v);
+  need('legal', !!msa, 'MSA status');
+  if (msa === 'existing_msa' || msa === 'signed_in_juro') need('legal', has('of_msa_date'), 'MSA date');
+  if (msa === 'negotiating_in_juro') need('legal', false, 'The MSA signed in Juro (then set MSA status to Signed in Juro)');
+  if (msa === 'standard_msa' && !STANDARD_MSA_URL) need('legal', false, 'A link to the standard MSA (legal to add it to the card)');
   need('legal', has('of_counterparty_signer_name'), 'Counterparty signer name');
   need('legal', has('of_counterparty_signer_email'), 'Counterparty signer email');
   need('legal', has('of_counterparty_signer_title'), 'Counterparty signer job title');
+  need('legal', has('of_counterparty_signer_contact_id'), 'Counterparty signer picked from a deal contact (they e-sign the quote)');
   need('legal', has('of_protex_signer_name'), 'Protex signatory');
   need('legal', has('of_protex_signer_email'), 'Protex signatory email');
   need('legal', has('of_protex_signer_title'), 'Protex signatory job title');

@@ -2,7 +2,7 @@
   "uid": "protex_account_intel",
   "type": "app",
   "config": {
-    "description": "Clay intel on companies and contacts, the discovery assessment and the order form on deals.",
+    "description": "Clay intel on companies and contacts, the discovery assessment, and the order form (quote) on deals.",
     "name": "Protex Account Intel",
     "distribution": "private",
     "auth": {
@@ -16,7 +16,9 @@
         "crm.objects.users.read",
         "e-commerce",
         "crm.objects.line_items.read",
-        "crm.objects.line_items.write"
+        "crm.objects.line_items.write",
+        "crm.objects.quotes.read",
+        "crm.objects.quotes.write"
       ],
       "optionalScopes": [],
       "conditionallyRequiredScopes": []

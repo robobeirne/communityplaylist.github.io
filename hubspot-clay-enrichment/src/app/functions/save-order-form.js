@@ -5,6 +5,8 @@
  *   { action: 'pricing', dealId }                    the deal's line items and the active product library
  *   { action: 'parties', dealId }                    the deal's contacts (name, email, job title) and its company with address
  *   { action: 'signatories' }                        HubSpot users who can sign for Protex, with email and job title
+ *   { action: 'quote', dealId }                      the deal's quotes and their state, keeping the order form status in step; quote templates
+ *   { action: 'create_quote', dealId, ... }          create the order form quote from the deal (see createQuote)
  *
  * Only order form properties (of_*) and the existing deal fields the card reuses can be written,
  * including Amount, which the card sets from the line items.
@@ -102,11 +104,7 @@ async function parties({ dealId }) {
 async function readLines(dealId) {
   const ids = await lineIds(dealId);
   if (!ids.length) return [];
-  const out = [];
-  for (let i = 0; i < ids.length; i += 100) {
-    const page = await call('POST', '/crm/v3/objects/line_items/batch/read', { properties: LINE_PROPERTIES, inputs: ids.slice(i, i + 100).map((id) => ({ id })) });
-    out.push(...(page.results || []).map((r) => ({ id: String(r.id), properties: r.properties || {} })));
-  }
+  const out = (await batchRead('line_items', ids, LINE_PROPERTIES)).map((r) => ({ id: String(r.id), properties: r.properties || {} }));
   // Keep HubSpot's order (creation order) so the card's rows don't jump around.
   return out.sort((a, b) => Number(a.id) - Number(b.id));
 }
@@ -306,6 +304,180 @@ async function signatories() {
   return { statusCode: 200, body: { ok: true, users: list } };
 }
 
+/* ---------------- order form quote ---------------- */
+
+const QUOTE_PROPERTIES = [
+  'hs_title',
+  'hs_status',
+  'hs_expiration_date',
+  'hs_quote_esign_status',
+  'hs_esign_date',
+  'hs_manually_signed',
+  'hs_quote_link',
+  'hs_createdate',
+];
+/** HubSpot-defined association types from a quote. */
+const QUOTE_TO = { deal: 64, line_item: 67, contact: 69, company: 71, quote_template: 286 };
+const LINE_TO_QUOTE = 68;
+const assoc = (id, typeId) => ({ to: { id: String(id) }, types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: typeId }] });
+
+/** draft | awaiting_approval | sent | signed | expired | rejected */
+function quoteState(p, now = Date.now()) {
+  const esignDate = Number(p.hs_esign_date || 0) || Date.parse(p.hs_esign_date || '') || 0;
+  if (esignDate > 0 || p.hs_manually_signed === 'true' || /COMPLETE|^SIGNED$/i.test(p.hs_quote_esign_status || '')) return 'signed';
+  if (p.hs_status === 'REJECTED') return 'rejected';
+  const expires = Number(p.hs_expiration_date) || Date.parse(p.hs_expiration_date || '');
+  if (expires && expires < now) return 'expired';
+  if (p.hs_status === 'PENDING_APPROVAL') return 'awaiting_approval';
+  if (p.hs_status === 'APPROVAL_NOT_NEEDED' || p.hs_status === 'APPROVED') return 'sent';
+  return 'draft';
+}
+const LIVE = new Set(['draft', 'awaiting_approval', 'sent', 'signed']);
+const DEAL_STATUS = { draft: 'ready_to_send', awaiting_approval: 'ready_to_send', sent: 'sent', signed: 'signed', expired: 'draft', rejected: 'draft' };
+
+async function dealQuotes(dealId) {
+  const ids = await associatedIds(dealId, 'quotes');
+  if (!ids.length) return [];
+  const rows = await batchRead('quotes', ids, QUOTE_PROPERTIES);
+  return rows
+    .map((r) => {
+      const p = r.properties || {};
+      const esign = Number(p.hs_esign_date || 0) || Date.parse(p.hs_esign_date || '') || 0;
+      return {
+        id: String(r.id),
+        title: p.hs_title || 'Quote',
+        state: quoteState(p),
+        expires: p.hs_expiration_date || '',
+        link: p.hs_quote_link || '',
+        signedAt: esign > 0 ? new Date(esign).toISOString() : '',
+        created: p.hs_createdate || '',
+      };
+    })
+    .sort((a, b) => String(b.created).localeCompare(String(a.created)));
+}
+
+async function quoteTemplates() {
+  try {
+    const page = await call('GET', '/crm/v3/objects/quote_template?limit=100&properties=hs_name,hs_active,hs_template_type');
+    return {
+      templates: (page.results || [])
+        .map((t) => ({ id: String(t.id), name: t.properties?.hs_name || `Template ${t.id}`, active: t.properties?.hs_active !== 'false', type: t.properties?.hs_template_type || '' }))
+        .filter((t) => t.active),
+      templatesError: '',
+    };
+  } catch (e) {
+    return { templates: [], templatesError: e.message };
+  }
+}
+
+/**
+ * The deal's quotes. The order form quote (of_quote_id) drives the card's status, so a quote that
+ * was published or signed in HubSpot shows as Sent or Signed the next time anyone opens the card.
+ */
+async function quote({ dealId }) {
+  if (!isId(dealId)) return fail(400, 'No deal id');
+  const [deal, quotes, t] = await Promise.all([
+    call('GET', `/crm/v3/objects/deals/${dealId}?properties=of_quote_id,of_status,of_quote_status,of_signed_at`),
+    dealQuotes(dealId),
+    quoteTemplates(),
+  ]);
+  const d = deal.properties || {};
+  const current = quotes.find((q) => q.id === d.of_quote_id) || null;
+  let properties = {};
+  if (current) {
+    const want = { of_quote_status: current.state, of_status: DEAL_STATUS[current.state] };
+    if (current.signedAt) want.of_signed_at = current.signedAt;
+    for (const [k, val] of Object.entries(want)) if ((d[k] || '') !== val && !(k === 'of_signed_at' && Date.parse(d[k] || '') === Date.parse(val))) properties[k] = val;
+    if (Object.keys(properties).length) await call('PATCH', `/crm/v3/objects/deals/${dealId}`, { properties });
+  }
+  return { statusCode: 200, body: { ok: true, quotes, current, live: quotes.filter((q) => LIVE.has(q.state)), properties, ...t } };
+}
+
+/**
+ * Create the order form quote from the deal:
+ *   { dealId, templateId, title, expirationDate (YYYY-MM-DD), currency, terms, comments,
+ *     signerContactId, companyId, sender: { firstName, lastName, email, company }, replaceQuoteId? }
+ *
+ * The line items are copied from the deal on the server (not taken from the card), e-signature is
+ * switched on, and the quote is left as a draft for the rep to check, add the countersigner and
+ * publish. Refuses if the deal already has a live quote, unless it's a draft being replaced.
+ */
+async function createQuote(params) {
+  const { dealId, templateId, title, expirationDate, currency, terms, comments, signerContactId, companyId, sender = {}, replaceQuoteId } = params;
+  if (!isId(dealId)) return fail(400, 'No deal id');
+  if (!isId(templateId)) return fail(400, 'Choose a quote template');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(expirationDate || ''))) return fail(400, 'The offer expiry date is needed for the quote');
+  if (!isId(signerContactId)) return fail(400, 'Pick the counterparty signer from a deal contact so they can e-sign');
+
+  const [quotes, contactIds, companyIds] = await Promise.all([dealQuotes(dealId), associatedIds(dealId, 'contacts'), associatedIds(dealId, 'companies')]);
+  if (!contactIds.includes(String(signerContactId))) return fail(400, "The counterparty signer isn't a contact on this deal");
+  const live = quotes.filter((q) => LIVE.has(q.state));
+  const replacing = replaceQuoteId ? live.find((q) => q.id === String(replaceQuoteId)) : null;
+  if (replaceQuoteId && (!replacing || replacing.state !== 'draft')) return fail(409, 'Only a draft quote on this deal can be replaced');
+  const blocking = live.filter((q) => q.id !== replacing?.id);
+  if (blocking.length) return { statusCode: 409, body: { ok: false, message: `This deal already has a live quote (${blocking[0].title}, ${blocking[0].state.replace('_', ' ')})`, live: blocking } };
+
+  const lines = await readLines(dealId);
+  if (!lines.length) return fail(400, 'The deal has no line items');
+
+  if (replacing) {
+    const old = await associatedIdsFrom('quotes', replacing.id, 'line_items');
+    await call('DELETE', `/crm/v3/objects/quotes/${replacing.id}`);
+    for (const id of old) await call('DELETE', `/crm/v3/objects/line_items/${id}`).catch(() => {});
+  }
+
+  const associations = [assoc(dealId, QUOTE_TO.deal), assoc(templateId, QUOTE_TO.quote_template), assoc(signerContactId, QUOTE_TO.contact)];
+  if (isId(companyId) && companyIds.includes(String(companyId))) associations.push(assoc(companyId, QUOTE_TO.company));
+  const properties = {
+    hs_title: String(title || 'Order form').slice(0, 250),
+    hs_expiration_date: `${expirationDate}T23:59:59.000Z`,
+    hs_status: 'DRAFT',
+    hs_currency: String(currency || ''),
+    hs_language: 'en',
+    hs_locale: 'en-gb',
+    hs_esign_enabled: 'true',
+    hs_terms: String(terms || ''),
+    hs_comments: String(comments || ''),
+    hs_sender_firstname: String(sender.firstName || ''),
+    hs_sender_lastname: String(sender.lastName || ''),
+    hs_sender_email: String(sender.email || ''),
+    hs_sender_company_name: String(sender.company || ''),
+  };
+  for (const k of Object.keys(properties)) if (properties[k] === '') delete properties[k];
+  const created = await call('POST', '/crm/v3/objects/quotes', { properties, associations });
+  const quoteId = String(created.id);
+
+  // Copies of the deal's line items, so the quote shows exactly the pricing the card approved.
+  const COPY = LINE_PROPERTIES.filter((k) => k !== 'amount');
+  try {
+    await call('POST', '/crm/v3/objects/line_items/batch/create', {
+      inputs: lines.map((l) => ({
+        properties: Object.fromEntries(COPY.map((k) => [k, l.properties[k]]).filter(([, val]) => val !== null && val !== undefined && val !== '')),
+        associations: [assoc(quoteId, LINE_TO_QUOTE)],
+      })),
+    });
+  } catch (e) {
+    await call('DELETE', `/crm/v3/objects/quotes/${quoteId}`).catch(() => {});
+    return fail(e.status || 500, `Couldn't copy the line items to the quote: ${e.message}`);
+  }
+
+  const dealProps = {
+    of_quote_id: quoteId,
+    of_quote_status: 'draft',
+    of_status: 'ready_to_send',
+    of_changed_after_quote: 'false',
+    of_ready_at: new Date().toISOString(),
+    of_ready_by: String(sender.email || ''),
+  };
+  await call('PATCH', `/crm/v3/objects/deals/${dealId}`, { properties: dealProps });
+  return { statusCode: 200, body: { ok: true, quote: { id: quoteId, title: properties.hs_title, state: 'draft', link: '', expires: properties.hs_expiration_date }, properties: dealProps } };
+}
+
+async function associatedIdsFrom(fromType, id, toType) {
+  const page = await call('GET', `/crm/v4/objects/${fromType}/${id}/associations/${toType}?limit=500`);
+  return (page.results || []).map((r) => String(r.toObjectId));
+}
+
 exports.main = async (context) => {
   const params = context.parameters || {};
   try {
@@ -313,6 +485,8 @@ exports.main = async (context) => {
     if (params.action === 'pricing') return await pricing(params);
     if (params.action === 'parties') return await parties(params);
     if (params.action === 'signatories') return await signatories();
+    if (params.action === 'quote') return await quote(params);
+    if (params.action === 'create_quote') return await createQuote(params);
     return fail(400, 'Unknown action');
   } catch (e) {
     return fail(e.status || 500, e.message || 'Something went wrong');
